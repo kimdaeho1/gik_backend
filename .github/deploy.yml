@@ -1,0 +1,94 @@
+name: Deploy to ECS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Create task definition
+        id: task-def
+        run: |
+          cat <<EOF > task-def.json
+          {
+            "containerDefinitions": [
+              {
+                "name": "${{ secrets.ECS_SERVICE_TASK_DEFINITION }}",
+                "image": "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/couplematch/match-prod:latest",
+                "cpu": 256,
+                "memory": 256,
+                "memoryReservation": 64,
+                "portMappings": [
+                  {
+                    "containerPort": 80,
+                    "hostPort": 0,
+                    "protocol": "tcp"
+                  }
+                ],
+                "essential": true,
+                "environment": [
+                  {
+                    "name": "AWS_ACCESS_KEY_ID",
+                    "value": "${{ secrets.AWS_ACCESS_KEY }}"
+                  },
+                  {
+                    "name": "AWS_SECRET_ACCESS_KEY",
+                    "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+                  },
+                  {
+                    "name": "S3_BUCKET",
+                    "value": "${{ secrets.S3_BUCKET }}"
+                  },
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/ecs/${{ secrets.ECS_SERVICE }}",
+                    "awslogs-create-group": "true",
+                    "awslogs-region": "ap-northeast-2",
+                    "awslogs-stream-prefix": "ecs"
+                  }
+                }
+              }
+            ],
+            "family": "${{ secrets.ECS_SERVICE }}",
+            "taskRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+            "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+            "networkMode": "bridge",
+            "cpu": "256",
+            "memory": "256",
+            "runtimePlatform": {
+              "cpuArchitecture": "X86_64",
+              "operatingSystemFamily": "LINUX"
+            }
+          }
+          EOF
+
+      - name: Register task definition
+        id: register-task-def
+        run: |
+          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://task-def.json | jq -r '.taskDefinition.taskDefinitionArn')
+          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service --cluster ${{ secrets.ECS_CLUSTER }} --service ${{ secrets.ECS_SERVICE }} --task-definition ${{ env.TASK_DEF_ARN }} --force-new-deployment
+
+      - name: Deregister old task definitions
+        run: |
+          OLD_TASK_DEFS=$(aws ecs list-task-definitions --family-prefix ${{ secrets.ECS_SERVICE }} --status ACTIVE | jq -r '.taskDefinitionArns[]' | grep -v ${{ env.TASK_DEF_ARN }})
+          for task_def in $OLD_TASK_DEFS; do
+            aws ecs deregister-task-definition --task-definition $task_def
+          done
