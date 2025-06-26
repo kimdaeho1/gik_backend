@@ -1,0 +1,25 @@
+import os
+import boto3
+from botocore.exceptions import ClientError
+
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+S3_BUCKET = os.getenv("S3_BUCKET")
+
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+)
+
+def upload_file_to_s3(file_object, s3_key, filename):
+    try:
+        s3_client.upload_fileobj(
+            file_object,
+            S3_BUCKET,
+            s3_key + filename,
+        )
+        return True
+    except ClientError as e:
+        print(e)
+        return False
