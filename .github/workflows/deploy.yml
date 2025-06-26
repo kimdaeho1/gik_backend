@@ -50,7 +50,7 @@ jobs:
                   {
                     "name": "S3_BUCKET",
                     "value": "${{ secrets.S3_BUCKET }}"
-                  },
+                  }
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
