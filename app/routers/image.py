@@ -13,7 +13,7 @@ def generate_filename(filename: str) -> str:
     extension = filename.split('.')[-1] or "jpg"
     return f"{timestamp}.{extension}"
 
-@router.post("/v1/gik/community/images", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/community/images", status_code=status.HTTP_200_OK)
 async def upload_images(
     board_id: str = Form(...),
     images: List[UploadFile] = File(default=None),
@@ -69,7 +69,7 @@ async def upload_images(
         )
 
 
-@router.post("/v1/gik/images", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/images", status_code=status.HTTP_200_OK)
 async def upload_gik_images(
     user_id: str,
     image_label: str,
@@ -78,7 +78,11 @@ async def upload_gik_images(
     """
     사진 업로드
     user_id: 이미지를 사용한 사용자의 id
-    image_label: 이미지 사용처 (프로필 이미지, 채팅방, 그룹채팅방..)
+    image_label: 이미지 사용처
+        - user_profile: 유저 프로필 사진
+        - personal_chat: 1대1 채팅방에 업로드하는 사진들
+        - group_chat: 그룹 채팅방에 업로드하는 사진들
+        - group_chat_profile: 그룹 채팅방 프로필 사진
     """
 
     image_url_list = []
