@@ -71,8 +71,8 @@ async def upload_images(
 
 @router.post("/v1/gik-backend/images", status_code=status.HTTP_200_OK)
 async def upload_gik_images(
-    user_id: str,
-    image_label: str,
+    user_id: str = Form(...),
+    image_label: str = Form(...),
     images: List[UploadFile] = File(default=None),
 ):
     """
