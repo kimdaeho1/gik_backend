@@ -115,7 +115,7 @@ async def upload_gik_images(
 
 @router.post("/v1/gik-backend/chat/images", status_code=status.HTTP_200_OK)
 async def upload_chat_images(   
-    chat_id: str = Form(...),
+    room_id: str = Form(...),
     image_label: str = Form(...),
     images: List[UploadFile] = File(default=None),
 ):
