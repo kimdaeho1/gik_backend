@@ -115,7 +115,7 @@ async def upload_gik_images(
 
 @router.post("/v1/gik-backend/chat/images", status_code=status.HTTP_200_OK)
 async def upload_chat_images(   
-    room_id: str = Form(...),
+    chat_id: str = Form(...),
     image_label: str = Form(...),
     images: List[UploadFile] = File(default=None),
 ):
@@ -133,7 +133,7 @@ async def upload_chat_images(
 
 @router.post("/v1/gik-backend/group-profile/images", status_code=status.HTTP_200_OK)
 async def upload_group_profile_images(
-    room_id: str = Form(...),
+    chat_id: str = Form(...),
     images: List[UploadFile] = File(default=None),
 ):
     """
