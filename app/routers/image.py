@@ -13,6 +13,33 @@ def generate_filename(filename: str) -> str:
     extension = filename.split('.')[-1] or "jpg"
     return f"{timestamp}.{extension}"
 
+
+def image_url_list(
+    s3_key: str,
+    images: List[UploadFile],
+):
+    """
+    이미지를 S3에 업로드 하고 url리스트를 반환
+    """
+    image_url_list = []
+    try:
+        for idx, file in enumerate(images):
+            str_filename = generate_filename(file.filename)
+            if not upload_file_to_s3(file.file, s3_key, str_filename):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to upload image {file.filename} to S3",
+                )
+            image_url_list.append(s3_key + str_filename)
+        return image_url_list
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload images to S3 {str(e)}",
+        )
+
+
 @router.post("/v1/gik-backend/community/images", status_code=status.HTTP_200_OK)
 async def upload_images(
     board_id: str = Form(...),
@@ -76,32 +103,44 @@ async def upload_gik_images(
     images: List[UploadFile] = File(default=None),
 ):
     """
-    사진 업로드
+    유저 프로필 사진 업로드
     user_id: 이미지를 사용한 사용자의 id
     image_label: 이미지 사용처
         - user_profile: 유저 프로필 사진
-        - personal_chat: 1대1 채팅방에 업로드하는 사진들
-        - group_chat: 그룹 채팅방에 업로드하는 사진들
-        - group_chat_profile: 그룹 채팅방 프로필 사진
     """
 
-    image_url_list = []
-    try:
-        for idx, file in enumerate(images):
-            s3_key=f"{image_label}/{user_id}/"
-            str_filename=generate_filename(file.filename)
-            if not upload_file_to_s3(file.file, s3_key, str_filename):
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to upload image {file.filename} to S3",
-                )
-            
-            # 원본 이미지 URL 리스트에 추가하기
-            image_url_list.append(s3_key + str_filename)
-        return {"message": "이미지 업로드 성공", "image_urls": image_url_list}
-    except Exception as e:
-        print(e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload images to S3 {str(e)}",
-        )
+    s3_key = f"{image_label}/{user_id}/"
+    image_urls = image_url_list(s3_key, images)
+    return {"message": "이미지 업로드 성공", "image_urls": image_urls}
+
+@router.post("/v1/gik-backend/chat/images", status_code=status.HTTP_200_OK)
+async def upload_chat_images(   
+    chat_id: str = Form(...),
+    image_label: str = Form(...),
+    images: List[UploadFile] = File(default=None),
+):
+    """
+    채팅방 이미지 업로드
+    chat_id: 채팅방 ID
+    image_label: 이미지 사용처
+        - personal_chat: 1대1 채팅방에 업로드되는 사진
+        - group_chat: 그룹 채팅방에 업로드되는 사진
+    """
+
+    s3_key = f"{image_label}/{chat_id}/"
+    image_urls = image_url_list(s3_key, images)
+    return {"message": "이미지 업로드 성공", "image_urls": image_urls}
+
+@router.post("/v1/gik-backend/group-profile/images", status_code=status.HTTP_200_OK)
+async def upload_group_profile_images(
+    room_id: str = Form(...),
+    images: List[UploadFile] = File(default=None),
+):
+    """
+    그룹 채팅 프로필 사진 업로드
+    room_id: 그룹 채팅방 ID
+    """
+
+    s3_key = f"group_chat/{room_id}/group_chat_profile/"
+    image_urls = image_url_list(s3_key, images)
+    return {"message": "그룹 채팅 프로필 사진 업로드 성공", "image_urls": image_urls}
