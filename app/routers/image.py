@@ -141,6 +141,6 @@ async def upload_group_profile_images(
     room_id: 그룹 채팅방 ID
     """
 
-    s3_key = f"group_chat/{room_id}/group_chat_profile/"
+    s3_key = f"group_chat/{chat_id}/group_chat_profile/"
     image_urls = image_url_list(s3_key, images)
     return {"message": "그룹 채팅 프로필 사진 업로드 성공", "image_urls": image_urls}
