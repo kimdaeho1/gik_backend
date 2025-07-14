@@ -3,10 +3,8 @@ from typing import List
 from app.utils.s3_upload import upload_file_to_s3
 from PIL import Image
 import io
-import os
 from datetime import datetime
 
-CLOUDFRONT_URL = os.getenv("CLOUDFRONT_URL")
 
 router = APIRouter()
 
@@ -33,7 +31,7 @@ def image_url_list(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Failed to upload image {file.filename} to S3",
                 )
-            image_url_list.append(f"{CLOUDFRONT_URL}/{s3_key}{str_filename}")
+            image_url_list.append(s3_key + str_filename)
         return image_url_list
     except Exception as e:
         print(e)
@@ -69,7 +67,7 @@ async def upload_images(
                     detail=f"Failed to upload image {file.filename} to S3",
                 )
             # 원본 이미지 URL리스트에 추가
-            image_url_list.append(f"{CLOUDFRONT_URL}/{s3_key}{str_filename}")
+            image_url_list.append(s3_key + str_filename)
 
             # 첫 번재 이미지는 다운사이징 해서 섬네일로 저장하기.
             if idx == 0:
@@ -88,7 +86,7 @@ async def upload_images(
                         detail=f"Failed to upload thumbnail for {file.filename} to S3 ",
                     )
                 # 섬네일 이미지 URL
-                thumbnail_url = f"{CLOUDFRONT_URL}/{thumbnail_s3_key}{thumbnail_filename}"
+                thumbnail_url = thumbnail_s3_key + thumbnail_filename
 
         return {"message": "이미지 업로드 성공", "image_urls": image_url_list, "thumbnail_url": thumbnail_url}
     except Exception as e:
