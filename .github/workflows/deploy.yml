@@ -50,6 +50,10 @@ jobs:
                   {
                     "name": "S3_BUCKET",
                     "value": "${{ secrets.S3_BUCKET }}"
+                  },
+                  {
+                    "name": "CLOUDFRONT_URL",
+                    "value": "${{ secrets.CLOUDFRONT_URL }}"
                   }
                 ],
                 "logConfiguration": {
