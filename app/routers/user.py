@@ -41,7 +41,7 @@ router = APIRouter()
 
 
 # [유저] 내 정보 수정 (알람)
-@router.patch("/v1/gik-backend/my-profile/alarm", status_code=status.HTTP_200_OK)
+@router.patch("/v1/gik-backend/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
 
 
 # [유저] 상대 유저 상세정보 조회
