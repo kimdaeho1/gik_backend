@@ -74,7 +74,7 @@ jobs:
                   {
                     "name": "DB_PASSWORD",
                     "value": "${{ secrets.DB_PASSWORD }}"
-                  },
+                  }
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
