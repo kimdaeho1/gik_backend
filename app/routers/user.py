@@ -273,29 +273,29 @@ async def update_user_alarm(
     return {"success": result, "message": f"나의 {type} 알림 설정 변경 성공."}
 
 
-# # [유저] 상대 유저 상세정보 조회
-# @router.get("v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
+# [유저] 상대 유저 상세정보 조회
+@router.get("v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
 
 
-# # [유저] 상대 유저 차단
-# @router.patch("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
+# [유저] 상대 유저 차단
+@router.patch("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
 
 
-# # [유저] 상대 유저 신고
-# @router.patch("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
+# [유저] 상대 유저 신고
+@router.patch("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
 
 
-# # [유저] 유저 목록으로 조회
-# @router.get("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
+# [유저] 유저 목록으로 조회
+@router.get("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
 
 
-# # [유저] 유저 ID 목록 조회
-# @router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
+# [유저] 유저 ID 목록 조회
+@router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
 
 
-# # [유저] 유저 FCM 목록 조회
-# @router.get("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
+# [유저] 유저 FCM 목록 조회
+@router.get("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
 
 
-# # [유저] 회원 탈퇴
-# @router.delete("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
+# [유저] 회원 탈퇴
+@router.delete("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
