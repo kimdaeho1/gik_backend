@@ -54,7 +54,27 @@ jobs:
                   {
                     "name": "CLOUDFRONT_URL",
                     "value": "${{ secrets.CLOUDFRONT_URL }}"
-                  }
+                  },
+                  {
+                    "name": "DB_HOST",
+                    "value": "${{ secrets.DB_HOST }}"
+                  },
+                  {
+                    "name": "DB_PORT",
+                    "value": "${{ secrets.DB_PORT }}"
+                  },
+                  {
+                    "name": "DB_NAME",
+                    "value": "${{ secrets.DB_NAME }}"
+                  },
+                  {
+                    "name": "DB_USER",
+                    "value": "${{ secrets.DB_USER }}"
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "value": "${{ secrets.DB_PASSWORD }}"
+                  },
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
