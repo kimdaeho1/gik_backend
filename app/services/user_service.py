@@ -317,6 +317,3 @@ class UserService:
                 )
                 await conn.commit()
                 return True
-
-
-    

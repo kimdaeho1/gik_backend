@@ -110,7 +110,7 @@ async def fetch_user_profile(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="나의 정보 조회 실패."
+            detail="정보 없음."
         )
     return {
         "success": result,
