@@ -114,7 +114,7 @@ async def fetch_user_profile(
         )
     return {
         "success": result,
-        "message": "나의 정보 조회 성공",
+        "message": "내 정보 조회 성공",
         "user": user
     }
 
