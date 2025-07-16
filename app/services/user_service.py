@@ -1,7 +1,7 @@
 from fastapi import UploadFile
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3
-from app.db.user import User, Hashtags
+from app.db.user import User, Hashtags, UserProfileResponse
 from app.db.db_connection import db
 from sqlalchemy import text
 from typing import List
@@ -111,3 +111,153 @@ class UserService:
                 await cur.execute("SELECT 1 FROM users WHERE nickname = %s", (nickname,))
                 result = await cur.fetchone()
                 return result is not None
+
+
+    async def fetch_user_profile(self, id: str) -> UserProfileResponse | None:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                user_query = """
+                SELECT
+                    nickname, age, height, weight, relation, position, hashtags
+                FROM users
+                WHERE id = %s
+                """
+
+                await cur.execute(user_query, (id,))
+                user_row = await cur.fetchone()
+                if not user_row:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                nickname, age, height, weight, relation, position, hashtags_json = user_row
+                hashtags = Hashtags.parse_raw(hashtags_json)
+
+                profile_images_query = """
+                SELECT url 
+                FROM user_images 
+                WHERE user_id = %s AND use_yn = TRUE
+                """
+
+                await cur.execute(profile_images_query, (id,))
+                profile_images = await cur.fetchall()
+                profile_images = [row[0] for row in profile_images]
+
+                return UserProfileResponse(
+                    nickname=nickname,
+                    age=age,
+                    height=height,
+                    weight=weight,
+                    relation=relation,
+                    position=position,
+                    hashtags=hashtags,
+                    profileImages=profile_images
+                )
+
+
+    async def update_user_nickname(self, id: str, nickname: str) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s",(id, ))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    "UPDATE users SET nickname = %s WHERE id = %s",
+                    (nickname, id)
+                )
+                await conn.commit()
+                return True
+
+
+    async def update_user_hashtag(self, id: str, hashtags: Hashtags) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    "UPDATE users SET hashtags = %s WHERE id = %s",
+                    (hashtags.json(), id)
+                )
+                await conn.commit()
+                return True
+    
+    
+    async def update_user_info(
+        self,
+        id: str,
+        age: int,
+        height: int,
+        weight: int,
+        country: str
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    """
+                    UPDATE users 
+                    SET age = %s, height = %s, weight = %s, country = %s 
+                    WHERE id = %s
+                    """,
+                    (age, height, weight, country, id)
+                )
+                await conn.commit()
+                return True
+
+
+    async def update_user_fcm(self, id: str, fcm: str) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    "UPDATE users SET fcm = %s WHERE id = %s",
+                    (fcm, id)
+                )
+                await conn.commit()
+                return True
+
+    
+    async def update_user_relation(self, id: str, relation: str) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    "UPDATE users SET relation = %s WHERE id = %s",
+                    (relation, id)
+                )
+                await conn.commit()
+                return True
+    

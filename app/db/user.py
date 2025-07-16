@@ -34,3 +34,13 @@ class User(BaseModel):
     marketingAgree: bool
     nightAgree: bool
     leave: bool
+
+class UserProfileResponse(BaseModel):
+    nickname: str
+    age: int
+    height: int
+    weight: int
+    relation: str
+    position: str
+    hashtags: Hashtags
+    profileImages: List[str]
