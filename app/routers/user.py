@@ -97,7 +97,7 @@ async def check_user_nickname(
     return {"message": "사용 가능한 닉네임입니다."}
 
 
-[유저] 내 정보 조회 (user_id로)
+# [유저] 내 정보 조회 (user_id로)
 @router.get("/v1/gik-backend/my-profile", status_code=status.HTTP_200_OK)
 
 
