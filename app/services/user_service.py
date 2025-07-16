@@ -261,3 +261,62 @@ class UserService:
                 await conn.commit()
                 return True
     
+
+    async def update_user_position(self, id: str, position: str) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    "UPDATE users SET position = %s WHERE id = %s",
+                    (position, id)
+                )
+                await conn.commit()
+                return True
+    
+
+    async def update_user_alarm(
+        self,
+        id: str,
+        type: str,
+        value: bool,
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                column_map = {
+                    "personal_chat": "personal_chat_alarm_agree",
+                    "group_chat": "group_chat_alarm_agree",
+                    "post_comment": "post_comment_alarm_agree",
+                    "post_like": "post_like_alarm_agree",
+                    "night": "night_agree",
+                }
+
+                if type not in column_map:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Invalid alarm type"
+                    )
+                column_name = column_map[type]
+                await cur.execute(
+                    f"UPDATE users SET {column_name} = %s WHERE id = %s",
+                    (value, id)
+                )
+                await conn.commit()
+                return True
+
+
+    

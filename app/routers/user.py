@@ -246,10 +246,10 @@ async def update_user_position(
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="포지션 수정에 실패했습니다."
+            detail="나의 포지션 수정에 실패했습니다."
         )
+    return {"success": result, "message": "나의 포지션 수정 성공"}
     
-
 
 # [유저] 내 정보 수정 (알람)
 @router.patch("/v1/gik-backend/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
@@ -264,33 +264,38 @@ async def update_user_alarm(
     type: 알람 종류 (personal_chat, group_chat, post_comment, post_like)
     value: 변경된 알람 설정 값 (True/False)
     """
-    ...
+    result = await user_service.update_user_alarm(id, type, value)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 {type} 알림 설정 변경 실패."
+        )
+    return {"success": result, "message": f"나의 {type} 알림 설정 변경 성공."}
 
 
-# [유저] 상대 유저 상세정보 조회
-@router.get("v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
+# # [유저] 상대 유저 상세정보 조회
+# @router.get("v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
 
 
-# [유저] 상대 유저 차단
-@router.patch("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
-...
+# # [유저] 상대 유저 차단
+# @router.patch("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
 
-# [유저] 상대 유저 신고
-@router.patch("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
-...
 
-# [유저] 유저 목록으로 조회
-@router.get("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
-...
+# # [유저] 상대 유저 신고
+# @router.patch("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
 
-# [유저] 유저 ID 목록 조회
-@router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
-...
 
-# [유저] 유저 FCM 목록 조회
-@router.get("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
-...
+# # [유저] 유저 목록으로 조회
+# @router.get("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
 
-# [유저] 회원 탈퇴
-@router.delete("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
-...
+
+# # [유저] 유저 ID 목록 조회
+# @router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
+
+
+# # [유저] 유저 FCM 목록 조회
+# @router.get("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
+
+
+# # [유저] 회원 탈퇴
+# @router.delete("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
