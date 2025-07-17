@@ -89,12 +89,6 @@ async def check_user_nickname(
     nickname: 유저 닉네임
     """
     exist = await user_service.check_nickname(nickname)
-    if not exist:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="닉네임 중복 확인 실패."
-        )
-
     return {
         "success": True,
         "message": "중복된 닉네임입니다." if exist else "중복되지 않은 닉네임입니다.",
