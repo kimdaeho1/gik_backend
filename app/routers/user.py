@@ -113,7 +113,7 @@ async def fetch_user_profile(
             detail="내 정보 없음."
         )
     return {
-        "success": result,
+        "success": user,
         "message": "내 정보 조회 성공",
         "user": user
     }

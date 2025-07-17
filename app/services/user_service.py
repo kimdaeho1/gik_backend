@@ -1,4 +1,4 @@
-from fastapi import UploadFile
+from fastapi import UploadFile , HTTPException
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3
 from app.db.user import User, Hashtags, UserProfileResponse
