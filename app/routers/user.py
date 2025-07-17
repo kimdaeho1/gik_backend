@@ -141,10 +141,10 @@ async def update_user_nickname(
     if result == "not_found":
         return {
             "success": False,
-            "message": "닉네임 변경에 실패했습니다."
+            "message": "나의 닉네임 변경 실패."
         }
     
-    return {"success": True, "message": "닉네임이 성공적으로 변경되었습니다."}
+    return {"success": True, "message": "나의 닉네임 변경 성공."}
 
 
 # [유저] 내 정보 수정 (해시태그)
