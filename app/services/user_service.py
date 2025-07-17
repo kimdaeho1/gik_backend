@@ -180,6 +180,10 @@ class UserService:
                         status_code=404,
                         detail="User not found"
                     )
+                await cur.execute("SELECT 1 FROM users WHERE nickname = %s", (nickname, ))
+                nickname_exist = await cur.fetchone()
+                if nickname_exist:
+                    return False
                 
                 await cur.execute(
                     "UPDATE users SET nickname = %s WHERE id = %s",

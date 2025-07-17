@@ -133,10 +133,10 @@ async def update_user_nickname(
         user_nickname.id, user_nickname.nickname
         )
     if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 닉네임 변경 실패."
-        )
+        return {
+            "success": False,
+            "message": "이미 존재하는 닉네임입니다."
+        }
     return {"success": result, "message": "나의 닉네임 변경 성공."}
 
 
