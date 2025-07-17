@@ -120,7 +120,7 @@ class UserService:
             )
 
 
-    async def fetch_user_profile(self, id: str) -> UserProfileResponse | None:
+    async def fetch_my_profile(self, id: str) -> UserProfileResponse | None:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:

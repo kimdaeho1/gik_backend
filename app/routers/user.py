@@ -98,14 +98,14 @@ async def check_user_nickname(
 
 # [유저] 내 정보 조회 (user_id로)
 @router.get("/v1/gik-backend/my-profile", status_code=status.HTTP_200_OK)
-async def fetch_user_profile(
+async def fetch_my_profile(
     id: str
 ):
     """
     유저 프로필 조회
     id: 유저 ID
     """
-    user = await user_service.fetch_user_profile(id)
+    user = await user_service.fetch_my_profile(id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -122,7 +122,7 @@ async def fetch_user_profile(
 @router.patch("/v1/gik-backend/my-profile/nickname", status_code=status.HTTP_200_OK)
 async def update_user_nickname(
     id: str,
-    nickname: str = Form(...)
+    nickname: str
 ):
     """
     유저 닉네임 수정
@@ -162,10 +162,10 @@ async def update_user_hashtag(
 @router.patch("/v1/gik-backend/my-profile/info", status_code=status.HTTP_200_OK)
 async def update_user_info(
     id: str,
-    age: int = Form(...),
-    height: int = Form(...),
-    weight: int = Form(...),
-    country: str = Form(...),
+    age: int,
+    height: int,
+    weight: int,
+    country: str
 ):
     """
     유저 기본 정보 수정
@@ -194,7 +194,7 @@ async def update_user_info(
 @router.patch("/v1/gik-backend/my-profile/fcm", status_code=status.HTTP_200_OK)
 async def update_user_fcm(
     id: str,
-    fcm: str = Form(...)
+    fcm: str
 ):
     """
     유저 FCM 코드 수정
@@ -214,7 +214,7 @@ async def update_user_fcm(
 @router.patch("/v1/gik-backend/my-profile/relation", status_code=status.HTTP_200_OK)
 async def update_user_relation(
     id: str,
-    relation: str = Form(...),
+    relation: str
 ):
     """
     유저 희망 관계 수정
@@ -235,7 +235,7 @@ async def update_user_relation(
 @router.patch("/v1/gik-backend/my-profile/position", status_code=status.HTTP_200_OK)
 async def update_user_position(
     id: str,
-    position: str = Form(...),
+    position: str
 ):
     """
     유저 포지션 수정
@@ -256,7 +256,7 @@ async def update_user_position(
 async def update_user_alarm(
     id: str,
     type: str,
-    value: bool = Form(...)
+    value: bool
 ):
     """
     유저 알람 설정 수정
