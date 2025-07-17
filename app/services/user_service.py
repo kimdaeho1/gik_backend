@@ -106,54 +106,68 @@ class UserService:
 
 
     async def check_nickname(self, nickname: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE nickname = %s", (nickname,))
-                result = await cur.fetchone()
-                return result is not None
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute("SELECT 1 FROM users WHERE nickname = %s", (nickname,))
+                    result = await cur.fetchone()
+                    return result is not None
+        except Exception as e:
+            print(f"닉네임 중복확인실패: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="닉네임 중복 확인 실패"
+            )
 
 
     async def fetch_user_profile(self, id: str) -> UserProfileResponse | None:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                user_query = """
-                SELECT
-                    nickname, age, height, weight, relation, position, hashtags
-                FROM users
-                WHERE id = %s
-                """
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    user_query = """
+                    SELECT
+                        nickname, age, height, weight, relation, position, hashtags
+                    FROM users
+                    WHERE id = %s
+                    """
 
-                await cur.execute(user_query, (id,))
-                user_row = await cur.fetchone()
-                if not user_row:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="User not found"
-                    )
+                    await cur.execute(user_query, (id,))
+                    user_row = await cur.fetchone()
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=404,
+                            detail="내 정보 조회 실패"
+                        )
                 
-                nickname, age, height, weight, relation, position, hashtags_json = user_row
-                hashtags = Hashtags.parse_raw(hashtags_json)
+                    nickname, age, height, weight, relation, position, hashtags_json = user_row
+                    hashtags = Hashtags.parse_raw(hashtags_json)
 
-                profile_images_query = """
-                SELECT url 
-                FROM user_images 
-                WHERE user_id = %s AND use_yn = TRUE
-                """
+                    profile_images_query = """
+                    SELECT url 
+                    FROM user_images 
+                    WHERE user_id = %s AND use_yn = TRUE
+                    """
 
-                await cur.execute(profile_images_query, (id,))
-                profile_images = await cur.fetchall()
-                profile_images = [row[0] for row in profile_images]
+                    await cur.execute(profile_images_query, (id,))
+                    profile_images = await cur.fetchall()
+                    profile_images = [row[0] for row in profile_images]
 
-                return UserProfileResponse(
-                    nickname=nickname,
-                    age=age,
-                    height=height,
-                    weight=weight,
-                    relation=relation,
-                    position=position,
-                    hashtags=hashtags,
-                    profileImages=profile_images
-                )
+                    return UserProfileResponse(
+                        nickname=nickname,
+                        age=age,
+                        height=height,
+                        weight=weight,
+                        relation=relation,
+                        position=position,
+                        hashtags=hashtags,
+                        profileImages=profile_images
+                    )
+        except Exception as e:
+            print(f"Error fetching user profile: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="내 정보 없음"
+            )
 
 
     async def update_user_nickname(self, id: str, nickname: str) -> bool:
