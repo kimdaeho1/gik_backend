@@ -99,76 +99,179 @@ async def check_user_nickname(
 
 # [유저] 내 정보 조회 (user_id로)
 @router.get("/v1/gik-backend/my-profile", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def fetch_user_profile(
+    id: str
 ):
-    ...
+    """
+    유저 프로필 조회
+    id: 유저 ID
+    """
+    user = await user_service.fetch_user_profile(id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="내 정보 없음."
+        )
+    return {
+        "success": result,
+        "message": "내 정보 조회 성공",
+        "user": user
+    }
+
 
 # [유저] 내 정보 수정 (닉네임)
 @router.patch("/v1/gik-backend/my-profile/nickname", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def update_user_nickname(
+    id: str,
+    nickname: str = Form(...)
 ):
-    ...
+    """
+    유저 닉네임 수정
+    id: 유저 ID
+    nickname: 변경된 닉네임
+    """
+    result = await user_service.update_user_nickname(id, nickname)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 닉네임 변경 실패."
+        )
+    return {"success": result, "message": "나의 닉네임 변경 성공."}
+
 
 # [유저] 내 정보 수정 (해시태그)
 @router.patch("/v1/gik-backend/my-profile/hashtag", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def update_user_hashtag(
+    id: str,
+    hashtags: Hashtags
 ):
     """
     유저 해시태그 수정
-    user_id: 유저 ID
-    hashtags: 해시태그 JSON 문자열
+    id: 유저 ID
+    hashtags: 변경된 해시태그
     """
-    ...
+    result = await user_service.update_user_hashtag(id, hashtags)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 해시태그 변경 실패."
+        )
+    return {"success": result, "message": "나의 해시태그 변경 성공."}
+
 
 # [유저] 내 정보 수정 (기본정보)
 @router.patch("/v1/gik-backend/my-profile/info", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def update_user_info(
+    id: str,
+    age: int = Form(...),
+    height: int = Form(...),
+    weight: int = Form(...),
+    country: str = Form(...),
 ):
-    ...
+    """
+    유저 기본 정보 수정
+    id: 유저 ID
+    age: 나이
+    height: 키
+    weight: 몸무게
+    country: 국가
+    """
+    result = await user_service.update_user_info(
+        id=id,
+        age=age,
+        height=height,
+        weight=weight,
+        country=country
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 기본정보 변경 실패."
+        )
+    return {"success": result, "message": "나의 기본정보 변경 성공."}
 
 
 # [유저] 내 정보 수정 (fcm 코드)
 @router.patch("/v1/gik-backend/my-profile/fcm", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def update_user_fcm(
+    id: str,
+    fcm: str = Form(...)
 ):
-    ...
+    """
+    유저 FCM 코드 수정
+    id: 유저 ID
+    fcm: 변경된 FCM 코드
+    """
+    result = await user_service.update_user_fcm(id, fcm)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 FCM 코드 변경 실패."
+        )
+    return {"success": result, "message": "나의 FCM 코드 변경 성공"}
 
 
 # [유저] 내 정보 수정 (희망 관계)
 @router.patch("/v1/gik-backend/my-profile/relation", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def update_user_relation(
+    id: str,
+    relation: str = Form(...),
 ):
-    ...
+    """
+    유저 희망 관계 수정
+    id: 유저 ID
+    relation: 변경된 희망 관계
+    """
+    result = await user_service.update_user_relation(id, relation)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 희망관계 변경 실패."
+        )
+    return {"success": result, "message": "나의 희망관계 변경 성공."}
+
 
 
 # [유저] 내 정보 수정 (포지션)
 @router.patch("/v1/gik-backend/my-profile/position", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def update_user_position(
+    id: str,
+    position: str = Form(...),
 ):
-    ...
-
+    """
+    유저 포지션 수정
+    id: 유저 ID
+    position: 변경된 포지션
+    """
+    result = await user_service.update_user_position(id, position)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 포지션 수정에 실패했습니다."
+        )
+    return {"success": result, "message": "나의 포지션 수정 성공"}
+    
 
 # [유저] 내 정보 수정 (알람)
 @router.patch("/v1/gik-backend/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def update_user_alarm(
+    id: str,
+    type: str,
+    value: bool = Form(...)
 ):
-    ...
+    """
+    유저 알람 설정 수정
+    id: 유저 ID
+    type: 알람 종류 (personal_chat, group_chat, post_comment, post_like)
+    value: 변경된 알람 설정 값 (True/False)
+    """
+    result = await user_service.update_user_alarm(id, type, value)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 {type} 알림 설정 변경 실패."
+        )
+    return {"success": result, "message": f"나의 {type} 알림 설정 변경 성공."}
 
 
 # [유저] 상대 유저 상세정보 조회
