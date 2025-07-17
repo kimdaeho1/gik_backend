@@ -316,7 +316,7 @@ class UserService:
                     "group_chat": "group_chat_alarm_agree",
                     "post_comment": "post_comment_alarm_agree",
                     "post_like": "post_like_alarm_agree",
-                    "night": "night_agree",
+                    "night_agree": "night_agree",
                 }
 
                 if type not in column_map:
