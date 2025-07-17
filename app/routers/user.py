@@ -88,13 +88,12 @@ async def check_user_nickname(
     유저 닉네임 중복 확인
     nickname: 유저 닉네임
     """
-    result: bool = await user_service.check_nickname(nickname)
-    if result:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="이미 존재하는 닉네임입니다."
-        )
-    return {"message": "사용 가능한 닉네임입니다."}
+    exist = await user_service.check_nickname(nickname)
+    return {
+        "success": True,
+        "message": "중복된 닉네임입니다." if exist else "중복되지 않은 닉네임입니다.",
+        "exist": exist
+    }
 
 
 # [유저] 내 정보 조회 (user_id로)
@@ -113,7 +112,7 @@ async def fetch_user_profile(
             detail="내 정보 없음."
         )
     return {
-        "success": user,
+        "success": True,
         "message": "내 정보 조회 성공",
         "user": user
     }
