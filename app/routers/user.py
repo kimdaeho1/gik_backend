@@ -132,12 +132,19 @@ async def update_user_nickname(
     result: bool = await user_service.update_user_nickname(
         user_nickname.id, user_nickname.nickname
         )
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 닉네임 변경 실패."
-        )
-    return {"success": result, "message": "나의 닉네임 변경 성공."}
+    if result == "duplicate":
+        return {
+            "success": False,
+            "message": "이미 존재하는 닉네임입니다."
+        }
+    
+    if result == "not_found":
+        return {
+            "success": False,
+            "message": "나의 닉네임 변경 실패."
+        }
+    
+    return {"success": True, "message": "나의 닉네임 변경 성공."}
 
 
 # [유저] 내 정보 수정 (해시태그)

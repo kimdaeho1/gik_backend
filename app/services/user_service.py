@@ -176,17 +176,19 @@ class UserService:
                 await cur.execute("SELECT 1 FROM users WHERE id = %s",(id, ))
                 result = await cur.fetchone()
                 if not result:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="User not found"
-                    )
+                    return "not_found"
+                
+                await cur.execute("SELECT 1 FROM users WHERE nickname = %s", (nickname, ))
+                nickname_exist = await cur.fetchone()
+                if nickname_exist:
+                    return "duplicate"
                 
                 await cur.execute(
                     "UPDATE users SET nickname = %s WHERE id = %s",
                     (nickname, id)
                 )
                 await conn.commit()
-                return True
+                return "success"
 
 
     async def update_user_hashtag(self, id: str, hashtags: Hashtags) -> bool:
