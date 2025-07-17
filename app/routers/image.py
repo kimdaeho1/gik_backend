@@ -5,6 +5,7 @@ from PIL import Image
 import io
 from datetime import datetime
 
+
 router = APIRouter()
 
 def generate_filename(filename: str) -> str:
