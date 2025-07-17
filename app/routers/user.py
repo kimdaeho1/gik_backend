@@ -139,7 +139,7 @@ async def update_user_nickname(
     return {"success": result, "message": "나의 닉네임 변경 성공."}
 
 
-# # [유저] 내 정보 수정 (해시태그)
+# [유저] 내 정보 수정 (해시태그)
 @router.patch("/v1/gik-backend/my-profile/hashtag", status_code=status.HTTP_200_OK)
 async def update_user_hashtag(
     id: str,
