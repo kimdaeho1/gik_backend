@@ -42,9 +42,11 @@ class UserProfileResponse(BaseModel):
     age: int
     height: int
     weight: int
+    sns: str
     relation: str
     provider: str
     position: str
+    country: str
     hashtags: Hashtags
     profileImages: List[str]
     marketingAlarm: bool

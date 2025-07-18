@@ -126,7 +126,8 @@ class UserService:
                 async with conn.cursor() as cur:
                     user_query = """
                     SELECT
-                        id, nickname, age, height, weight, relation, position, hashtags,
+                        id, nickname, age, height, weight, sns, 
+                        relation, position, country, hashtags,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
@@ -144,7 +145,8 @@ class UserService:
                         )
 
                     (
-                        id, nickname, age, height, weight, relation, position, hashtags_json,
+                        id, nickname, age, height, weight, sns,
+                        relation, position, country, hashtags_json,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
@@ -186,9 +188,11 @@ class UserService:
                         age=age,
                         height=height,
                         weight=weight,
+                        sns=sns,
                         relation=relation,
                         provider=provider,
                         position=position,
+                        country=country,
                         hashtags=hashtags,
                         profileImages=profile_images,
                         marketingAlarm=marketing_agree,
