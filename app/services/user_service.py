@@ -388,21 +388,27 @@ class UserService:
                 SELECT
                         id, fcm, nickname, relation, position,
                         country, age, height, weight, hashtags,
-                        leaved
+                        leaved,
+                        personal_chat_alarm_agree, group_chat_alarm_agree,
+                        post_comment_alarm_agree, post_like_alarm_agree
                 FROM users
                 WHERE id = %s
                 """
-
                 await cur.execute(user_query, (user_id,))
                 user_row = await cur.fetchone()
 
                 if not user_row:
                     return None
+
+                (
+                    id, fcm, nickname, relation, position,
+                    country, age, height, weight, hashtags_json,
+                    leaved,
+                    personal_chat_alarm, group_chat_alarm,
+                    post_comment_alarm, post_like_alarm
+                ) = user_row
                 
-                user_dict = dict(zip([col[0] for col in cur.description], user_row))
-                
-                hashtags = Hashtags.parse_raw(user_dict['hashtags'])
-                user_dict['hashtags'] = hashtags
+                hashtags = Hashtags.parse_raw(hashtags_json)
                 
                 # 차단된 사용자 목록 조회
                 block_user_query = """
@@ -410,7 +416,6 @@ class UserService:
                 """
                 await cur.execute(block_user_query, (user_id,))
                 block_user_list = [row[0] for row in await cur.fetchall()]
-                user_dict["blockUserList"] = block_user_list
 
                 # 프로필 이미지 조회
                 image_query = """
@@ -424,14 +429,27 @@ class UserService:
 
                 await cur.execute(image_query, (user_id,))
                 images = await cur.fetchall()
+                profile_images = [row[1] for row in images]
 
-                profile_images = []
-                for index, row in enumerate(images):
-                    profile_images.append(row[1])
-
-                user_dict['profileImages'] = profile_images
-
-                return UserDetailResponse(**user_dict)
+                return UserDetailResponse(
+                    id=id,
+                    fcm=fcm,
+                    nickname=nickname,
+                    relation=relation,
+                    position=position,
+                    country=country,
+                    age=age,
+                    height=height,
+                    weight=weight,
+                    hashtags=hashtags,
+                    profileImages=profile_images,   
+                    leaved=leaved,
+                    personalChatAlarm=personal_chat_alarm,
+                    groupChatAlarm=group_chat_alarm,
+                    postCommentAlarm=post_comment_alarm,
+                    postLikeAlarm=post_like_alarm,
+                    blockUserList=block_user_list
+                )
 
     
     async def block_user(self, id: str, user_id: str) -> bool:
@@ -502,12 +520,14 @@ class UserService:
 
                 query = f"""
                     SELECT 
-                    id, fcm, nickname, age, height, weight, 
-                    relation, position, hashtags, leaved
+                        id, fcm, nickname, age, height, weight, 
+                        relation, position, hashtags, leaved,
+                        personal_chat_alarm_agree, group_chat_alarm_agree,
+                        post_comment_alarm_agree, post_like_alarm_agree
                     FROM users
                     WHERE id IN ({placeholders})
                 """
-                await cur.execute(query, (user_id_list))
+                await cur.execute(query, tuple(user_id_list))
                 rows = await cur.fetchall()
                 user_description = [col[0] for col in cur.description]
                 user_profiles = []
@@ -518,6 +538,14 @@ class UserService:
 
                     # 해시태그 파싱
                     user_dict['hashtags'] = Hashtags.parse_raw(user_dict['hashtags'])
+                    
+                    # 불리언 값 변환
+                    # TODO : DB에 저장할때 1, 0(True, False)로 저장하는게 좋을듯
+                    user_dict['leaved'] = bool(user_dict['leaved'])
+                    user_dict['personal_chat_alarm_agree'] = bool(user_dict['personal_chat_alarm_agree'])
+                    user_dict['group_chat_alarm_agree'] = bool(user_dict['group_chat_alarm_agree'])
+                    user_dict['post_comment_alarm_agree'] = bool(user_dict['post_comment_alarm_agree'])
+                    user_dict['post_like_alarm_agree'] = bool(user_dict['post_like_alarm_agree'])
                     
                     # blockUserList 조회
                     block_user_query = """

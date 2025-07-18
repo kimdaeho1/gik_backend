@@ -76,6 +76,10 @@ class UserDetailResponse(BaseModel):
     hashtags: Hashtags
     leaved: bool
     blockUserList: Optional[List[str]]
+    personalChatAlarm: bool
+    groupChatAlarm: bool
+    postCommentAlarm: bool
+    postLikeAlarm: bool
 
 
 class UserNicknameRequest(BaseModel):
