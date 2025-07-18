@@ -363,31 +363,6 @@ async def report_user(
         )
     
     return {"success": result, "message": "유저 신고 성공."}
-# [유저] 상대 유저 상세정보 조회
-@router.get("v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
-):
-    ...
-
-
-# [유저] 상대 유저 차단
-@router.patch("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
-):
-    ...
-
-
-# [유저] 상대 유저 신고
-@router.patch("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
-):
-    ...
 
 
 # [유저] 유저 목록으로 조회
