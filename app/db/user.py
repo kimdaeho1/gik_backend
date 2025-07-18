@@ -119,4 +119,16 @@ class UserListRequest(BaseModel):
 
 class UserLeaveRequest(BaseModel):
     id: str
+    reason:str
+
+
+class UserBlockRequest(BaseModel):
+    id: str
+    user_id: str
+
+
+class UserReportRequest(BaseModel):
+    chatId: Optional[str] = None
+    reportUserId: str
+    reportedUserId: str
     reason: str

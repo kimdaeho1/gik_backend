@@ -380,6 +380,105 @@ class UserService:
                 return True
 
 
+    async def fetch_user_profile(self, user_id: str) -> UserDetailResponse | None:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                user_query = """
+                SELECT
+                        id, nickname, relation, position,
+                        country, age, height, weight, hashtags
+                FROM users
+                WHERE id = %s
+                """
+
+                await cur.execute(user_query, (user_id,))
+                user_row = await cur.fetchone()
+
+                if not user_row:
+                    return None
+                
+                user_dict = dict(zip([col[0] for col in cur.description], user_row))
+                
+                hashtags = Hashtags.parse_raw(user_dict['hashtags'])
+                user_dict['hashtags'] = hashtags
+
+                # 프로필 이미지 조회
+                image_query = """
+                    SELECT
+                        `index`, url
+                    FROM user_images
+                    WHERE 
+                        user_id = %s and use_yn = TRUE
+                    ORDER BY `index`
+                """
+
+                await cur.execute(image_query, (user_id,))
+                images = await cur.fetchall()
+
+                profile_images = []
+                for index, row in enumerate(images):
+                    profile_images.append(row[1])
+
+                user_dict['profileImages'] = profile_images
+
+                return UserDetailResponse(**user_dict)
+
+    
+    async def block_user(self, id: str, user_id: str) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    "INSERT INTO user_block_list (block_user_id, blocked_user_id) VALUES (%s, %s)",
+                    (id, user_id)
+                )
+                await conn.commit()
+                return True
+ 
+    
+    async def report_user(
+        self,
+        chatId: str,
+        reportUserId: str,
+        reportedUserId: str,
+        reason: str
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (reportUserId,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Reporting user not found"
+                    )
+                
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (reportedUserId,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Reported user not found"
+                    )
+                
+                await cur.execute(
+                    """
+                    INSERT INTO user_reports (chat_id, report_user_id, reported_user_id, reason)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (chatId, reportUserId, reportedUserId, reason)
+                )
+                await conn.commit()
+                return True
+            
+    
     async def fetch_user_list(
         self,
         user_id: List[str]
