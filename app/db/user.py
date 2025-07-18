@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict, Optional
+from datetime import datetime
 
 class Hashtags(BaseModel):
     bodyType: List[str]
@@ -36,14 +37,27 @@ class User(BaseModel):
     leave: bool
 
 class UserProfileResponse(BaseModel):
+    id: str
     nickname: str
     age: int
     height: int
     weight: int
     relation: str
+    provider: str
     position: str
     hashtags: Hashtags
     profileImages: List[str]
+    marketingAlarm: bool
+    nightAlarm: bool
+    personalChatAlarm: bool
+    groupChatAlarm: bool
+    postCommentAlarm: bool
+    postLikeAlarm: bool
+    banned: bool
+    unBannedDate: Optional[datetime]
+    blockUserList: Optional[List[str]]
+    blockPostList: Optional[List[str]]
+    blockCommentList: Optional[List[str]]
 
 
 class UserDetailResponse(BaseModel):

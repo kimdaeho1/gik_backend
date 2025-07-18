@@ -126,7 +126,11 @@ class UserService:
                 async with conn.cursor() as cur:
                     user_query = """
                     SELECT
-                        nickname, age, height, weight, relation, position, hashtags
+                        id, nickname, age, height, weight, relation, position, hashtags,
+                        provider, marketing_agree, night_agree,
+                        personal_chat_alarm_agree, group_chat_alarm_agree,
+                        post_comment_alarm_agree, post_like_alarm_agree,
+                        banned, unbanned_dt
                     FROM users
                     WHERE id = %s
                     """
@@ -138,8 +142,15 @@ class UserService:
                             status_code=404,
                             detail="내 정보 조회 실패"
                         )
-                
-                    nickname, age, height, weight, relation, position, hashtags_json = user_row
+
+                    (
+                        id, nickname, age, height, weight, relation, position, hashtags_json,
+                        provider, marketing_agree, night_agree,
+                        personal_chat_alarm, group_chat_alarm,
+                        post_comment_alarm, post_like_alarm,
+                        banned, unbanned_dt
+                    ) = user_row
+                    
                     hashtags = Hashtags.parse_raw(hashtags_json)
 
                     profile_images_query = """
@@ -149,18 +160,48 @@ class UserService:
                     """
 
                     await cur.execute(profile_images_query, (id,))
-                    profile_images = await cur.fetchall()
-                    profile_images = [row[0] for row in profile_images]
+                    profile_images = [row[0] for row in await cur.fetchall()]
+
+                    block_user_query = """
+                        SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
+                    """
+                    await cur.execute(block_user_query, (id,))
+                    block_user_list = [row[0] for row in await cur.fetchall()]
+
+                    block_post_query = """
+                        SELECT blocked_post_id FROM post_block_list WHERE block_user_id = %s
+                    """
+                    await cur.execute(block_post_query, (id,))
+                    block_post_list = [row[0] for row in await cur.fetchall()]
+
+                    block_comment_query = """
+                        SELECT blocked_comment_id FROM comment_block_list WHERE block_user_id = %s
+                    """
+                    await cur.execute(block_comment_query, (id,))
+                    block_comment_list = [row[0] for row in await cur.fetchall()]
 
                     return UserProfileResponse(
+                        id=id,
                         nickname=nickname,
                         age=age,
                         height=height,
                         weight=weight,
                         relation=relation,
+                        provider=provider,
                         position=position,
                         hashtags=hashtags,
-                        profileImages=profile_images
+                        profileImages=profile_images,
+                        marketingAlarm=marketing_agree,
+                        nightAlarm=night_agree,
+                        personalChatAlarm=personal_chat_alarm,
+                        groupChatAlarm=group_chat_alarm,
+                        postCommentAlarm=post_comment_alarm,
+                        postLikeAlarm=post_like_alarm,
+                        banned=banned,
+                        unBannedDate=unbanned_dt,
+                        blockUserList=block_user_list,
+                        blockPostList=block_post_list,
+                        blockCommentList=block_comment_list,
                     )
         except Exception as e:
             print(f"Error fetching user profile: {e}")
