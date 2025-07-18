@@ -433,7 +433,7 @@ async def fetch_user_fcm_list(
 
 
 # [유저] 회원 탈퇴 (leaved 탈퇴)
-@router.delete("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
 async def leave_user(
     user_leave: UserLeaveRequest
 ):
