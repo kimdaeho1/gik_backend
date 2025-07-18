@@ -506,7 +506,7 @@ class UserService:
                 await conn.commit()
                 return True
             
-    
+    # TODO : 쿼리문 IN구문 별로 좋다고 하지 않으셨는데, 쿼리문 나중에 짤때 최적화 잘해야함.
     async def fetch_user_list(
         self,
         user_id_list: List[str]
@@ -521,7 +521,7 @@ class UserService:
                 query = f"""
                     SELECT 
                         id, fcm, nickname, age, height, weight, 
-                        relation, position, hashtags, leaved,
+                        relation, position, country, hashtags, leaved,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree
                     FROM users
