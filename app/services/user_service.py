@@ -539,6 +539,8 @@ class UserService:
                     # 해시태그 파싱
                     user_dict['hashtags'] = Hashtags.parse_raw(user_dict['hashtags'])
                     
+                    # 불리언 값 변환
+                    # TODO : DB에 저장할때 1, 0(True, False)로 저장하는게 좋을듯
                     user_dict['leaved'] = bool(user_dict['leaved'])
                     user_dict['personal_chat_alarm_agree'] = bool(user_dict['personal_chat_alarm_agree'])
                     user_dict['group_chat_alarm_agree'] = bool(user_dict['group_chat_alarm_agree'])
