@@ -114,6 +114,7 @@ async def upload_gik_images(
     image_urls = image_url_list(s3_key, images)
     return {"message": "이미지 업로드 성공", "image_urls": image_urls}
 
+
 @router.post("/v1/gik-backend/chat/images", status_code=status.HTTP_200_OK)
 async def upload_chat_images(   
     chat_id: str = Form(...),
@@ -131,6 +132,7 @@ async def upload_chat_images(
     s3_key = f"{image_label}/{chat_id}/"
     image_urls = image_url_list(s3_key, images)
     return {"message": "이미지 업로드 성공", "image_urls": image_urls}
+
 
 @router.post("/v1/gik-backend/group-profile/images", status_code=status.HTTP_200_OK)
 async def upload_group_profile_images(
