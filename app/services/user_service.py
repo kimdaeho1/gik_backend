@@ -492,28 +492,56 @@ class UserService:
     async def fetch_user_list(
         self,
         user_id_list: List[str]
-    ) -> bool:
+    ) -> List[dict]:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 if not user_id_list:
                     return []
 
                 placeholders = ', '.join(['%s'] * len(user_id_list))
+
                 query = f"""
-                    SELECT id, nickname, age, height, weight, relation, position, hashtags
+                    SELECT 
+                    id, fcm, nickname, age, height, weight, 
+                    relation, position, hashtags, leaved
                     FROM users
                     WHERE id IN ({placeholders})
                 """
-                
-                await cur.execute(query, tuple(user_id_list))
+                await cur.execute(query, (user_id_list))
                 rows = await cur.fetchall()
-
+                user_description = [col[0] for col in cur.description]
                 user_profiles = []
-                for row in rows:
-                    user_dict = dict(zip([col[0] for col in cur.description], row))
-                    user_dict['hashtags'] = Hashtags.parse_raw(user_dict['hashtags'])
-                    user_profiles.append(user_dict)
 
+                for row in rows:
+                    user_dict = dict(zip(user_description, row))
+                    user_id = user_dict['id']
+
+                    # 해시태그 파싱
+                    user_dict['hashtags'] = Hashtags.parse_raw(user_dict['hashtags'])
+                    
+                    # blockUserList 조회
+                    block_user_query = """
+                        SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
+                    """
+                    await cur.execute(block_user_query, (user_id,))
+                    block_user_list = [row[0] for row in await cur.fetchall()]
+                    user_dict["blockUserList"] = block_user_list
+                    
+                    # 프로필 이미지 조회
+                    image_query = """
+                        SELECT
+                            `index`, url
+                        FROM user_images
+                        WHERE 
+                            user_id = %s and use_yn = TRUE
+                        ORDER BY `index`
+                        """
+                    await cur.execute(image_query, (user_id,))
+                    images = await cur.fetchall()
+                    profile_images = [row[1] for row in images]
+                    user_dict['profileImages'] = profile_images            
+                    user_profiles.append(user_dict)
+                
                 return user_profiles
 
     

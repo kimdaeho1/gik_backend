@@ -374,7 +374,7 @@ async def fetch_user_list(
     user_id: 조회할 유저 ID 목록
     """
     
-    users = await user_service.fetch_user_list(user_id_list.user_id)
+    users = await user_service.fetch_user_list(user_id_list.user_id_list)
     if not users:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -418,7 +418,7 @@ async def fetch_user_fcm_list(
     유저 FCM 목록 조회
     """
     
-    fcm_list = await user_service.fetch_user_fcm_list(user_id_list.user_id)
+    fcm_list = await user_service.fetch_user_fcm_list(user_id_list.user_id_list)
     if not fcm_list:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
