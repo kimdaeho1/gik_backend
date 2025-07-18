@@ -510,7 +510,7 @@ class UserService:
     async def fetch_user_list(
         self,
         user_id_list: List[str]
-    ) -> List[dict]:
+    ) -> List[UserDetailResponse]:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 if not user_id_list:
@@ -529,31 +529,24 @@ class UserService:
                 """
                 await cur.execute(query, tuple(user_id_list))
                 rows = await cur.fetchall()
-                user_description = [col[0] for col in cur.description]
                 user_profiles = []
 
                 for row in rows:
-                    user_dict = dict(zip(user_description, row))
-                    user_id = user_dict['id']
-
-                    # 해시태그 파싱
-                    user_dict['hashtags'] = Hashtags.parse_raw(user_dict['hashtags'])
+                    (
+                        id, fcm, nickname, age, height, weight,
+                        relation, position, country, hashtags_json, leaved,
+                        personal_chat_alarm, group_chat_alarm,
+                        post_comment_alarm, post_like_alarm
+                    ) = row
                     
-                    # 불리언 값 변환
-                    # TODO : DB에 저장할때 1, 0(True, False)로 저장하는게 좋을듯
-                    user_dict['leaved'] = bool(user_dict['leaved'])
-                    user_dict['personal_chat_alarm_agree'] = bool(user_dict['personal_chat_alarm_agree'])
-                    user_dict['group_chat_alarm_agree'] = bool(user_dict['group_chat_alarm_agree'])
-                    user_dict['post_comment_alarm_agree'] = bool(user_dict['post_comment_alarm_agree'])
-                    user_dict['post_like_alarm_agree'] = bool(user_dict['post_like_alarm_agree'])
+                    hashtags = Hashtags.parse_raw(hashtags_json)
                     
                     # blockUserList 조회
                     block_user_query = """
                         SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
                     """
-                    await cur.execute(block_user_query, (user_id,))
+                    await cur.execute(block_user_query, (id,))
                     block_user_list = [row[0] for row in await cur.fetchall()]
-                    user_dict["blockUserList"] = block_user_list
                     
                     # 프로필 이미지 조회
                     image_query = """
@@ -564,18 +557,33 @@ class UserService:
                             user_id = %s and use_yn = TRUE
                         ORDER BY `index`
                         """
-                    await cur.execute(image_query, (user_id,))
+                    await cur.execute(image_query, (id,))
                     images = await cur.fetchall()
                     profile_images = [row[1] for row in images]
-                    user_dict['profileImages'] = profile_images            
-                    user_profiles.append(user_dict)
-                
+         
+                    user_profiles.append(UserDetailResponse(
+                        id=id,
+                        fcm=fcm,
+                        nickname=nickname,
+                        age=age,
+                        height=height,
+                        weight=weight,
+                        relation=relation,
+                        position=position,
+                        country=country,
+                        hashtags=hashtags,
+                        profileImages=profile_images,   
+                        leaved=leaved,
+                        personalChatAlarm=personal_chat_alarm,
+                        groupChatAlarm=group_chat_alarm,
+                        postCommentAlarm=post_comment_alarm,
+                        postLikeAlarm=post_like_alarm,
+                        blockUserList=block_user_list
+                    ))
                 return user_profiles
 
     
-    async def fetch_user_id_list(
-        self,    
-    ) -> bool:
+    async def fetch_user_id_list(self) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 query = """

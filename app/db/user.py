@@ -121,7 +121,7 @@ class UserAlarmRequest(BaseModel):
 
 
 class UserListRequest(BaseModel):
-    user_id_list: List[str]
+    userIdList: List[str]
     
 
 class UserLeaveRequest(BaseModel):
@@ -131,7 +131,7 @@ class UserLeaveRequest(BaseModel):
 
 class UserBlockRequest(BaseModel):
     id: str
-    user_id: str
+    userId: str
 
 
 class UserReportRequest(BaseModel):
