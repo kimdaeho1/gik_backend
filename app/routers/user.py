@@ -287,11 +287,10 @@ async def update_user_alarm(
         )
     return {"success": result, "message": "나의 알람 설정 변경 성공."}
 
+
 # [유저] 상대 유저 상세정보 조회
-# TODO: get인데 body어떻게 받을건지.
 @router.get("/v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
 async def fetch_user_profile(
-    id: str,
     user_id: str
 ):
     """
@@ -368,14 +367,14 @@ async def report_user(
 # [유저] 유저 목록으로 조회
 @router.post("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
 async def fetch_user_list(
-    user_id: UserListRequest
+    user_id_list: UserListRequest
 ):
     """
     유저 목록으로 조회
     user_id: 조회할 유저 ID 목록
     """
     
-    users = await user_service.fetch_user_list(user_id.user_id)
+    users = await user_service.fetch_user_list(user_id_list.user_id)
     if not users:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -482,21 +482,21 @@ class UserService:
     
     async def fetch_user_list(
         self,
-        user_id: List[str]
+        user_id_list: List[str]
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                if not user_id:
+                if not user_id_list:
                     return []
 
-                placeholders = ', '.join(['%s'] * len(user_id))
+                placeholders = ', '.join(['%s'] * len(user_id_list))
                 query = f"""
                     SELECT id, nickname, age, height, weight, relation, position, hashtags
                     FROM users
                     WHERE id IN ({placeholders})
                 """
                 
-                await cur.execute(query, tuple(user_id))
+                await cur.execute(query, tuple(user_id_list))
                 rows = await cur.fetchall()
 
                 user_profiles = []
