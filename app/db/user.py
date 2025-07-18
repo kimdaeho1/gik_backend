@@ -113,6 +113,15 @@ class UserAlarmRequest(BaseModel):
     value: bool
 
 
+class UserListRequest(BaseModel):
+    user_id: List[str]
+    
+
+class UserLeaveRequest(BaseModel):
+    id: str
+    reason:str
+
+
 class UserBlockRequest(BaseModel):
     id: str
     user_id: str
