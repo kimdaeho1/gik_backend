@@ -405,7 +405,7 @@ async def fetch_user_id_list(
     return {
         "success": True,
         "message": "유저 ID 목록 조회 성공",
-        "user_ids": user_ids
+        "userIds": user_ids
     }
 
 
@@ -428,7 +428,7 @@ async def fetch_user_fcm_list(
     return {
         "success": True,
         "message": "유저 FCM 목록 조회 성공",
-        "fcm_list": fcm_list
+        "fcmList": fcm_list
     }
 
 
