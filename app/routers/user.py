@@ -316,36 +316,89 @@ async def get_user_profile(
 
 
 # [유저] 유저 목록으로 조회
-@router.get("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+@router.post("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
+async def fetch_user_list(
+    user_id: UserListRequest
 ):
-    ...
+    """
+    유저 목록으로 조회
+    user_id: 조회할 유저 ID 목록
+    """
+    
+    users = await user_service.fetch_user_list(user_id.user_id)
+    if not users:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="유저 목록 조회 실패."
+        )
+    
+    return {
+        "success": True,
+        "message": "유저 목록 조회 성공",
+        "users": users
+    }
 
 
-# [유저] 유저 ID 목록 조회
+# [유저] 유저 ID 목록 조회 (탈퇴하지 않은 유저 전체)
 @router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def fetch_user_id_list(
 ):
-    ...
+    """
+    유저 ID 목록 조회
+    """
+    user_ids = await user_service.fetch_user_id_list()
+    if not user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="유저 ID 목록 조회 실패."
+        )
+    
+    return {
+        "success": True,
+        "message": "유저 ID 목록 조회 성공",
+        "user_ids": user_ids
+    }
 
 
-# [유저] 유저 FCM 목록 조회
-@router.get("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+# [유저] 유저 FCM 목록 조회 (탈퇴하지 않은 유저 전체) 유저id리스트 보내주면
+@router.post("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
+async def fetch_user_fcm_list(
+    user_id_list: UserListRequest
 ):
-    ...
+    """
+    유저 FCM 목록 조회
+    """
+    
+    fcm_list = await user_service.fetch_user_fcm_list(user_id_list.user_id)
+    if not fcm_list:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="유저 FCM 목록 조회 실패."
+        )
+    
+    return {
+        "success": True,
+        "message": "유저 FCM 목록 조회 성공",
+        "fcm_list": fcm_list
+    }
 
 
-# [유저] 회원 탈퇴
+# [유저] 회원 탈퇴 (leaved 탈퇴)
 @router.delete("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
-async def get_user_profile(
-    user_id: str,
-    hashtags: str = Form(...)
+async def leave_user(
+    user_leave: UserLeaveRequest
 ):
-    ...
+    """
+    유저 탈퇴
+    """
+    
+    result = await user_service.leave_user(
+        user_leave.id,
+        user_leave.reason
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 탈퇴 실패."
+        )
+    return {"success": result, "message": "유저 탈퇴 성공."}

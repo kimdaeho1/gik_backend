@@ -378,3 +378,102 @@ class UserService:
                 )
                 await conn.commit()
                 return True
+
+
+    async def fetch_user_list(
+        self,
+        user_id: List[str]
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                if not user_id:
+                    return []
+
+                placeholders = ', '.join(['%s'] * len(user_id))
+                query = f"""
+                    SELECT id, nickname, age, height, weight, relation, position, hashtags
+                    FROM users
+                    WHERE id IN ({placeholders})
+                """
+                
+                await cur.execute(query, tuple(user_id))
+                rows = await cur.fetchall()
+
+                user_profiles = []
+                for row in rows:
+                    user_dict = dict(zip([col[0] for col in cur.description], row))
+                    user_dict['hashtags'] = Hashtags.parse_raw(user_dict['hashtags'])
+                    user_profiles.append(user_dict)
+
+                return user_profiles
+
+    
+    async def fetch_user_id_list(
+        self,    
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                query = """
+                    SELECT id
+                    FROM users
+                    WHERE leaved = FALSE
+                """
+                
+                await cur.execute(query)
+                rows = await cur.fetchall()
+
+                user_id_list = [row[0] for row in rows]
+
+                return user_id_list
+    
+
+    async def fetch_user_fcm_list(
+        self,
+        user_id: List[str]
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                if not user_id:
+                    return []
+
+                placeholders = ', '.join(['%s'] * len(user_id))
+                query = f"""
+                    SELECT id, fcm
+                    FROM users
+                    WHERE id IN ({placeholders})
+                """
+                
+                await cur.execute(query, tuple(user_id))
+                rows = await cur.fetchall()
+
+                user_fcm_list = [row[1] for row in rows if row[1]]
+
+                return user_fcm_list
+
+
+    async def leave_user(
+        self,
+        id: str,
+        reason: str
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    "UPDATE users SET leaved = TRUE WHERE id = %s",
+                    (id,)
+                )
+                
+                await cur.execute(
+                    "INSERT INTO leaved_users (user_id, reason) VALUES (%s, %s)",
+                    (id, reason)
+                )
+                await conn.commit()
+                return True

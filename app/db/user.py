@@ -111,3 +111,12 @@ class UserPositionRequest(BaseModel):
 class UserAlarmRequest(BaseModel):
     id: str
     value: bool
+
+
+class UserListRequest(BaseModel):
+    user_id: List[str]
+    
+
+class UserLeaveRequest(BaseModel):
+    id: str
+    reason: str
