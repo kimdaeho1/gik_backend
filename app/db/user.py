@@ -111,3 +111,15 @@ class UserPositionRequest(BaseModel):
 class UserAlarmRequest(BaseModel):
     id: str
     value: bool
+
+
+class UserBlockRequest(BaseModel):
+    id: str
+    user_id: str
+
+
+class UserReportRequest(BaseModel):
+    chatId: Optional[str] = None
+    reportUserId: str
+    reportedUserId: str
+    reason: str
