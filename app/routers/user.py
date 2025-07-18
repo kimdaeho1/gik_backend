@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status
-from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest
+from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest
 from app.services.user_service import UserService
 
 
@@ -272,7 +272,7 @@ async def update_user_alarm(
     """
     유저 알람 설정 수정
     id: 유저 ID
-    type: 알람 종류 (personal_chat, group_chat, post_comment, post_like, night_agree)
+    type: 알람 종류 (markeing_agree, personal_chat, group_chat, post_comment, post_like, night_agree)
     value: 변경된 알람 설정 값 (True/False)
     """
     result: bool = await user_service.update_user_alarm(

@@ -1,7 +1,7 @@
 from fastapi import UploadFile , HTTPException
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3
-from app.db.user import User, Hashtags, UserProfileResponse
+from app.db.user import User, Hashtags, UserProfileResponse, UserDetailResponse
 from app.db.db_connection import db
 from sqlalchemy import text
 from typing import List
@@ -359,6 +359,7 @@ class UserService:
                     )
                 
                 column_map = {
+                    "marketing_agree": "marketing_agree",
                     "personal_chat": "personal_chat_alarm_agree",
                     "group_chat": "group_chat_alarm_agree",
                     "post_comment": "post_comment_alarm_agree",
