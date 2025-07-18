@@ -64,6 +64,7 @@ class UserProfileResponse(BaseModel):
 
 class UserDetailResponse(BaseModel):
     id: str
+    fcm: str
     nickname: str
     profileImages: List[str]
     relation: str
@@ -73,6 +74,8 @@ class UserDetailResponse(BaseModel):
     height: int
     weight: int
     hashtags: Hashtags
+    leaved: bool
+    blockUserList: Optional[List[str]]
 
 
 class UserNicknameRequest(BaseModel):

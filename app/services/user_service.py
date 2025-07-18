@@ -386,8 +386,9 @@ class UserService:
             async with conn.cursor() as cur:
                 user_query = """
                 SELECT
-                        id, nickname, relation, position,
-                        country, age, height, weight, hashtags
+                        id, fcm, nickname, relation, position,
+                        country, age, height, weight, hashtags,
+                        leaved
                 FROM users
                 WHERE id = %s
                 """
@@ -402,6 +403,14 @@ class UserService:
                 
                 hashtags = Hashtags.parse_raw(user_dict['hashtags'])
                 user_dict['hashtags'] = hashtags
+                
+                # 차단된 사용자 목록 조회
+                block_user_query = """
+                SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
+                """
+                await cur.execute(block_user_query, (user_id,))
+                block_user_list = [row[0] for row in await cur.fetchall()]
+                user_dict["blockUserList"] = block_user_list
 
                 # 프로필 이미지 조회
                 image_query = """
