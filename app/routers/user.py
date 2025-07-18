@@ -287,7 +287,82 @@ async def update_user_alarm(
         )
     return {"success": result, "message": "나의 알람 설정 변경 성공."}
 
+# [유저] 상대 유저 상세정보 조회
+# TODO: get인데 body어떻게 받을건지.
+@router.get("/v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
+async def fetch_user_profile(
+    id: str,
+    user_id: str
+):
+    """
+    상대 유저 프로필 조회
+    id: 유저 ID (본인)
+    user_id: 조회할 상대 유저 ID
+    """
+    user = await user_service.fetch_user_profile(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="유저 정보 조회 실패."
+        )
+    
+    return {
+        "success": True,
+        "message": "유저 정보 조회 성공",
+        "user": user
+    }
+    
 
+# [유저] 상대 유저 차단
+@router.post("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
+async def block_user(
+    user_block: UserBlockRequest
+):
+    """
+    상대 유저 차단
+    id: 유저 ID (본인)
+    user_id: 차단할 상대 유저 ID
+    """
+    result = await user_service.block_user(
+        user_block.id,
+        user_block.user_id
+    )
+    
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 차단 실패."
+        )
+    
+    return {"success": result, "message": "유저 차단 성공."}
+
+
+# [유저] 상대 유저 신고
+@router.post("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
+async def report_user(
+    user_report: UserReportRequest
+):
+    """
+    유저 신고
+    chatId: 채팅방 ID (채팅방에서 신고했다면 존재)
+    reportUserId: 신고하는 유저 ID
+    reportedUserId: 신고당하는 유저 ID
+    reason: 신고 사유
+    """
+    result = await user_service.report_user(
+        user_report.chatId,
+        user_report.reportUserId,
+        user_report.reportedUserId,
+        user_report.reason
+    )
+    
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 신고 실패."
+        )
+    
+    return {"success": result, "message": "유저 신고 성공."}
 # [유저] 상대 유저 상세정보 조회
 @router.get("v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
 async def get_user_profile(
