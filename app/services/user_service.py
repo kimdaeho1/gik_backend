@@ -1,11 +1,13 @@
 from fastapi import UploadFile , HTTPException
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3
-from app.db.user import User, Hashtags, UserProfileResponse, UserDetailResponse
+from app.db.user import User, Hashtags, UserProfileResponse, UserDetailResponse, UserMigrationRequest
 from app.db.db_connection import db
 from sqlalchemy import text
 from typing import List
+import logging, json
 
+logger = logging.getLogger(__name__)
 
 class UserService:
     def __init__(self):
@@ -650,3 +652,112 @@ class UserService:
                 )
                 await conn.commit()
                 return True
+
+
+    async def migrate_user_profile(self, user:UserMigrationRequest) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+
+                    # 유저 중복 확인
+                    await cur.execute("SELECT 1 FROM users WHERE id = %s", (user.id,))
+                    if await cur.fetchone():
+                        raise HTTPException(status_code=400, detail=f"User with id {user.id} already exists.")
+
+                    # users 삽입
+                    await cur.execute(
+                        """
+                        INSERT INTO users (
+                            id, fcm, email, name, phone, birthday, provider, sns, nickname,
+                            age, height, weight, country, position, relation, hashtags,
+                            marketing_agree, service_agree, personal_agree, night_agree,
+                            personal_chat_alarm_agree, group_chat_alarm_agree,
+                            post_comment_alarm_agree, post_like_alarm_agree, leaved,
+                            created_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s,
+                            %s
+                        )
+                        """,
+                        (
+                            user.id, user.fcm, user.email, user.name, user.phone, user.birthday,
+                            user.provider, user.sns, user.nickname, user.age, user.height, user.weight,
+                            user.country, user.position, user.relation, user.hashtags,
+                            user.marketing_agree, user.service_agree, user.personal_agree,
+                            user.night_agree, user.personal_chat_alarm, user.group_chat_alarm,
+                            user.post_comment_alarm, user.post_like_alarm, user.leaved,
+                            user.created_at
+                        )
+                    )
+
+                    
+                    for idx, url in enumerate(user.profile_image_urls):
+                        await cur.execute(
+                            "INSERT INTO user_images (user_id, `index`, url, use_yn) VALUES (%s, %s, %s, %s)",
+                            (user.id, idx, url, True)
+                        )   
+
+                
+                    for blocked_id in json.loads(user.block_list or "[]"):
+                        await cur.execute(
+                            "INSERT INTO user_block_list (block_user_id, blocked_user_id) VALUES (%s, %s)",
+                            (user.id, blocked_id)
+                        )
+
+                
+                    for blocked_post in json.loads(user.block_post_list or "[]"):
+                        await cur.execute(
+                            "INSERT INTO post_block_list (block_user_id, blocked_post_id) VALUES (%s, %s)",
+                            (user.id, blocked_post)
+                        )
+
+                
+                    for blocked_comment in json.loads(user.block_comment_list or "[]"):
+                        await cur.execute(
+                            "INSERT INTO comment_block_list (block_user_id, blocked_comment_id) VALUES (%s, %s)",
+                            (user.id, blocked_comment)
+                        )
+
+                    await conn.commit()
+                    return True
+                except Exception as e:
+                    await conn.rollback()
+                    raise e
+                
+    async def update_leaved_user_info(
+        self,
+        user_id: str,
+        reason: str,
+        user_created_at: str,
+        leaved_at: str
+    ) -> bool:
+        query_update_user = """
+            UPDATE users
+            SET leaved = TRUE
+            WHERE id = %s
+        """
+
+        query_insert_leaved = """
+            INSERT INTO leaved_users (user_id, reason, user_created_at, created_at)
+            VALUES (%s, %s, %s, %s)
+        """
+
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await cur.execute(query_update_user, (user_id,))
+                    await cur.execute(query_insert_leaved, (
+                        user_id,
+                        reason,
+                        user_created_at,
+                        leaved_at
+                    ))
+                    await conn.commit()
+                    return True
+                except Exception as e:
+                    await conn.rollback()
+                    raise e

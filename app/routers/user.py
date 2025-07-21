@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status
-from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest
+from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserMigrationRequest, LeavedUserRequest
 from app.services.user_service import UserService
 
 
@@ -451,3 +451,28 @@ async def leave_user(
             detail="유저 탈퇴 실패."
         )
     return {"success": result, "message": "유저 탈퇴 성공."}
+
+
+@router.post("/v1/gik-backend/user/profile/migration", status_code=status.HTTP_201_CREATED)
+async def migrate_user_profile(user: UserMigrationRequest):
+    try:
+        await user_service.migrate_user_profile(user)
+        return {"success": True, "message": f"User {user.id} migrated successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/v1/gik-backend/user/leaved/migration")
+async def migrate_leaved_user(data: LeavedUserRequest):
+    try:
+        result = await user_service.update_leaved_user_info(
+            user_id=data.user_id,
+            reason=data.reason,
+            user_created_at=data.user_created_at,
+            leaved_at=data.leaved_at
+        )
+        if not result:
+            raise HTTPException(status_code=500, detail="업데이트 실패")
+        return {"success": True, "message": "탈퇴 유저 정보 마이그레이션 완료"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

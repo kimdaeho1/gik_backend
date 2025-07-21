@@ -139,3 +139,42 @@ class UserReportRequest(BaseModel):
     reportUserId: str
     reportedUserId: str
     reason: str
+
+
+class UserMigrationRequest(BaseModel):
+    id: str
+    fcm: str
+    email: Optional[str] = None
+    name: str
+    phone: str
+    birthday: str
+    provider: str
+    sns: str
+    nickname: str
+    age: int
+    height: int
+    weight: int
+    country: str
+    position: str
+    relation: str
+    hashtags: str
+    personal_chat_alarm: bool
+    group_chat_alarm: bool
+    post_comment_alarm: bool
+    post_like_alarm: bool
+    service_agree: bool
+    personal_agree: bool
+    marketing_agree: bool
+    night_agree: bool
+    leaved: bool
+    profile_image_urls: List[str]
+    block_list: str
+    block_post_list: str
+    block_comment_list: str
+    created_at: datetime
+
+class LeavedUserRequest(BaseModel):
+    user_id: str
+    reason: str
+    user_created_at: str 
+    leaved_at: str       
