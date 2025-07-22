@@ -330,3 +330,76 @@ class CommunityService:
 
     
     
+    async def get_post_detail(self, post_id: str) -> Optional[PostDetailResponse]:
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    query = """
+                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
+                        FROM posts
+                        WHERE post_id = %s AND deleted = %s
+                    """
+                    await cur.execute(query, (post_id, False))
+                    row = await cur.fetchone()
+                    
+                    if not row:
+                        return None
+                    
+                    (
+                        post_id,
+                        user_id,
+                        title,
+                        content,
+                        view_count,
+                        anonymous,
+                        created_at
+                    ) = row
+                    
+                    image_query = """
+                        SELECT url
+                        FROM post_images
+                        WHERE post_id = %s AND use_yn = %s
+                        ORDER BY `index`
+                    """
+                    await cur.execute(image_query, (post_id, True))
+                    image_rows = await cur.fetchall()
+                    image_urls = [r[0] for r in image_rows]
+                    
+                    like_query = """
+                        SELECT user_id
+                        FROM post_likes
+                        WHERE post_id = %s
+                    """
+                    await cur.execute(like_query, (post_id,))
+                    like_rows = await cur.fetchall()
+                    like_user_ids = [r[0] for r in like_rows]
+                    
+                    comment_query = """
+                        SELECT COUNT(*)
+                        FROM post_comments
+                        WHERE post_id = %s
+                    """
+                    await cur.execute(comment_query, (post_id,))
+                    comment_count = (await cur.fetchone())[0]
+                    
+                    view_query = """
+                        UPDATE posts
+                        SET view_count = view_count + 1
+                        WHERE post_id = %s
+                    """
+                    
+                    return PostDetailResponse(
+                        id=post_id,
+                        userId=user_id,
+                        title=title,
+                        content=content,
+                        images=image_urls,
+                        viewCount=view_count,
+                        likeUserIds=like_user_ids,
+                        commentCount=comment_count,
+                        anonymous=anonymous,
+                        createdAt=created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    )
+        except Exception as e:
+            print(f"Error Fetching Post Detail: {e}")
+            return None

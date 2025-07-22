@@ -118,14 +118,55 @@ async def get_post(
 async def get_post_detail(
     post_id: str
 ):
-    ...
+    """
+    게시글 상세보기
+    post_id: 상세보기할 게시글 ID
+    """
+    post = await community_service.get_post_detail(post_id=post_id)
+    
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="게시글을 찾을 수 없습니다."
+        )
+    
+    return {"success": True, "message": "게시글 상세보기 성공", "post": post}
 
+
+# [게시글] 게시글 검색
+@router.get("/v1/gik-backend/community/search/{search}", status_code=status.HTTP_200_OK)
+async def search_posts(
+    search: str
+):
+    """
+    게시글 검색
+    search(수정 예정): 검색어
+    """
+    
+    posts = await community_service.search_posts(search=search)
+    if not posts:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="검색 결과가 없습니다."
+        )
+    return {"success": True, "message": "게시글 검색 성공", "posts": posts}
+    
+    
 # [게시글] 게시글 좋아요
 @router.post("/v1/gik-backend/community/likes", status_code=status.HTTP_200_OK)
 async def like_post(
+      
+):
+    ...
+
+
+# [게시글] 게시글 좋아요 취소
+@router.patch("/v1/gik-backend/community/cancel_likes", status_code=status.HTTP_200_OK)
+async def cancel_like_post(
     
 ):
     ...
+    
 
 # [게시글] 게시글 차단
 @router.patch("/v1/gik-backend/community/block", status_code=status.HTTP_200_OK)
@@ -134,6 +175,7 @@ async def block_post(
 ):
     ...
 
+
 # [게시글] 게시글 신고
 @router.patch("/v1/gik-backend/community/report", status_code=status.HTTP_200_OK)
 async def report_post(
@@ -141,12 +183,22 @@ async def report_post(
 ):
     ...
 
+
 # [게시글] 게시글 댓글 작성하기
 @router.post("/v1/gik-backend/community/comments", status_code=status.HTTP_201_CREATED)
 async def comment_post(
     
 ):
     ...
+
+
+# [게시글] 게시글 댓글 목록 불러오기
+@router.get("/v1/gik-backend/community/comments", status_code=status.HTTP_200_OK)
+async def get_comments(
+    
+):
+    ...
+
 
 # [게시글] 게시글 댓글 수정하기
 @router.patch("/v1/gik-backend/community/comments/{comment_id}", status_code=status.HTTP_200_OK)
@@ -158,6 +210,22 @@ async def edit_comment(
 # [게시글] 게시글 댓글 삭제하기
 @router.delete("/v1/gik-backend/community/comments/{comment_id}", status_code=status.HTTP_200_OK)
 async def delete_comment(
+    
+):
+    ...
+
+
+# [게시글] 게시글 댓글 좋아요
+@router.post("/v1/gik-backend/community/comment/likes", status_code=status.HTTP_200_OK)
+async def like_comment(
+    
+):
+    ...
+    
+
+# [게시글] 게시글 댓글 좋아요 취소
+@router.patch("/v1/gik-backend/community/comment/cancel_likes", status_code=status.HTTP_200_OK)
+async def cancel_like_comment(
     
 ):
     ...
