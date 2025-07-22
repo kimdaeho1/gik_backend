@@ -10,7 +10,7 @@ community_service = CommunityService()
 
 # [게시글] 게시글 등록
 @router.post("/v1/gik-backend/community", status_code=status.HTTP_201_CREATED)
-async def register_post(
+async def create_post(
     userId: str = Form(...),
     title: str = Form(...),
     content: str = Form(...),

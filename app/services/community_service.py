@@ -4,6 +4,7 @@ from app.utils.s3_upload import upload_file_to_s3
 from app.routers.image import generate_filename
 # from app.db.community import 
 from app.db.db_connection import db
+from app.db.community import PostDetailResponse
 from typing import List, Optional
 from sqlalchemy import text
 from PIL import Image
@@ -26,9 +27,26 @@ class CommunityService:
             async with conn.cursor() as cur:
                 try:
                     await conn.begin()
+
+                    if not user_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="유저가 없습니다"
+                        )
+                    
                     
                     post_id = str(uuid.uuid4())
-                    # 게시글 등록
+                    check_post = """
+                        SELECT post_id FROM posts WHERE post_id = %s
+                    """
+                    await cur.execute(check_post, (post_id,))
+                    existing_post = await cur.fetchone()
+                    if existing_post:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="이미 존재하는 게시글 ID입니다."
+                        )
+                    
                     insert_sql = """
                         INSERT INTO posts (
                             post_id, user_id, title, content
@@ -41,7 +59,6 @@ class CommunityService:
                     
                     if images:
                         for idx, file in enumerate(images):
-                            
                             if not file:
                                 continue
                             
@@ -105,6 +122,24 @@ class CommunityService:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
                     await conn.begin()
+                    
+                    check_user= """
+                        SELECT user_id FROM posts WHERE post_id = %s and deleted = %s
+                    """
+                    await cur.execute(check_user, (post_id, False))
+                    user_row = await cur.fetchone()
+                    
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 게시글입니다."
+                        )
+                    
+                    if user_row[0] != user_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="게시글 수정 권한이 없습니다."
+                        )
                     
                     edit_query = """
                     UPDATE posts
@@ -179,6 +214,24 @@ class CommunityService:
                 async with conn.cursor() as cur:
                     await conn.begin()
                     
+                    check_user= """
+                        SELECT user_id FROM posts WHERE post_id = %s and deleted = %s
+                    """
+                    await cur.execute(check_user, (post_id, False))
+                    user_row = await cur.fetchone()
+                    
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 게시글입니다."
+                        )
+                    
+                    if user_row[0] != user_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="게시글 삭제 권한이 없습니다."
+                        )
+                        
                     update_query = """
                     UPDATE posts
                     SET deleted = %s
@@ -200,24 +253,80 @@ class CommunityService:
             return False
     
     
-    async def get_posts(self, index: int):
+    async def get_posts(self, index: int) -> List[PostDetailResponse]:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
                     offset = (index - 1) * 20
                     query = """
-                        SELECT post_id, user_id, title, content, created_at, updated_at
+                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
                         FROM posts
                         WHERE deleted = %s
                         ORDER BY created_at DESC
                         LIMIT 20 OFFSET %s
                     """
                     await cur.execute(query, (False, offset))
-                    posts = await cur.fetchall()
-                    
+                    post_rows = await cur.fetchall()
+
+                    posts = []
+
+                    for row in post_rows:
+                        (
+                            post_id,
+                            user_id,
+                            title,
+                            content,
+                            view_count,
+                            anonymous,
+                            created_at
+                        ) = row
+                        
+                        image_query = """
+                            SELECT url
+                            FROM post_images
+                            WHERE post_id = %s AND use_yn = %s
+                            ORDER BY `index`
+                        """
+                        await cur.execute(image_query, (post_id, True))
+                        image_rows = await cur.fetchall()
+                        image_urls = [r[0] for r in image_rows]
+
+                        
+                        like_query = """
+                            SELECT user_id
+                            FROM post_likes
+                            WHERE post_id = %s
+                        """
+                        await cur.execute(like_query, (post_id,))
+                        like_rows = await cur.fetchall()
+                        like_user_ids = [r[0] for r in like_rows]
+
+                        
+                        comment_query = """
+                            SELECT COUNT(*)
+                            FROM post_comments
+                            WHERE post_id = %s
+                        """
+                        await cur.execute(comment_query, (post_id,))
+                        comment_count = (await cur.fetchone())[0]
+                        
+                        posts.append(PostDetailResponse(
+                            id=post_id,
+                            userId=user_id,
+                            title=title,
+                            content=content,
+                            images=image_urls,
+                            viewCount=view_count,
+                            likeUserIds=like_user_ids,
+                            commentCount=comment_count,
+                            anonymous=anonymous,
+                            createdAt=created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+
                     return posts
         except Exception as e:
             print(f"Error Fetching Posts: {e}")
-            return None
+            return []
+
     
     

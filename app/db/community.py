@@ -43,3 +43,14 @@ class PostCommentEditRequest(BaseModel):
     content: str
     
 
+class PostDetailResponse(BaseModel):
+    id: str
+    userId: str
+    title: str
+    content: str
+    images: List[str]
+    viewCount: int
+    likeUserIds: List[str]
+    commentCount: int
+    anonymous: bool
+    createdAt: str
