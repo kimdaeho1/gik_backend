@@ -1,6 +1,6 @@
 from fastapi import UploadFile, HTTPException
 from datetime import datetime
-from app.utils.s3_upload import upload_file_to_s3
+from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
 from app.routers.image import generate_filename
 # from app.db.community import 
 from app.db.db_connection import db
@@ -9,6 +9,7 @@ from typing import List, Optional
 from sqlalchemy import text
 from PIL import Image
 import io, uuid
+
 
 
 class CommunityService:
@@ -62,7 +63,7 @@ class CommunityService:
                             if not file:
                                 continue
                             
-                            s3_key = f"https://gik-profile.couplematch.co.kr/community/{post_id}/"
+                            s3_key = f"community/{post_id}/"
                             str_filename = generate_filename(file.filename)
                             
                             file.file.seek(0)
@@ -99,7 +100,7 @@ class CommunityService:
                                     %s, %s, %s, %s, %s
                                 )
                                 """,
-                                (post_id, user_id, idx, f"{s3_key}{str_filename}", True)
+                                (post_id, user_id, idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
                     await conn.commit()
                     return post_id
@@ -160,7 +161,7 @@ class CommunityService:
                     
                     if images:
                         for idx, file in enumerate(images):
-                            s3_key = f"https://gik-profile.couplematch.co.kr/community/{post_id}/"
+                            s3_key = f"community/{post_id}/"
                             str_filename = generate_filename(file.filename)
                             
                             file.file.seek(0)
@@ -198,7 +199,7 @@ class CommunityService:
                                     %s, %s, %s, %s, %s
                                 )
                                 """,
-                                (post_id, user_id, idx, f"{s3_key}{str_filename}", True)
+                                (post_id, user_id, idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
                             
                     await conn.commit()
