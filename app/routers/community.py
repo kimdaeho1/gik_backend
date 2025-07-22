@@ -155,17 +155,48 @@ async def search_posts(
 # [게시글] 게시글 좋아요
 @router.post("/v1/gik-backend/community/likes", status_code=status.HTTP_200_OK)
 async def like_post(
-      
+    like_request: PostLikeRequest
 ):
-    ...
+    """
+    게시글 좋아요
+    userId: 게시글을 좋아요한 사용자 ID
+    postId: 좋아요할 게시글 ID
+    """
+    success = await community_service.post_like(
+        like_request.userId,
+        like_request.postId
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="게시글 좋아요 실패"
+        )
+    
+    return {"success": True, "message": "게시글 좋아요 성공"}
+    
 
 
 # [게시글] 게시글 좋아요 취소
 @router.patch("/v1/gik-backend/community/cancel_likes", status_code=status.HTTP_200_OK)
 async def cancel_like_post(
-    
+    like_request: PostLikeRequest
 ):
-    ...
+    """
+    게시글 좋아요 취소
+    userId: 게시글 좋아요 취소한 사용자 ID
+    postId: 좋아요 취소할 게시글 ID
+    """
+    success = await community_service.cancel_post_like(
+        like_request.userId,
+        like_request.postId
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="게시글 좋아요 취소 실패"
+        )
+    
+    return {"success": True, "message": "게시글 좋아요 취소 성공"}
     
 
 # [게시글] 게시글 차단

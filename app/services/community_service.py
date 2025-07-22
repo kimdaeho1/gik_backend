@@ -334,6 +334,13 @@ class CommunityService:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
+                    
+                    if not post_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="게시글을 조회할 수 없습니다."
+                        )
+                    
                     query = """
                         SELECT post_id, user_id, title, content, view_count, anonymous, created_at
                         FROM posts
@@ -344,7 +351,6 @@ class CommunityService:
                     
                     if not row:
                         return None
-                    
                     (
                         post_id,
                         user_id,
@@ -403,3 +409,112 @@ class CommunityService:
         except Exception as e:
             print(f"Error Fetching Post Detail: {e}")
             return None
+
+
+    async def serach_posts(self, search: str) -> List[PostDetailResponse]:
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    search_query = """
+                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
+                        FROM posts
+                        WHERE (title LIKE %s OR content LIKE %s) AND deleted = %s
+                        ORDER BY created_at DESC
+                    """
+                    search_param = f"%{search}%"
+                    await cur.execute(search_query, (search_param, search_param, False))
+                    post_rows = await cur.fetchall()
+
+                    posts = []
+
+                    for row in post_rows:
+                        (
+                            post_id,
+                            user_id,
+                            title,
+                            content,
+                            view_count,
+                            anonymous,
+                            created_at
+                        ) = row
+                        
+                        image_query = """
+                            SELECT url
+                            FROM post_images
+                            WHERE post_id = %s AND use_yn = %s
+                            ORDER BY `index`
+                        """
+                        await cur.execute(image_query, (post_id, True))
+                        image_rows = await cur.fetchall()
+                        image_urls = [r[0] for r in image_rows]
+
+                        
+                        like_query = """
+                            SELECT user_id
+                            FROM post_likes
+                            WHERE post_id = %s
+                        """
+                        await cur.execute(like_query, (post_id,))
+                        like_rows = await cur.fetchall()
+                        like_user_ids = [r[0] for r in like_rows]
+
+                        
+                        comment_query = """
+                            SELECT COUNT(*)
+                            FROM post_comments
+                            WHERE post_id = %s
+                        """
+                        await cur.execute(comment_query, (post_id,))
+                        comment_count = (await cur.fetchone())[0]
+                        
+                        posts.append(PostDetailResponse(
+                            id=post_id,
+                            userId=user_id,
+                            title=title,
+                            content=content,
+                            images=image_urls,
+                            viewCount=view_count,
+                            likeUserIds=like_user_ids,
+                            commentCount=comment_count,
+                            anonymous=anonymous,
+                            createdAt=created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+
+                    return posts
+        except Exception as e:
+            print(f"Error Searching Posts: {e}")
+            return []
+        
+    
+    async def post_like(self, userId, postId):
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await conn.begin()
+                    
+                    check_like = """
+                        SELECT user_id FROM post_likes WHERE post_id = %s AND user_id = %s
+                    """
+                    await cur.execute(check_like, (postId, userId))
+                    existing_like = await cur.fetchone()
+                    
+                    if existing_like:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="이미 좋아요를 누른 게시글입니다."
+                        )
+                    
+                    insert_like = """
+                        INSERT INTO post_likes (post_id, user_id)
+                        VALUES (%s, %s)
+                    """
+                    await cur.execute(insert_like, (postId, userId))
+                    
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            print(f"Error Liking Post: {e}")
+            return False
+        
+    
+    

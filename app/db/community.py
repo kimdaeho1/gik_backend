@@ -18,7 +18,6 @@ class PostEditRequest(BaseModel):
 # TODO 삭제 
 
 
-# postid를 어떻게 할건지? 생성할때 현재는 post_id가 없는 상태.
 class PostLikeRequest(BaseModel):
     postId: int
     userId: str
@@ -54,3 +53,8 @@ class PostDetailResponse(BaseModel):
     commentCount: int
     anonymous: bool
     createdAt: str
+
+class PostLikeRequest(BaseModel):
+    userId: str
+    poseId: str
+    
