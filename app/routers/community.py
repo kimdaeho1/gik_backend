@@ -11,7 +11,7 @@ community_service = CommunityService()
 # [게시글] 게시글 등록
 @router.post("/v1/gik-backend/community", status_code=status.HTTP_201_CREATED)
 async def create_post(
-    userId: str = Form(...),
+    user_id: str = Form(...),
     title: str = Form(...),
     content: str = Form(...),
     images: Optional[List[UploadFile]] = File(default=[])
@@ -25,7 +25,7 @@ async def create_post(
     """
     
     post_id = await community_service.create_post(
-        user_id=userId,
+        user_id=user_id,
         title=title,
         content=content,
         images=images
