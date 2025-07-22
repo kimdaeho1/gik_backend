@@ -160,7 +160,7 @@ class CommunityService:
                     
                     if images:
                         for idx, file in enumerate(images):
-                            s3_key = f"community/{post_id}/"
+                            s3_key = f"https://gik-profile.couplematch.co.kr/community/{post_id}/"
                             str_filename = generate_filename(file.filename)
                             
                             file.file.seek(0)
@@ -253,11 +253,11 @@ class CommunityService:
             return False
     
     
-    async def get_posts(self, index: int) -> List[PostDetailResponse]:
+    async def get_posts(self, page: int) -> List[PostDetailResponse]:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
-                    offset = (index - 1) * 20
+                    offset = (page - 1) * 20
                     query = """
                         SELECT post_id, user_id, title, content, view_count, anonymous, created_at
                         FROM posts
@@ -327,6 +327,3 @@ class CommunityService:
         except Exception as e:
             print(f"Error Fetching Posts: {e}")
             return []
-
-    
-    

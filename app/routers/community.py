@@ -96,13 +96,13 @@ async def delete_post(
 # 20개씩 끊어서 페이지네이션.
 @router.get("/v1/gik-backend/community", status_code=status.HTTP_200_OK)
 async def get_post(
-    index: int = Query(...)
+    page: int = Query(...)
 ):
     """
     게시글 목록 불러오기
-    index: 페이지 인덱스 (1부터 시작, 20개씩 페이지네이션)
+    page: 페이지 인덱스 (1부터 시작, 20개씩 페이지네이션)
     """
-    posts = await community_service.get_posts(index=index)
+    posts = await community_service.get_posts(page=page)
     
     if not posts:
         raise HTTPException(
