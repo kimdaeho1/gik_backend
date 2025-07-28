@@ -15,21 +15,18 @@ class PostEditRequest(BaseModel):
     images: Optional[List[str]]
     
 
-# TODO 삭제 
-
 class PostDeleteRequest(BaseModel):
     userId: str
     postId: str
 
 
 class PostBlockRequest(BaseModel):
-    postId: int
     userId: str
-    blockPostId: int
+    blockPostId: str
 
 
 class PostCommentRequest(BaseModel):
-    postId: int
+    postId: str
     userId: str
     content: str
 
@@ -59,7 +56,6 @@ class PostLikeRequest(BaseModel):
 
 class CommentResponse(BaseModel):
     id: int
-    postId: int
     userId: str
     content: str
     
@@ -76,3 +72,29 @@ class PostDetailResponse(BaseModel):
     likeUserIds: List[str]
     anonymous: bool
     createdAt: str
+
+
+class PostReportRequest(BaseModel):
+    reportPostId: str
+    reportUserId: str
+    reason: str
+
+
+class PostCommentListResponse(BaseModel):
+    comments: List[CommentResponse]
+
+
+class CommentLikeRequest(BaseModel):
+    userId: str
+    commentId: int
+
+
+class CommentEditRequest(BaseModel):
+    userId: str
+    commentId: int
+    content: str
+
+
+class CommentDeleteRequest(BaseModel):
+    userId: str
+    commentId: int

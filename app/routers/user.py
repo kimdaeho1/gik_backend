@@ -7,6 +7,7 @@ from app.services.user_service import UserService
 router = APIRouter()
 user_service = UserService()
 
+# TODO: device_os 필요할듯
 # [유저] 회원가입
 @router.post("/v1/gik-backend/user", status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
