@@ -1018,3 +1018,162 @@ class CommunityService:
                     await conn.rollback()
                     print(f"Error Deleting Comment: {e}")
                     return False
+
+
+    async def get_my_posts(
+        self,
+        user_id: str
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    
+                    # 사용자가 있는지 확인
+                    check_user = """
+                        SELECT id FROM users WHERE id = %s
+                    """
+                    await cur.execute(check_user, (user_id,))
+                    user_row = await cur.fetchone()
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않는 사용자입니다."
+                        )
+                        
+                    # 사용자 게시글 조회
+                    query = """
+                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
+                        FROM posts
+                        WHERE user_id = %s AND deleted = %s
+                        ORDER BY created_at DESC
+                    """
+                    await cur.execute(query, (user_id, False))
+                    post_rows = await cur.fetchall()
+                    posts = []
+                    
+                    for row in post_rows:
+                        (
+                            post_id,
+                            user_id,
+                            title,
+                            content,
+                            view_count,
+                            anonymous,
+                            created_at
+                        ) = row
+                        
+                        image_query = """
+                            SELECT url
+                            FROM post_images
+                            WHERE post_id = %s AND use_yn = %s
+                            ORDER BY `index`
+                        """
+                        await cur.execute(image_query, (post_id, True))
+                        image_rows = await cur.fetchall()
+                        image_urls = [r[0] for r in image_rows]
+
+                        
+                        like_query = """
+                            SELECT user_id
+                            FROM post_likes
+                            WHERE post_id = %s
+                        """
+                        await cur.execute(like_query, (post_id,))
+                        like_rows = await cur.fetchall()
+                        like_user_ids = [r[0] for r in like_rows]
+
+                        
+                        comment_query = """
+                            SELECT COUNT(*)
+                            FROM post_comments
+                            WHERE post_id = %s
+                        """
+                        await cur.execute(comment_query, (post_id,))
+                        comment_count = (await cur.fetchone())[0]
+                        
+                        posts.append(PostListResponse(
+                            id=post_id,
+                            userId=user_id,
+                            title=title,
+                            content=content,
+                            images=image_urls,
+                            viewCount=view_count,
+                            likeUserIds=like_user_ids,
+                            commentCount=comment_count,
+                            anonymous=anonymous,
+                            createdAt=created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+                    await conn.commit()
+                    return posts
+                except Exception as e:
+                    await conn.rollback()
+                    print(f"Error Fetching My Posts: {e}")
+                    return []
+                
+    
+    async def get_my_comments(
+        self,
+        user_id: str
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    
+                    # 사용자가 있는지 확인
+                    check_user = """
+                        SELECT id FROM users WHERE id = %s
+                    """
+                    await cur.execute(check_user, (user_id,))
+                    user_row = await cur.fetchone()
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않는 사용자입니다."
+                        )
+                        
+                    # 사용자 댓글 조회
+                    query = """
+                        SELECT id, post_id, user_id, content, created_at
+                        FROM post_comments
+                        WHERE user_id = %s AND deleted = %s
+                        ORDER BY created_at DESC
+                    """
+                    await cur.execute(query, (user_id, False))
+                    comment_rows = await cur.fetchall()
+                    
+                    comments: List[CommentResponse] = []
+                    
+                    for row in comment_rows:
+                        (
+                            comment_id,
+                            post_id,
+                            comment_user_id,
+                            comment_content,
+                            comment_created_at                     
+                        ) = row
+
+                        # 댓글 좋아요 수 조회
+                        comment_like_query = """
+                            SELECT COUNT(*)
+                            FROM post_comment_likes
+                            WHERE comment_id = %s
+                        """
+                        await cur.execute(comment_like_query, (comment_id,))
+                        comment_like_count = (await cur.fetchone())[0]
+
+                        comments.append(CommentResponse(
+                            id=comment_id,
+                            userId=comment_user_id,
+                            content=comment_content,
+                            likeCount=comment_like_count,
+                            createdAt=comment_created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+                        
+                    await conn.commit()
+                    return comments
+                except Exception as e:
+                    await conn.rollback()
+                    print(f"Error Fetching My Comments: {e}")
+                    return []

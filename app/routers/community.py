@@ -391,3 +391,38 @@ async def edit_comment(
             detail="댓글 수정 실패"
         )
     return {"success": success, "message": "댓글 수정 성공"}
+
+
+# [게시글] 내 게시글 불러오기
+@router.post("/v1/gik-backend/community/my-post/{user_id}", status_code=status.HTTP_200_OK)
+async def get_my_posts(
+    user_id: str
+):
+    """
+    내 게시글 불러오기
+    user_id: 게시글을 작성한 사용자 ID
+    """
+    success = await community_service.get_my_posts(user_id=user_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="내 게시글을 찾을 수 없습니다."
+        )
+    return {"success": True, "message": "내 게시글 불러오기 성공", "posts": success}
+
+
+@router.post("/v1/gik-backend/community/my-comment/{user_id}", status_code=status.HTTP_200_OK)
+async def get_my_comments(
+    user_id: str    
+):
+    """
+    내 댓글 불러오기
+    user_id: 댓글을 작성한 사용자 ID
+    """
+    success = await community_service.get_my_comments(user_id=user_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="내 댓글을 찾을 수 없습니다."
+        )
+    return {"success": True, "message": "내 댓글 불러오기 성공", "comments": success}
