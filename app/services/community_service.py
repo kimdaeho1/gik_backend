@@ -1,6 +1,6 @@
 from fastapi import UploadFile, HTTPException, status
 from datetime import datetime
-from app.utils.s3_upload import upload_file_to_s3
+from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
 from app.routers.image import generate_filename
 # from app.db.community import 
 from app.db.db_connection import db
@@ -9,6 +9,7 @@ from typing import List, Optional
 from sqlalchemy import text
 from PIL import Image
 import io, uuid
+
 
 
 class CommunityService:
@@ -62,7 +63,7 @@ class CommunityService:
                             if not file:
                                 continue
                             
-                            s3_key = f"https://gik-profile.couplematch.co.kr/community/{post_id}/"
+                            s3_key = f"community/{post_id}/"
                             str_filename = generate_filename(file.filename)
                             
                             file.file.seek(0)
@@ -99,7 +100,7 @@ class CommunityService:
                                     %s, %s, %s, %s, %s
                                 )
                                 """,
-                                (post_id, user_id, idx, f"{s3_key}{str_filename}", True)
+                                (post_id, user_id, idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
                     await conn.commit()
                     return post_id
@@ -198,7 +199,7 @@ class CommunityService:
                                     %s, %s, %s, %s, %s
                                 )
                                 """,
-                                (post_id, user_id, idx, f"{s3_key}{str_filename}", True)
+                                (post_id, user_id, idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
                             
                     await conn.commit()
@@ -253,11 +254,11 @@ class CommunityService:
             return False
     
     
-    async def get_posts(self, index: int) -> List[PostDetailResponse]:
+    async def get_posts(self, page: int) -> List[PostDetailResponse]:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
-                    offset = (index - 1) * 20
+                    offset = (page - 1) * 20
                     query = """
                         SELECT post_id, user_id, title, content, view_count, anonymous, created_at
                         FROM posts
@@ -327,6 +328,7 @@ class CommunityService:
         except Exception as e:
             print(f"Error Fetching Posts: {e}")
             return []
+
 
     
     
