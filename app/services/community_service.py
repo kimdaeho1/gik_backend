@@ -16,7 +16,6 @@ class CommunityService:
     def __init__(self):
         self.db = db
     
-    # TODO : post_id를 uuid로 생성해서 넣기.
     async def create_post(
         self,
         user_id: str,
@@ -150,6 +149,8 @@ class CommunityService:
                     
                     await cur.execute(edit_query, (title, content, datetime.now(), post_id))
                     
+                    # TODO: 이미지 수정할때, 기존 이미지를 어떻게 처리할건지. 글 내용만 수정하면 이미지가 날라가버림.
+                    # TODO: 이미지를 수정할때, 바꾸지 않을 이미지 url_list를 넘겨주면, 현재 게시글의 url_list와 비교해서 있는것은 놔두고, 삭제된 것은 use_yn=false 처리. 이후 추가된 이미지는 맨뒤의 index로 삽입하기
                     await cur.execute(
                         """
                         UPDATE post_images
@@ -208,7 +209,7 @@ class CommunityService:
             print(f"Error Editing Post: {e}")
             return False
             
-    # TODO: user_id를 받아서 해당 유저가 작성한 게시글인지 확인하고 삭제하기.
+    
     async def delete_post(self, post_id: str, user_id: str) -> bool:
         try:
             async with self.db.get_connection() as conn:
@@ -600,3 +601,420 @@ class CommunityService:
         except Exception as e:
             print(f"Error Cancelling Post Like: {e}")
             return False
+
+
+    async def block_post(self, user_id, post_id):
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await conn.begin()
+                    
+                    # 사용자가 있는지
+                    check_user = """
+                        SELECT id FROM users WHERE id = %s
+                    """
+                    await cur.execute(check_user, (user_id,))
+                    user_row = await cur.fetchone()
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않는 사용자입니다."
+                        )
+                    
+                    # 게시글이 있는지
+                    check_post = """
+                        SELECT post_id FROM posts WHERE post_id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_post, (post_id, False))
+                    post_row = await cur.fetchone()
+                    if not post_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 게시글입니다."
+                        )
+                    
+                    # 차단
+                    block_query = """
+                        INSERT INTO post_block_list (block_user_id, blocked_post_id)
+                        VALUES (%s, %s)
+                    """
+                    await cur.execute(block_query, (post_id, user_id))
+                    await conn.commit()
+                    return True
+
+        except Exception as e:
+            print(f"Error Blocking Post: {e}")
+            return False
+
+    # TODO: 신고당한 게시글의 유저는 어떻게 처리할까. 백에서 처리? 프론트에서 처리?
+    async def report_post(
+        self,
+        report_post_id: str,
+        report_user_id: str,
+        reason: str
+    ):
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await conn.begin()
+                    
+                    # 사용자가 있는지
+                    check_user = """
+                        SELECT id FROM users WHERE id = %s
+                    """
+                    await cur.execute(check_user, (report_user_id,))
+                    user_row = await cur.fetchone()
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않는 사용자입니다."
+                        )
+                    
+                    # 게시글이 있는지, 게시글 작성자 ID를 같이 가져오기
+                    check_post = """
+                        SELECT post_id, user_id FROM posts WHERE post_id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_post, (report_post_id, False))
+                    post_row = await cur.fetchone()
+                    if not post_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 게시글입니다."
+                        )
+                    
+                    _, post_user_id = post_row
+                    
+                    # 이미 신고한 게시글인지 확인
+                    check_report = """
+                        SELECT * FROM post_reports
+                        WHERE reported_post_id = %s AND report_user_id = %s
+                    """
+                    await cur.execute(check_report, (report_post_id, report_user_id))
+                    check_report = await cur.fetchone()
+                    if check_report:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="이미 신고한 게시글입니다."
+                        ) 
+                    
+                    # 신고 등록
+                    insert_query = """
+                        INSERT INTO post_reports (
+                            reported_post_id, 
+                            reported_user_id,
+                            report_user_id,
+                            reason
+                        )
+                        VALUES (%s, %s, %s, %s)
+                    """
+                    await cur.execute(insert_query, (
+                        report_post_id,
+                        post_user_id,  # 신고당한 게시글의 유저 ID
+                        report_user_id,
+                        reason
+                        ))
+                    await conn.commit()
+                    return True
+
+        except Exception as e:
+            await conn.rollback()
+            print(f"Error Commenting Post: {e}")
+            return False
+
+
+    async def create_comment(
+        self,
+        post_id: str,
+        user_id: str,
+        content: str
+    ) -> bool:
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await conn.begin()
+                    
+                    # 게시글이 있는지 확인
+                    check_post = """
+                        SELECT post_id FROM posts WHERE post_id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_post, (post_id, False))
+                    post_row = await cur.fetchone()
+                    if not post_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 게시글입니다."
+                        )
+                    
+                    # 댓글 작성
+                    insert_query = """
+                        INSERT INTO post_comments (post_id, user_id, content)
+                        VALUES (%s, %s, %s)
+                    """
+                    await cur.execute(insert_query, (post_id, user_id, content))
+                    
+                    insert_history = """
+                        INSERT INTO post_comments_history (post_id, user_id, content)
+                        VALUES (%s, %s, %s)
+                    """
+                    await cur.execute(insert_history, (post_id, user_id, content))
+                    
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            await conn.rollback()
+            print(f"Error Commenting Post: {e}")
+            return False
+    
+    
+    async def get_comments(
+        self,
+        post_id: str
+    ):
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    # 게시글이 있는지 확인
+                    check_post = """
+                        SELECT post_id FROM posts WHERE post_id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_post, (post_id, False))
+                    post_row = await cur.fetchone()
+                    if not post_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 게시글입니다."
+                        )
+                    
+                    # 댓글 조회
+                    comment_query = """
+                        SELECT id, user_id, content, created_at
+                        FROM post_comments
+                        WHERE post_id = %s AND deleted = FALSE
+                        ORDER BY created_at ASC
+                    """
+                    await cur.execute(comment_query, (post_id,))
+                    comment_rows = await cur.fetchall()
+                    
+                    comments: List[CommentResponse] = []
+                    
+                    for comment_row in comment_rows:
+                        (
+                            comment_id,
+                            comment_user_id,
+                            comment_content,
+                            comment_created_at                     
+                        ) = comment_row
+
+                        # 댓글 좋아요 수 조회
+                        comment_like_query = """
+                            SELECT COUNT(*)
+                            FROM post_comment_likes
+                            WHERE comment_id = %s
+                        """
+                        await cur.execute(comment_like_query, (comment_id,))
+                        comment_like_count = (await cur.fetchone())[0]
+
+                        comments.append(CommentResponse(
+                            id=comment_id,
+                            userId=comment_user_id,
+                            content=comment_content,
+                            likeCount=comment_like_count,
+                            createdAt=comment_created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+                    return comments
+        except Exception as e:
+            print(f"Error Fetching Comments: {e}")
+            return False
+        
+    
+    async def like_comment(self, user_id, comment_id) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    
+                    # 댓글이 있는지 확인
+                    check_comment = """
+                        SELECT id FROM post_comments WHERE id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_comment, (comment_id, False))
+                    comment_row = await cur.fetchone()
+                    if not comment_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 댓글입니다."
+                        )
+                    
+                    # 이미 좋아요를 누른 댓글인지 확인
+                    check_like = """
+                        SELECT user_id FROM post_comment_likes WHERE comment_id = %s AND user_id = %s
+                    """
+                    await cur.execute(check_like, (comment_id, user_id))
+                    checking_like = await cur.fetchone()
+                    
+                    if checking_like:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="이미 좋아요를 누른 댓글입니다."
+                        )
+                    
+                    # 댓글 좋아요 등록
+                    insert_like = """
+                        INSERT INTO post_comment_likes (comment_id, user_id)
+                        VALUES (%s, %s)
+                    """
+                    await cur.execute(insert_like, (comment_id, user_id))
+                    
+                    await conn.commit()
+                    return True
+                except Exception as e:
+                    await conn.rollback()
+                    print(f"Error Liking Comment: {e}")
+                    return False
+
+
+    async def cancel_like_comment(self, user_id, comment_id) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    
+                    # 댓글이 있는지 확인
+                    check_comment = """
+                        SELECT id FROM post_comments WHERE id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_comment, (comment_id, False))
+                    comment_row = await cur.fetchone()
+                    if not comment_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 댓글입니다."
+                        )
+                    
+                    # 좋아요를 누른 댓글인지 확인
+                    check_like = """
+                        SELECT user_id FROM post_comment_likes WHERE comment_id = %s AND user_id = %s
+                    """
+                    await cur.execute(check_like, (comment_id, user_id))
+                    checking_like = await cur.fetchone()
+                    
+                    if not checking_like:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="좋아요를 누르지 않은 댓글입니다."
+                        )
+                    
+                    # 댓글 좋아요 취소
+                    cancel_like = """
+                        DELETE FROM post_comment_likes WHERE comment_id = %s AND user_id = %s
+                    """
+                    await cur.execute(cancel_like, (comment_id, user_id))
+                    
+                    await conn.commit()
+                    return True
+                except Exception as e:
+                    await conn.rollback()
+                    print(f"Error Cancelling Comment Like: {e}")
+                    return False
+                
+    
+    async def edit_comment(
+        self,
+        user_id: str,
+        comment_id: int,
+        content: str
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    
+                    # 댓글이 있는지 확인
+                    check_comment = """
+                        SELECT id, user_id, post_id FROM post_comments WHERE id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_comment, (comment_id, False))
+                    comment_row = await cur.fetchone()
+                    
+                    if not comment_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 댓글입니다."
+                        )
+                    
+                    _, existing_user_id, post_id = comment_row
+                    
+                    if existing_user_id != user_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="댓글 수정 권한이 없습니다."
+                        )
+                    
+                    # 댓글 수정
+                    update_query = """
+                        UPDATE post_comments
+                        SET content = %s, updated_at = %s
+                        WHERE id = %s
+                    """
+                    await cur.execute(update_query, (content, datetime.now(), comment_id))
+                    
+                    # 히스토리 저장, post_id는 가져와야합니다.
+                    insert_history = """
+                        INSERT INTO post_comments_history (post_id, user_id, content)
+                        VALUES (%s, %s, %s)
+                    """
+                    await cur.execute(insert_history, (comment_id, user_id, content))
+                    
+                    await conn.commit()
+                    return True
+                except Exception as e:
+                    await conn.rollback()
+                    print(f"Error Editing Comment: {e}")
+                    return False
+
+
+    async def delete_comment(
+        self,
+        user_id: str,
+        comment_id: int
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    
+                    # 댓글이 있는지 확인
+                    check_comment = """
+                        SELECT id, user_id FROM post_comments WHERE id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_comment, (comment_id, False))
+                    comment_row = await cur.fetchone()
+                    
+                    if not comment_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 댓글입니다."
+                        )
+                    
+                    existing_comment_id, existing_user_id = comment_row
+                    
+                    if existing_user_id != user_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="댓글 삭제 권한이 없습니다."
+                        )
+                    
+                    # 댓글 삭제
+                    delete_query = """
+                        UPDATE post_comments
+                        SET deleted = %s
+                        WHERE id = %s
+                    """
+                    await cur.execute(delete_query, (True, comment_id))
+                    
+                    await conn.commit()
+                    return True
+                except Exception as e:
+                    await conn.rollback()
+                    print(f"Error Deleting Comment: {e}")
+                    return False
