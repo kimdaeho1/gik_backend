@@ -17,13 +17,10 @@ class PostEditRequest(BaseModel):
 
 # TODO 삭제 
 
-
-# postid를 어떻게 할건지? 생성할때 현재는 post_id가 없는 상태.
-class PostLikeRequest(BaseModel):
-    postId: int
+class PostDeleteRequest(BaseModel):
     userId: str
-    likePostId: int
-    
+    postId: str
+
 
 class PostBlockRequest(BaseModel):
     postId: int
@@ -43,7 +40,7 @@ class PostCommentEditRequest(BaseModel):
     content: str
     
 
-class PostDetailResponse(BaseModel):
+class PostListResponse(BaseModel):
     id: str
     userId: str
     title: str
@@ -52,5 +49,30 @@ class PostDetailResponse(BaseModel):
     viewCount: int
     likeUserIds: List[str]
     commentCount: int
+    anonymous: bool
+    createdAt: str
+
+class PostLikeRequest(BaseModel):
+    userId: str
+    postId: str
+    
+
+class CommentResponse(BaseModel):
+    id: int
+    postId: int
+    userId: str
+    content: str
+    
+
+class PostDetailResponse(BaseModel):
+    id: str
+    userId: str
+    title: str
+    content: str
+    viewCount: int
+    likeCount: int
+    images: List[str]
+    comments: List[CommentResponse]
+    likeUserIds: List[str]
     anonymous: bool
     createdAt: str

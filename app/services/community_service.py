@@ -1,10 +1,10 @@
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile, HTTPException, status
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
 from app.routers.image import generate_filename
 # from app.db.community import 
 from app.db.db_connection import db
-from app.db.community import PostDetailResponse
+from app.db.community import PostListResponse, CommentResponse, PostDetailResponse
 from typing import List, Optional
 from sqlalchemy import text
 from PIL import Image
@@ -208,8 +208,8 @@ class CommunityService:
             print(f"Error Editing Post: {e}")
             return False
             
-    
-    async def delete_post(self, post_id: str):
+    # TODO: user_id를 받아서 해당 유저가 작성한 게시글인지 확인하고 삭제하기.
+    async def delete_post(self, post_id: str, user_id: str) -> bool:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
@@ -311,7 +311,7 @@ class CommunityService:
                         await cur.execute(comment_query, (post_id,))
                         comment_count = (await cur.fetchone())[0]
                         
-                        posts.append(PostDetailResponse(
+                        posts.append(PostListResponse(
                             id=post_id,
                             userId=user_id,
                             title=title,
@@ -328,3 +328,275 @@ class CommunityService:
         except Exception as e:
             print(f"Error Fetching Posts: {e}")
             return []
+
+
+    
+    
+    async def get_post_detail(self, post_id: str) -> Optional[PostDetailResponse]:
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    
+                    if not post_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="게시글을 조회할 수 없습니다."
+                        )
+                    
+                    # 게시글 기본 정보 쿼리
+                    query = """
+                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
+                        FROM posts
+                        WHERE post_id = %s AND deleted = %s
+                    """
+                    await cur.execute(query, (post_id, False))
+                    row = await cur.fetchone()
+                    
+                    if not row:
+                        return None
+                    (
+                        post_id,
+                        user_id,
+                        title,
+                        content,
+                        view_count,
+                        anonymous,
+                        created_at
+                    ) = row
+                    
+                    # 게시글 이미지 쿼리 
+                    image_query = """
+                        SELECT url
+                        FROM post_images
+                        WHERE post_id = %s AND use_yn = %s
+                        ORDER BY `index`
+                    """
+                    await cur.execute(image_query, (post_id, True))
+                    image_rows = await cur.fetchall()
+                    image_urls = [r[0] for r in image_rows]
+                    
+                    # 게시글에 좋아요를 누른 유저 id 조회 쿼리
+                    like_query = """
+                        SELECT user_id
+                        FROM post_likes
+                        WHERE post_id = %s
+                    """
+                    await cur.execute(like_query, (post_id,))
+                    like_rows = await cur.fetchall()
+                    like_user_ids = [r[0] for r in like_rows]
+                    like_count = len(like_user_ids)
+                    
+                    # 댓글 쿼리
+                    comment_query = """
+                        SELECT id, user_id, content, created_at
+                        FROM post_comments
+                        WHERE post_id = %s AND deleted = FALSE
+                        ORDER BY created_at ASC
+                    """
+                    await cur.execute(comment_query, (post_id,))
+                    comment_rows = await cur.fetchall()
+                    comments: List[CommentResponse] = []
+
+                    for comment_row in comment_rows:
+                        (
+                            comment_id,
+                            comment_user_id,
+                            comment_content,
+                            comment_created_at                     
+                        ) = comment_row
+
+                        # 댓글 좋아요 수 조회
+                        comment_like_query = """
+                            SELECT COUNT(*)
+                            FROM post_comment_likes
+                            WHERE comment_id = %s
+                        """
+                        await cur.execute(comment_like_query, (comment_id,))
+                        comment_like_count = (await cur.fetchone())[0]
+
+                        comments.append(CommentResponse(
+                            id=comment_id,
+                            userId=comment_user_id,
+                            content=comment_content,
+                            likeCount=comment_like_count,
+                            createdAt=comment_created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+                    
+                    # 조회수 쿼리, 상세보기시 조회수 + 1
+                    view_query = """
+                        UPDATE posts
+                        SET view_count = view_count + 1
+                        WHERE post_id = %s
+                    """
+                    await cur.execute(view_query, (post_id,))
+                    
+                    return PostDetailResponse(
+                        id=post_id,
+                        userId=user_id,
+                        title=title,
+                        content=content,
+                        viewCount=view_count,
+                        likeCount=like_count,
+                        images=image_urls,
+                        comments=comments,
+                        likeUserIds=like_user_ids,
+                        anonymous=anonymous,
+                        createdAt=created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    )
+        except Exception as e:
+            print(f"Error Fetching Post Detail: {e}")
+            return None
+
+
+    async def search_posts(self, search: str) -> List[PostListResponse]:
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    search_query = """
+                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
+                        FROM posts
+                        WHERE (title LIKE %s OR content LIKE %s) AND deleted = %s
+                        ORDER BY created_at DESC
+                    """
+                    search_param = f"%{search}%"
+                    await cur.execute(search_query, (search_param, search_param, False))
+                    post_rows = await cur.fetchall()
+
+                    posts = []
+
+                    for row in post_rows:
+                        (
+                            post_id,
+                            user_id,
+                            title,
+                            content,
+                            view_count,
+                            anonymous,
+                            created_at
+                        ) = row
+                        
+                        image_query = """
+                            SELECT url
+                            FROM post_images
+                            WHERE post_id = %s AND use_yn = %s
+                            ORDER BY `index`
+                        """
+                        await cur.execute(image_query, (post_id, True))
+                        image_rows = await cur.fetchall()
+                        image_urls = [r[0] for r in image_rows]
+
+                        
+                        like_query = """
+                            SELECT user_id
+                            FROM post_likes
+                            WHERE post_id = %s
+                        """
+                        await cur.execute(like_query, (post_id,))
+                        like_rows = await cur.fetchall()
+                        like_user_ids = [r[0] for r in like_rows]
+
+                        
+                        comment_query = """
+                            SELECT COUNT(*)
+                            FROM post_comments
+                            WHERE post_id = %s
+                        """
+                        await cur.execute(comment_query, (post_id,))
+                        comment_count = (await cur.fetchone())[0]
+                        
+                        posts.append(PostListResponse(
+                            id=post_id,
+                            userId=user_id,
+                            title=title,
+                            content=content,
+                            images=image_urls,
+                            viewCount=view_count,
+                            likeUserIds=like_user_ids,
+                            commentCount=comment_count,
+                            anonymous=anonymous,
+                            createdAt=created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        ))
+                    return posts
+        except Exception as e:
+            print(f"Error Searching Posts: {e}")
+            return []
+        
+    
+    async def like_post(self, userId, postId):
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await conn.begin()
+                    
+                    is_user="""
+                        SELECT id FROM users WHERE id = %s
+                    """
+                    await cur.execute(is_user, (userId,))
+                    user_row = await cur.fetchone()
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않는 사용자입니다."
+                        )
+                    
+                    check_like = """
+                        SELECT user_id FROM post_likes WHERE post_id = %s AND user_id = %s
+                    """
+                    await cur.execute(check_like, (postId, userId))
+                    existing_like = await cur.fetchone()
+                    
+                    if existing_like:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="이미 좋아요를 누른 게시글입니다."
+                        )
+                    
+                    check_post = """
+                        SELECT post_id FROM posts WHERE post_id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_post, (postId, False))
+                    post_row = await cur.fetchone()
+                    if not post_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 게시글입니다."
+                        )
+                    
+                    insert_like = """
+                        INSERT INTO post_likes (post_id, user_id)
+                        VALUES (%s, %s)
+                    """
+                    await cur.execute(insert_like, (postId, userId))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            print(f"Error Liking Post: {e}")
+            return False
+        
+    
+    async def cancel_post_like(self, userId, postId):
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await conn.begin()
+                    
+                    check_like = """
+                        SELECT user_id FROM post_likes WHERE post_id = %s AND user_id = %s
+                    """
+                    await cur.execute(check_like, (postId, userId))
+                    check_like = await cur.fetchone()
+                    if not check_like:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="좋아요를 누르지 않은 게시글입니다."
+                        )
+                    
+                    cancel_like = """  
+                        DELETE FROM post_likes WHERE post_id = %s AND user_id = %s
+                    """
+                    await cur.execute(cancel_like, (postId, userId))
+                    await conn.commit()
+                    return True
+        except Exception as e:
+            print(f"Error Cancelling Post Like: {e}")
+            return False

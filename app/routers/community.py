@@ -1,6 +1,6 @@
 from typing import *
 from fastapi import APIRouter, HTTPException, Form, UploadFile, status, File, Query
-from app.db.community import PostRequest, PostEditRequest, PostLikeRequest, PostBlockRequest
+from app.db.community import PostRequest, PostEditRequest, PostLikeRequest, PostBlockRequest, PostDeleteRequest
 from app.services.community_service import CommunityService
 
 
@@ -73,16 +73,20 @@ async def edit_post(
     return {"success": True, "message": "게시글 수정 성공"}
 
 
+# TODO 라우터 경로설정 신경써야할듯. 현재 토큰이 따로 없어 user_id를 받아와야 하는 상황에서, delete메서드를 사용할 수 없어서 post로 사용하고, 라우터 경로를 delete로 임시저장.
 # [게시글] 게시글 삭제
-@router.post("/v1/gik-backend/community/{post_id}", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/community/delete", status_code=status.HTTP_200_OK)
 async def delete_post(
-    post_id: str
+    delete_request: PostDeleteRequest,
 ):
     """
     게시글 삭제
     post_id: 삭제할 게시글 ID
     """
-    success = await community_service.delete_post(post_id=post_id)
+    success = await community_service.delete_post(
+        user_id=delete_request.userId,
+        post_id=delete_request.postId
+    )
     
     if not success:
         raise HTTPException(
@@ -91,6 +95,7 @@ async def delete_post(
         )
     
     return {"success": True, "message": "게시글 삭제 성공"}
+
 
 # [게시글] 게시글 목록 불러오기
 # 20개씩 끊어서 페이지네이션.
@@ -113,19 +118,92 @@ async def get_post(
     return {"success": True, "message": "게시글 목록 불러오기 성공", "posts": posts}
     
 
+
 # [게시글] 게시글 상세보기
 @router.get("/v1/gik-backend/community/{post_id}", status_code=status.HTTP_200_OK)
 async def get_post_detail(
     post_id: str
 ):
-    ...
+    """
+    게시글 상세보기
+    post_id: 상세보기할 게시글 ID
+    """
+    post = await community_service.get_post_detail(post_id=post_id)
+    
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="게시글을 찾을 수 없습니다."
+        )
+    
+    return {"success": True, "message": "게시글 상세보기 성공", "post": post}
+
+
+# [게시글] 게시글 검색
+@router.get("/v1/gik-backend/community/search/{search}", status_code=status.HTTP_200_OK)
+async def search_posts(
+    search: str
+):
+    """
+    게시글 검색
+    search(수정 예정): 검색어
+    """
+    
+    posts = await community_service.search_posts(search=search)
+    if not posts:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="검색 결과가 없습니다."
+        )
+    return {"success": True, "message": "게시글 검색 성공", "posts": posts}
+    
 
 # [게시글] 게시글 좋아요
-@router.post("/v1/gik-backend/community/likes", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/community/post/likes", status_code=status.HTTP_200_OK)
 async def like_post(
-    
+    like_request: PostLikeRequest
 ):
-    ...
+    """
+    게시글 좋아요
+    userId: 게시글을 좋아요한 사용자 ID
+    postId: 좋아요할 게시글 ID
+    """
+    success = await community_service.like_post(
+        like_request.userId,
+        like_request.postId
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="게시글 좋아요 실패"
+        )
+    
+    return {"success": True, "message": "게시글 좋아요 성공"}
+    
+
+
+# [게시글] 게시글 좋아요 취소
+@router.patch("/v1/gik-backend/community/post/cancel_likes", status_code=status.HTTP_200_OK)
+async def cancel_post_like(
+    like_request: PostLikeRequest
+):
+    """
+    게시글 좋아요 취소
+    userId: 게시글 좋아요 취소한 사용자 ID
+    postId: 좋아요 취소할 게시글 ID
+    """
+    success = await community_service.cancel_post_like(
+        like_request.userId,
+        like_request.postId
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="게시글 좋아요 취소 실패"
+        )
+    
+    return {"success": True, "message": "게시글 좋아요 취소 성공"}
+
 
 # [게시글] 게시글 차단
 @router.patch("/v1/gik-backend/community/block", status_code=status.HTTP_200_OK)
@@ -134,12 +212,14 @@ async def block_post(
 ):
     ...
 
+
 # [게시글] 게시글 신고
 @router.patch("/v1/gik-backend/community/report", status_code=status.HTTP_200_OK)
 async def report_post(
     
 ):
     ...
+
 
 # [게시글] 게시글 댓글 작성하기
 @router.post("/v1/gik-backend/community/comments", status_code=status.HTTP_201_CREATED)
@@ -148,6 +228,16 @@ async def comment_post(
 ):
     ...
 
+
+# [게시글] 게시글 댓글 목록 불러오기
+@router.get("/v1/gik-backend/community/comments", status_code=status.HTTP_200_OK)
+async def get_comments(
+    
+):
+    ...
+
+
+# TODO 게시글 댓글 수정은 이전 댓글의 데이터는 삭제하지 않는 것으로.
 # [게시글] 게시글 댓글 수정하기
 @router.patch("/v1/gik-backend/community/comments/{comment_id}", status_code=status.HTTP_200_OK)
 async def edit_comment(
@@ -158,6 +248,22 @@ async def edit_comment(
 # [게시글] 게시글 댓글 삭제하기
 @router.delete("/v1/gik-backend/community/comments/{comment_id}", status_code=status.HTTP_200_OK)
 async def delete_comment(
+    
+):
+    ...
+
+
+# [게시글] 게시글 댓글 좋아요
+@router.post("/v1/gik-backend/community/comment/likes", status_code=status.HTTP_200_OK)
+async def like_comment(
+    
+):
+    ...
+    
+
+# [게시글] 게시글 댓글 좋아요 취소
+@router.patch("/v1/gik-backend/community/comment/cancel_likes", status_code=status.HTTP_200_OK)
+async def cancel_like_comment(
     
 ):
     ...
