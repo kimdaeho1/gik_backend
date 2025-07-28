@@ -17,12 +17,10 @@ class PostEditRequest(BaseModel):
 
 # TODO 삭제 
 
-
-class PostLikeRequest(BaseModel):
-    postId: int
+class PostDeleteRequest(BaseModel):
     userId: str
-    likePostId: int
-    
+    postId: str
+
 
 class PostBlockRequest(BaseModel):
     postId: int
@@ -42,7 +40,7 @@ class PostCommentEditRequest(BaseModel):
     content: str
     
 
-class PostDetailResponse(BaseModel):
+class PostListResponse(BaseModel):
     id: str
     userId: str
     title: str
@@ -56,5 +54,25 @@ class PostDetailResponse(BaseModel):
 
 class PostLikeRequest(BaseModel):
     userId: str
-    poseId: str
+    postId: str
     
+
+class CommentResponse(BaseModel):
+    id: int
+    postId: int
+    userId: str
+    content: str
+    
+
+class PostDetailResponse(BaseModel):
+    id: str
+    userId: str
+    title: str
+    content: str
+    viewCount: int
+    likeCount: int
+    images: List[str]
+    comments: List[CommentResponse]
+    likeUserIds: List[str]
+    anonymous: bool
+    createdAt: str
