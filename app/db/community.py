@@ -56,8 +56,12 @@ class PostLikeRequest(BaseModel):
 
 class CommentResponse(BaseModel):
     id: int
-    userId: str
     content: str
+    postId: str
+    userId: str
+    likeCount: int
+    anonymous: bool
+    createdAt: str
     
 
 class PostDetailResponse(BaseModel):

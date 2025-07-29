@@ -60,6 +60,7 @@ class UserProfileResponse(BaseModel):
     blockUserList: Optional[List[str]]
     blockPostList: Optional[List[str]]
     blockCommentList: Optional[List[str]]
+    lastConnectedAt: datetime
 
 
 class UserDetailResponse(BaseModel):
@@ -80,6 +81,7 @@ class UserDetailResponse(BaseModel):
     groupChatAlarm: bool
     postCommentAlarm: bool
     postLikeAlarm: bool
+    lastConnectedAt: datetime
 
 
 class UserNicknameRequest(BaseModel):
