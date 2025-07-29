@@ -452,3 +452,19 @@ async def leave_user(
             detail="유저 탈퇴 실패."
         )
     return {"success": result, "message": "유저 탈퇴 성공."}
+
+
+@router.patch("/v1/gik-backend/user/health/{user_id}", status_code=status.HTTP_200_OK)
+async def user_health_check(
+    user_id: str
+):
+    """
+    유저 실시간 정보를 찍기 위한 API
+    """
+    result = await user_service.user_health_check(user_id)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 실시간 정보 업데이트 실패."
+        )
+    return {"success": result, "message": "유저 실시간 정보 업데이트 성공."}

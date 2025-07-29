@@ -650,3 +650,34 @@ class UserService:
                 )
                 await conn.commit()
                 return True
+
+
+    async def user_health_check(
+        self,
+        user_id: str
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                query = """
+                    SELECT 1 FROM users
+                    WHERE id = %s AND leaved = FALSE
+                """
+                await cur.execute(query, (user_id,))
+                result = await cur.fetchone()
+                
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="존재하지 않는 유저입니다."
+                    )
+                
+                health_query = """
+                    UPDATE users
+                    SET last_connected_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """
+                
+                await cur.execute(health_query, (user_id,))
+                await conn.commit()
+                return True
+                
