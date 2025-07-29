@@ -391,7 +391,8 @@ class UserService:
                         country, age, height, weight, hashtags,
                         leaved,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
-                        post_comment_alarm_agree, post_like_alarm_agree
+                        post_comment_alarm_agree, post_like_alarm_agree,
+                        last_connected_at
                 FROM users
                 WHERE id = %s
                 """
@@ -406,7 +407,8 @@ class UserService:
                     country, age, height, weight, hashtags_json,
                     leaved,
                     personal_chat_alarm, group_chat_alarm,
-                    post_comment_alarm, post_like_alarm
+                    post_comment_alarm, post_like_alarm,
+                    last_connected_at
                 ) = user_row
                 
                 hashtags = Hashtags.parse_raw(hashtags_json)
@@ -449,7 +451,8 @@ class UserService:
                     groupChatAlarm=group_chat_alarm,
                     postCommentAlarm=post_comment_alarm,
                     postLikeAlarm=post_like_alarm,
-                    blockUserList=block_user_list
+                    blockUserList=block_user_list,
+                    lastConnectedAt=last_connected_at
                 )
 
     
