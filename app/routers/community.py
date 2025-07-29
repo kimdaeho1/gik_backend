@@ -153,10 +153,7 @@ async def search_posts(
     
     posts = await community_service.search_posts(search=search)
     if not posts:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="검색 결과가 없습니다."
-        )
+        return []
     return {"success": True, "message": "게시글 검색 성공", "posts": posts}
     
 # TODO: snake_case로 변경 필요
