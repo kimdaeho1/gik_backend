@@ -102,3 +102,13 @@ class CommentEditRequest(BaseModel):
 class CommentDeleteRequest(BaseModel):
     userId: str
     commentId: int
+
+
+class CommentBlockRequest(BaseModel):
+    userId: str
+    commentId: int
+    
+class CommentReportRequest(BaseModel):
+    reportCommentId: int
+    reportUserId: str
+    reason: str

@@ -1,6 +1,6 @@
 from fastapi import UploadFile , HTTPException
 from datetime import datetime
-from app.utils.s3_upload import upload_file_to_s3
+from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
 from app.db.user import User, Hashtags, UserProfileResponse, UserDetailResponse
 from app.db.db_connection import db
 from sqlalchemy import text
@@ -86,8 +86,7 @@ class UserService:
                         if not upload_file_to_s3(file.file, s3_key, filename):
                             raise Exception(f"S3 업로드 실패: {file.filename}")
 
-                        base_url = "https://gik-profile.couplematch.co.kr/"
-                        image_url = f"{base_url}{s3_key}{filename}"
+                        image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
 
                         await cur.execute(
                             """
@@ -688,3 +687,155 @@ class UserService:
                 await conn.commit()
                 return True
                 
+    
+    async def upload_user_images(
+        self,
+        user_id: str,
+        images: List[UploadFile]
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (user_id,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                await cur.execute(
+                    """
+                    SELECT `index`
+                    FROM user_images
+                    WHERE user_id = %s AND use_yn = TRUE
+                    order by `index`
+                    """, (user_id,)
+                )
+                
+                use_images = await cur.fetchall()
+                start_index = len(use_images)
+                
+                s3_key = f"user_profile/{user_id}/"
+                image_url_list = []
+                
+                for idx, file in enumerate(images):
+                    now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
+                    extension = file.filename.split(".")[-1] or "jpg"
+                    filename = f"{now}.{extension}"
+                    file.file.seek(0)
+                    
+                    if not upload_file_to_s3(file.file, s3_key, filename):
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Failed to upload image {file.filename} to S3"
+                        )
+                    image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
+                    image_url_list.append(image_url)
+                    
+                    await cur.execute(
+                        """
+                        INSERT INTO user_images (user_id, `index`, url, use_yn)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (user_id, start_index + idx, image_url, True)
+                    )
+                await conn.commit()
+                return image_url_list
+
+    
+    async def update_user_images(
+        self,
+        user_id: str,
+        image_index: int,
+        image: List[UploadFile]
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (user_id,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                s3_key = f"user_profile/{user_id}/"
+                image_url_list = []
+                
+                for idx, file in enumerate(image):
+                    await cur.execute(
+                        """
+                        UPDATE user_images
+                        SET use_yn = FALSE
+                        WHERE user_id = %s AND `index` = %s AND use_yn = TRUE
+                        """,
+                        (user_id, image_index)
+                    )
+                    now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
+                    extension = file.filename.split(".")[-1] or "jpg"
+                    filename = f"{now}.{extension}"
+                    file.file.seek(0)
+                    if not upload_file_to_s3(file.file, s3_key, filename):
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Failed to upload image {file.filename} to S3"
+                        )
+                    image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
+                    image_url_list.append(image_url)
+                    await cur.execute(
+                        """
+                        INSERT INTO user_images (user_id, `index`, url, use_yn)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (user_id, image_index, image_url, True)
+                    )
+                await conn.commit()
+                return image_url_list
+    
+    
+    async def delete_user_images(
+        self,
+        user_id: str,
+        image_index: int
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (user_id,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    """
+                    UPDATE user_images
+                    SET use_yn = FALSE
+                    WHERE user_id = %s AND `index` = %s AND use_yn = TRUE
+                    """,
+                    (user_id, image_index)
+                )
+                
+                await cur.execute(
+                    """
+                    SELECT id
+                    FROM user_images
+                    WHERE user_id = %s AND use_yn = TRUE
+                    ORDER BY `index`
+                    """,
+                    (user_id,)
+                )
+                image_rows = await cur.fetchall()
+                
+                for new_index, (image_id,) in enumerate(image_rows):
+                    await cur.execute(
+                        """
+                        UPDATE user_images
+                        SET `index` = %s
+                        WHERE id = %s
+                        """,
+                        (new_index, image_id)
+                    )
+                    
+                await conn.commit()
+                return True
