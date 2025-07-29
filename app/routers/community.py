@@ -120,7 +120,6 @@ async def get_post(
     return {"success": True, "message": "게시글 목록 불러오기 성공", "posts": posts}
     
 
-
 # [게시글] 게시글 상세보기
 @router.get("/v1/gik-backend/community/{post_id}", status_code=status.HTTP_200_OK)
 async def get_post_detail(
@@ -155,7 +154,7 @@ async def search_posts(
     if not posts:
         return []
     return {"success": True, "message": "게시글 검색 성공", "posts": posts}
-    
+
 # TODO: snake_case로 변경 필요
 # [게시글] 게시글 좋아요
 @router.post("/v1/gik-backend/community/post/likes", status_code=status.HTTP_200_OK)
@@ -277,9 +276,6 @@ async def create_comment(
     return {"success": success, "message": "댓글 작성 성공"}
 
 
-
-
-
 # [게시글] 게시글 댓글 좋아요
 @router.post("/v1/gik-backend/community/comment/likes", status_code=status.HTTP_200_OK)
 async def like_comment(
@@ -302,7 +298,6 @@ async def like_comment(
     
     return {"success": success, "message": "댓글 좋아요 성공"}
     
-
 
 # [게시글] 게시글 댓글 좋아요 취소
 @router.post("/v1/gik-backend/community/comment/cancel_likes", status_code=status.HTTP_200_OK)
@@ -349,7 +344,6 @@ async def delete_comment(
 
 
 # [게시글] 게시글 댓글 목록 불러오기
-# TODO: 페이지네이션 있어야하는지?
 @router.get("/v1/gik-backend/community/comments/{post_id}", status_code=status.HTTP_200_OK)
 async def get_comments(
     post_id: str

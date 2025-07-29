@@ -296,7 +296,6 @@ async def fetch_user_profile(
 ):
     """
     상대 유저 프로필 조회
-    id: 유저 ID (본인)
     user_id: 조회할 상대 유저 ID
     """
     user = await user_service.fetch_user_profile(user_id)

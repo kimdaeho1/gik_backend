@@ -1,6 +1,6 @@
 from fastapi import UploadFile, HTTPException, status
 from datetime import datetime
-from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL, generate_presigned_url
+from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
 from app.routers.image import generate_filename
 # from app.db.community import 
 from app.db.db_connection import db
@@ -191,7 +191,31 @@ class CommunityService:
                             (idx, post_id, url)
                         )
 
-                    #TODO: 기존의 이미지중 1번째 이미지를 삭제해 섬네일을 재 생성해야하는 경우
+                    # 기존의 이미지중 1번째 이미지를 삭제해 섬네일을 재 생성해야하는 경우
+                    # 섬네일을 재 생성해야되는 경우, 경로와 이름이 모두 일치해 덮어쓰기됨
+                    if keep_images and (origin_images[0][0] != keep_images[0]):
+                        try:
+                            image_url = keep_images[0]
+                            s3_key = image_url.replace(f"{CLOUDFRONT_URL}/", "")
+                            response = requests.get(image_url)
+                            image = Image.open(io.BytesIO(response.content))
+                            image.thumbnail((200, 200))
+                            thumb_io = io.BytesIO()
+                            image_format = image.format if image.format else "JPEG"
+                            image.save(thumb_io, format=image_format)
+                            thumb_io.seek(0)
+                            thumbnail_s3_key = f"community/{post_id}/thumbnail/"
+                            thumbnail_filename = f"{post_id}_thumbnail.jpg"
+                            if not upload_file_to_s3(thumb_io, thumbnail_s3_key, thumbnail_filename):
+                                raise HTTPException(
+                                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                    detail=f"기존 이미지 {image_url} 를 사용하여 섬네일을 생성하는데 실패했습니다."
+                                )
+                        except Exception as e:
+                            raise HTTPException(
+                                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                detail=f"기존 이미지 {image_url} 를 사용하여 섬네일을 생성하는데 실패했습니다: {str(e)}"
+                            )
 
                     # 새로 추가된 이미지를 업로드
                     start_index = len(url_list)           
@@ -425,7 +449,7 @@ class CommunityService:
                     
                     # 댓글 쿼리
                     comment_query = """
-                        SELECT id, user_id, content, created_at
+                        SELECT id, post_id, user_id, content, anonymous, created_at
                         FROM post_comments
                         WHERE post_id = %s AND deleted = FALSE
                         ORDER BY created_at ASC
@@ -437,8 +461,10 @@ class CommunityService:
                     for comment_row in comment_rows:
                         (
                             comment_id,
+                            comment_post_id,
                             comment_user_id,
                             comment_content,
+                            comment_anonymous,
                             comment_created_at                     
                         ) = comment_row
 
@@ -453,8 +479,10 @@ class CommunityService:
 
                         comments.append(CommentResponse(
                             id=comment_id,
+                            postId=comment_post_id,
                             userId=comment_user_id,
                             content=comment_content,
+                            anonymous=comment_anonymous,
                             likeCount=comment_like_count,
                             createdAt=comment_created_at.strftime("%Y-%m-%d %H:%M:%S")
                         ))
@@ -1175,7 +1203,7 @@ class CommunityService:
                         
                     # 사용자 댓글 조회
                     query = """
-                        SELECT id, post_id, user_id, content, created_at
+                        SELECT id, post_id, user_id, content, anonymous, created_at
                         FROM post_comments
                         WHERE user_id = %s AND deleted = %s
                         ORDER BY created_at DESC
@@ -1188,10 +1216,11 @@ class CommunityService:
                     for row in comment_rows:
                         (
                             comment_id,
-                            post_id,
+                            comment_post_id,
                             comment_user_id,
                             comment_content,
-                            comment_created_at                     
+                            comment_anonymous,
+                            comment_created_at              
                         ) = row
 
                         # 댓글 좋아요 수 조회
@@ -1205,8 +1234,10 @@ class CommunityService:
 
                         comments.append(CommentResponse(
                             id=comment_id,
+                            postId=comment_post_id,
                             userId=comment_user_id,
                             content=comment_content,
+                            anonymous=comment_anonymous,
                             likeCount=comment_like_count,
                             createdAt=comment_created_at.strftime("%Y-%m-%d %H:%M:%S")
                         ))
