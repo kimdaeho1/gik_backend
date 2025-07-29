@@ -1,6 +1,6 @@
 from typing import *
 from fastapi import APIRouter, HTTPException, Form, UploadFile, status, File, Query
-from app.db.community import PostRequest, PostEditRequest, PostLikeRequest, PostBlockRequest, PostDeleteRequest, PostReportRequest, PostCommentRequest, CommentLikeRequest, CommentEditRequest, CommentDeleteRequest
+from app.db.community import PostRequest, PostEditRequest, PostLikeRequest, PostBlockRequest, PostDeleteRequest, PostReportRequest, PostCommentRequest, CommentLikeRequest, CommentEditRequest, CommentDeleteRequest, CommentBlockRequest, CommentReportRequest
 from app.services.community_service import CommunityService
 
 
@@ -404,7 +404,7 @@ async def get_my_posts(
         )
     return {"success": True, "message": "내 게시글 불러오기 성공", "posts": success}
 
-
+# [게시글] 내 댓글 불러오기
 @router.post("/v1/gik-backend/community/my-comment/{user_id}", status_code=status.HTTP_200_OK)
 async def get_my_comments(
     user_id: str    
@@ -420,3 +420,52 @@ async def get_my_comments(
             detail="내 댓글을 찾을 수 없습니다."
         )
     return {"success": True, "message": "내 댓글 불러오기 성공", "comments": success}
+
+
+
+# [게시글] 댓글 차단하기
+@router.post("/v1/gik-backend/community/comment/block", status_code=status.HTTP_200_OK)
+async def block_comment(
+    block_request: CommentBlockRequest
+):
+    """
+    댓글 차단하기
+    userId: 댓글을 차단한 사용자 ID
+    commentId: 차단할 댓글 ID
+    """
+    success = await community_service.block_comment(
+        user_id=block_request.userId,
+        comment_id=block_request.commentId
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="댓글 차단 실패"
+        )
+    return {"success": success, "message": "댓글 차단 성공"}
+
+
+# [게시글] 댓글 신고하기
+@router.post("/v1/gik-backend/community/comment/report", status_code=status.HTTP_200_OK)
+async def report_comment(
+    report_request: CommentReportRequest
+):
+    """
+    댓글 신고하기
+    reportCommentId: 신고할 댓글 ID
+    reportUserId: 신고한 사용자 ID
+    reason: 신고 사유
+    """
+    success = await community_service.report_comment(
+        report_comment_id=report_request.reportCommentId,
+        report_user_id=report_request.reportUserId,
+        reason=report_request.reason
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="댓글 신고 실패"
+        )
+        
+    return {"success": success, "message": "댓글 신고 성공"}

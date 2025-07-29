@@ -1248,3 +1248,128 @@ class CommunityService:
                     await conn.rollback()
                     print(f"Error Fetching My Comments: {e}")
                     return []
+
+    async def block_comment(
+        self,
+        user_id: str,
+        comment_id: int
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    
+                    # 사용자가 있는지 확인
+                    check_user = """
+                        SELECT id FROM users WHERE id = %s
+                    """
+                    await cur.execute(check_user, (user_id,))
+                    user_row = await cur.fetchone()
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않는 사용자입니다."
+                        )
+                        
+                    # 댓글이 있는지 확인
+                    check_comment = """
+                        SELECT id FROM post_comments WHERE id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_comment, (comment_id, False))
+                    comment_row = await cur.fetchone()
+                    if not comment_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 댓글입니다."
+                        )
+                    
+                    # 차단 등록
+                    block_query = """
+                        INSERT INTO comment_block_list (block_user_id, blocked_comment_id)
+                        VALUES (%s, %s)
+                    """
+                    await cur.execute(block_query, (user_id, comment_id))
+                    
+                    await conn.commit()
+                    return True
+                except Exception as e:
+                    await conn.rollback()
+                    print(f"Error Blocking Comment: {e}")
+                    return False
+                
+        
+    async def report_comment(
+        self,
+        report_comment_id: int,
+        report_user_id: str,
+        reason: str
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    
+                    # 사용자가 있는지 확인
+                    check_user = """
+                        SELECT id FROM users WHERE id = %s
+                    """
+                    await cur.execute(check_user, (report_user_id,))
+                    user_row = await cur.fetchone()
+                    if not user_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않는 사용자입니다."
+                        )
+                        
+                    # 댓글이 있는지 확인
+                    check_comment = """
+                        SELECT id, user_id FROM post_comments WHERE id = %s AND deleted = %s
+                    """
+                    await cur.execute(check_comment, (report_comment_id, False))
+                    comment_row = await cur.fetchone()
+                    if not comment_row:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="존재하지 않거나 삭제된 댓글입니다."
+                        )
+                    
+                    _, comment_user_id = comment_row
+                    
+                    # 이미 신고한 댓글인지 확인
+                    check_report = """
+                        SELECT * 
+                        FROM post_comment_reports
+                        WHERE reported_comment_id = %s AND report_user_id = %s
+                    """
+                    await cur.execute(check_report, (report_comment_id, report_user_id))
+                    check_report = await cur.fetchone()
+                    if check_report:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="이미 신고한 댓글입니다."
+                        ) 
+                    
+                    # 신고 등록
+                    insert_query = """
+                        INSERT INTO post_comment_reports (
+                            reported_comment_id, 
+                            reported_user_id,
+                            report_user_id,
+                            reason
+                        )
+                        VALUES (%s, %s, %s, %s)
+                    """
+                    await cur.execute(insert_query, (
+                        report_comment_id,
+                        comment_user_id,
+                        report_user_id,
+                        reason
+                        ))
+                    
+                    await conn.commit()
+                    return True
+
+                except Exception as e:
+                    await conn.rollback()
+                    print(f"Error Reporting Comment: {e}")
+                    return False
