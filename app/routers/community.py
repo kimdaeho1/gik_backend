@@ -46,6 +46,7 @@ async def edit_post(
     user_id: str = Form(...),
     title: str = Form(...),
     content: str = Form(...),
+    url_list: Optional[List[str]] = Form(default=[]),
     images: List[UploadFile] = File(default=[])
 ):
     """
@@ -53,14 +54,16 @@ async def edit_post(
     post_id: 수정할 게시글 ID
     title: 수정할 게시글 제목
     content: 수정할 게시글 내용
+    url_list: 기존 이미지 URL 리스트 (수정 시 기존 이미지를 유지하기 위해 필요)
     images: 수정할 게시글에 첨부할 이미지 리스트 (최대 x장)
     """
-    
+
     success = await community_service.edit_post(
         user_id=user_id,
         post_id=post_id,
         title=title,
         content=content,
+        url_list=url_list,
         images=images
     )
     
@@ -205,7 +208,7 @@ async def cancel_post_like(
 
 
 # [게시글] 게시글 차단
-@router.patch("/v1/gik-backend/community/post/block", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/community/post/block", status_code=status.HTTP_200_OK)
 async def block_post(
     block_request: PostBlockRequest
 ):
@@ -228,7 +231,7 @@ async def block_post(
 
 
 # [게시글] 게시글 신고
-@router.patch("/v1/gik-backend/community/post/report", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/community/post/report", status_code=status.HTTP_200_OK)
 async def report_post(
     report_request: PostReportRequest
 ):
@@ -254,7 +257,7 @@ async def report_post(
 
 # [게시글] 게시글 댓글 작성하기
 @router.post("/v1/gik-backend/community/comments", status_code=status.HTTP_201_CREATED)
-async def comment_post(
+async def create_comment(
     comment_request: PostCommentRequest
 ):
     """

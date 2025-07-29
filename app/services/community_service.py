@@ -116,6 +116,7 @@ class CommunityService:
         user_id: str,
         title: str,
         content: str,
+        url_list: List[str],
         images: List[UploadFile] = []
     ) -> bool:
         try: 
@@ -148,17 +149,49 @@ class CommunityService:
                     """
                     
                     await cur.execute(edit_query, (title, content, datetime.now(), post_id))
-                    
-                    # TODO: 이미지 수정할때, 기존 이미지를 어떻게 처리할건지. 글 내용만 수정하면 이미지가 날라가버림.
-                    # TODO: 이미지를 수정할때, 바꾸지 않을 이미지 url_list를 넘겨주면, 현재 게시글의 url_list와 비교해서 있는것은 놔두고, 삭제된 것은 use_yn=false 처리. 이후 추가된 이미지는 맨뒤의 index로 삽입하기
                     await cur.execute(
-                        """
-                        UPDATE post_images
-                        SET use_yn = %s
-                        WHERE post_id = %s
-                        """
-                        , (False, post_id)
+                        "SELECT url FROM post_images WHERE post_id = %s AND use_yn = %s",
+                        (post_id, True)
                     )
+                    
+                    # 기존 이미지중 사용중인 이미지들
+                    origin_images = await cur.fetchall()
+                    origin_image_urls = [r[0] for r in origin_images]
+                    
+                    # 파싱, multipart/form-data로 넘어온 url_list가 하나의 문자열로 넘어올 수 있음
+                    if len(url_list) == 1 and "," in url_list[0]:
+                        url_list = url_list[0].split(",")
+                    url_list = [url.strip() for url in url_list]
+                    
+                    # 유지할 이미지와 제거할 이미지만 구분
+                    keep_images = [url for url in url_list if url in origin_image_urls]
+                    remove_images = [url for url in origin_image_urls if url not in url_list]
+
+                    
+                    # 제거할 이미지에 대해 use_yn을 False로 업데이트
+                    if remove_images:
+                        for url in remove_images:
+                            await cur.execute(
+                                """
+                                UPDATE post_images
+                                SET use_yn = %s
+                                WHERE post_id = %s AND url = %s
+                                """,
+                                (False, post_id, url)
+                            )
+                    
+                    # 유지한 이미지들의 index 재정렬
+                    for idx, url in enumerate(url_list):
+                        await cur.execute(
+                            """
+                            UPDATE post_images
+                            SET `index` = %s
+                            WHERE post_id = %s AND url = %s
+                            """,
+                            (idx, post_id, url)
+                        )
+                    # 새로 추가된 이미지를 업로드
+                    start_index = len(url_list)
                     
                     if images:
                         for idx, file in enumerate(images):
@@ -200,7 +233,7 @@ class CommunityService:
                                     %s, %s, %s, %s, %s
                                 )
                                 """,
-                                (post_id, user_id, idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
+                                (post_id, user_id, start_index + idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
                             
                     await conn.commit()
@@ -638,7 +671,7 @@ class CommunityService:
                         INSERT INTO post_block_list (block_user_id, blocked_post_id)
                         VALUES (%s, %s)
                     """
-                    await cur.execute(block_query, (post_id, user_id))
+                    await cur.execute(block_query, (user_id, post_id))
                     await conn.commit()
                     return True
 
