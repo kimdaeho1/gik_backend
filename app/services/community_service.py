@@ -262,7 +262,15 @@ class CommunityService:
                                 """,
                                 (post_id, user_id, start_index + idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
-                            
+                    
+                    # updated_at 필드 업데이트
+                    update_query = """
+                    UPDATE posts
+                    SET updated_at = CURRENT_TIMESTAMP
+                    WHERE post_id = %s
+                    """
+                    await cur.execute(update_query, (post_id,))
+                        
                     await conn.commit()
                     return True
         except Exception as e:
@@ -307,6 +315,14 @@ class CommunityService:
                     WHERE post_id = %s
                     """
                     await cur.execute(image_query, (False, post_id))
+                    
+                    # updated_at 필드 업데이트
+                    update_query = """
+                    UPDATE posts
+                    SET updated_at = CURRENT_TIMESTAMP
+                    WHERE post_id = %s
+                    """
+                    await cur.execute(update_query, (post_id,))
                     
                     await conn.commit()
                     return True
@@ -632,6 +648,15 @@ class CommunityService:
                         VALUES (%s, %s)
                     """
                     await cur.execute(insert_like, (postId, userId))
+                    
+                    # updated_at 필드 업데이트
+                    update_query = """
+                    UPDATE posts
+                    SET updated_at = CURRENT_TIMESTAMP
+                    WHERE post_id = %s
+                    """
+                    await cur.execute(update_query, (postId,))
+                    
                     await conn.commit()
                     return True
         except Exception as e:
@@ -660,6 +685,15 @@ class CommunityService:
                         DELETE FROM post_likes WHERE post_id = %s AND user_id = %s
                     """
                     await cur.execute(cancel_like, (postId, userId))
+                    
+                    # updated_at 필드 업데이트
+                    update_query = """
+                    UPDATE posts
+                    SET updated_at = CURRENT_TIMESTAMP
+                    WHERE post_id = %s
+                    """
+                    await cur.execute(update_query, (postId,))
+                    
                     await conn.commit()
                     return True
         except Exception as e:
@@ -777,6 +811,15 @@ class CommunityService:
                         report_user_id,
                         reason
                         ))
+                    
+                    # updated_at 필드 업데이트
+                    update_query = """
+                        UPDATE posts
+                        SET updated_at = CURRENT_TIMESTAMP
+                        WHERE post_id = %s
+                    """
+                    await cur.execute(update_query, (report_post_id,))
+                    
                     await conn.commit()
                     return True
 
@@ -933,6 +976,14 @@ class CommunityService:
                     """
                     await cur.execute(insert_like, (comment_id, user_id))
                     
+                    # updated_at 필드 업데이트
+                    update_query = """
+                        UPDATE post_comments
+                        SET updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """
+                    await cur.execute(update_query, (comment_id,))
+                    
                     await conn.commit()
                     return True
                 except Exception as e:
@@ -977,6 +1028,14 @@ class CommunityService:
                         DELETE FROM post_comment_likes WHERE comment_id = %s AND user_id = %s
                     """
                     await cur.execute(cancel_like, (comment_id, user_id))
+                    
+                    # updated_at 필드 업데이트
+                    update_query = """
+                        UPDATE post_comments
+                        SET updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """
+                    await cur.execute(update_query, (comment_id,))
                     
                     await conn.commit()
                     return True
@@ -1033,6 +1092,14 @@ class CommunityService:
                     """
                     await cur.execute(insert_history, (comment_id, user_id, content))
                     
+                    # updated_at 필드 업데이트
+                    update_post_query = """
+                        UPDATE post_comments
+                        SET updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """
+                    await cur.execute(update_post_query, (comment_id,))
+                    
                     await conn.commit()
                     return True
                 except Exception as e:
@@ -1079,6 +1146,14 @@ class CommunityService:
                         WHERE id = %s
                     """
                     await cur.execute(delete_query, (True, comment_id))
+                    
+                    # updated_at 필드 업데이트
+                    update_query = """
+                        UPDATE post_comments
+                        SET updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """
+                    await cur.execute(update_query, (comment_id,))
                     
                     await conn.commit()
                     return True
