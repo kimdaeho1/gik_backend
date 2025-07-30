@@ -2,7 +2,7 @@ from fastapi import UploadFile, HTTPException, status
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
 from app.routers.image import generate_filename
-# from app.db.community import 
+from app.utils.utils import kst 
 from app.db.db_connection import db
 from app.db.community import PostListResponse, CommentResponse, PostDetailResponse
 from typing import List, Optional
@@ -367,9 +367,9 @@ class CommunityService:
                         comment_query = """
                             SELECT COUNT(*)
                             FROM post_comments
-                            WHERE post_id = %s
+                            WHERE post_id = %s AND deleted = %s
                         """
-                        await cur.execute(comment_query, (post_id,))
+                        await cur.execute(comment_query, (post_id, False))
                         comment_count = (await cur.fetchone())[0]
                         
                         posts.append(PostListResponse(
@@ -451,10 +451,10 @@ class CommunityService:
                     comment_query = """
                         SELECT id, post_id, user_id, content, anonymous, created_at
                         FROM post_comments
-                        WHERE post_id = %s AND deleted = FALSE
+                        WHERE post_id = %s AND deleted = %s
                         ORDER BY created_at ASC
                     """
-                    await cur.execute(comment_query, (post_id,))
+                    await cur.execute(comment_query, (post_id, False))
                     comment_rows = await cur.fetchall()
                     comments: List[CommentResponse] = []
 
@@ -564,9 +564,9 @@ class CommunityService:
                         comment_query = """
                             SELECT COUNT(*)
                             FROM post_comments
-                            WHERE post_id = %s
+                            WHERE post_id = %s, deleted = %s
                         """
-                        await cur.execute(comment_query, (post_id,))
+                        await cur.execute(comment_query, (post_id, False))
                         comment_count = (await cur.fetchone())[0]
                         
                         posts.append(PostListResponse(
@@ -853,10 +853,10 @@ class CommunityService:
                     comment_query = """
                         SELECT id, post_id, user_id, content, anonymous, created_at
                         FROM post_comments
-                        WHERE post_id = %s AND deleted = FALSE
+                        WHERE post_id = %s AND deleted = %s
                         ORDER BY created_at ASC
                     """
-                    await cur.execute(comment_query, (post_id,))
+                    await cur.execute(comment_query, (post_id, False))
                     comment_rows = await cur.fetchall()
                     
                     comments: List[CommentResponse] = []
@@ -1155,9 +1155,9 @@ class CommunityService:
                         comment_query = """
                             SELECT COUNT(*)
                             FROM post_comments
-                            WHERE post_id = %s
+                            WHERE post_id = %s, deleted = %s
                         """
-                        await cur.execute(comment_query, (post_id,))
+                        await cur.execute(comment_query, (post_id, False))
                         comment_count = (await cur.fetchone())[0]
                         
                         posts.append(PostListResponse(
@@ -1212,7 +1212,7 @@ class CommunityService:
                     comment_rows = await cur.fetchall()
                     
                     comments: List[CommentResponse] = []
-                    
+
                     for row in comment_rows:
                         (
                             comment_id,
@@ -1241,7 +1241,7 @@ class CommunityService:
                             likeCount=comment_like_count,
                             createdAt=comment_created_at.strftime("%Y-%m-%d %H:%M:%S")
                         ))
-                        
+
                     await conn.commit()
                     return comments
                 except Exception as e:
