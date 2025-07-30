@@ -2,7 +2,12 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status
 from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserMigrationRequest, LeavedUserRequest
 from app.services.user_service import UserService
+from fastapi import APIRouter, HTTPException
+from app.db.community import FullPostMigrationRequest
+from app.services.commnunity_service import CommunityService
 
+router = APIRouter()
+community_service = CommunityService()
 
 router = APIRouter()
 user_service = UserService()
@@ -474,5 +479,13 @@ async def migrate_leaved_user(data: LeavedUserRequest):
         if not result:
             raise HTTPException(status_code=500, detail="업데이트 실패")
         return {"success": True, "message": "탈퇴 유저 정보 마이그레이션 완료"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/v1/gik-backend/community/full-post-migration")
+async def full_post_migration(data: FullPostMigrationRequest):
+    try:
+        await community_service.migrate_full_post(data)
+        return {"success": True, "message": "게시글 전체 마이그레이션 완료"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
