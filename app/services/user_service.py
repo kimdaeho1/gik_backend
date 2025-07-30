@@ -126,7 +126,7 @@ class UserService:
                     user_query = """
                     SELECT
                         id, nickname, age, height, weight, sns, 
-                        relation, position, country, hashtags,
+                        relation, position, country, hashtags, talk_style,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
@@ -145,7 +145,7 @@ class UserService:
 
                     (
                         id, nickname, age, height, weight, sns,
-                        relation, position, country, hashtags_json,
+                        relation, position, country, hashtags_json, talk_style,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
@@ -193,6 +193,7 @@ class UserService:
                         position=position,
                         country=country,
                         hashtags=hashtags,
+                        talkStyle=talk_style,
                         profileImages=profile_images,
                         marketingAlarm=marketing_agree,
                         nightAlarm=night_agree,
@@ -232,6 +233,13 @@ class UserService:
                     "UPDATE users SET nickname = %s WHERE id = %s",
                     (nickname, id)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id, )
+                )
+                
                 await conn.commit()
                 return "success"
 
@@ -251,6 +259,13 @@ class UserService:
                     "UPDATE users SET hashtags = %s WHERE id = %s",
                     (hashtags.json(), id)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id, )
+                )
+                
                 await conn.commit()
                 return True
     
@@ -281,6 +296,13 @@ class UserService:
                     """,
                     (age, height, weight, country, id)
                 )
+                
+                #updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id, )
+                )
+                
                 await conn.commit()
                 return True
 
@@ -300,6 +322,13 @@ class UserService:
                     "UPDATE users SET fcm = %s WHERE id = %s",
                     (fcm, id)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id, )
+                )
+                
                 await conn.commit()
                 return True
 
@@ -319,6 +348,13 @@ class UserService:
                     "UPDATE users SET relation = %s WHERE id = %s",
                     (relation, id)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id, )
+                )
+                
                 await conn.commit()
                 return True
     
@@ -338,10 +374,44 @@ class UserService:
                     "UPDATE users SET position = %s WHERE id = %s",
                     (position, id)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id, )
+                )
+                
                 await conn.commit()
                 return True
     
-
+    
+    async def update_user_talk_style(
+        self,
+        user_id: str,
+        talk_style: str
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s", (user_id, ))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                await cur.execute(
+                    "UPDATE users SET talk_style = %s WHERE id = %s",
+                    (talk_style, user_id)
+                )
+                
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (user_id, )
+                )
+                await conn.commit()
+                return True
+    
+    
     async def update_user_alarm(
         self,
         id: str,
@@ -377,6 +447,13 @@ class UserService:
                     f"UPDATE users SET {column_name} = %s WHERE id = %s",
                     (value, id)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id,)
+                )
+                
                 await conn.commit()
                 return True
 
@@ -387,8 +464,8 @@ class UserService:
                 user_query = """
                 SELECT
                         id, fcm, nickname, relation, position,
-                        country, age, height, weight, hashtags,
-                        leaved,
+                        country, age, height, weight, hashtags, 
+                        talk_style, leaved,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
                         last_connected_at
@@ -404,7 +481,7 @@ class UserService:
                 (
                     id, fcm, nickname, relation, position,
                     country, age, height, weight, hashtags_json,
-                    leaved,
+                    talk_style, leaved,
                     personal_chat_alarm, group_chat_alarm,
                     post_comment_alarm, post_like_alarm,
                     last_connected_at
@@ -444,6 +521,7 @@ class UserService:
                     height=height,
                     weight=weight,
                     hashtags=hashtags,
+                    talkStyle=talk_style,
                     profileImages=profile_images,   
                     leaved=leaved,
                     personalChatAlarm=personal_chat_alarm,
@@ -470,6 +548,13 @@ class UserService:
                     "INSERT INTO user_block_list (block_user_id, blocked_user_id) VALUES (%s, %s)",
                     (id, user_id)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id,)
+                )
+                
                 await conn.commit()
                 return True
  
@@ -506,6 +591,13 @@ class UserService:
                     """,
                     (chatId, reportUserId, reportedUserId, reason)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (reportUserId,)
+                )
+                
                 await conn.commit()
                 return True
             
@@ -524,7 +616,7 @@ class UserService:
                 query = f"""
                     SELECT 
                         id, fcm, nickname, age, height, weight, 
-                        relation, position, country, hashtags, leaved,
+                        relation, position, country, hashtags, leaved, talk_style,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
                         last_connected_at
@@ -538,7 +630,7 @@ class UserService:
                 for row in rows:
                     (
                         id, fcm, nickname, age, height, weight,
-                        relation, position, country, hashtags_json, leaved,
+                        relation, position, country, hashtags_json, leaved, talk_style,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
                         last_connected_at
@@ -577,6 +669,7 @@ class UserService:
                         position=position,
                         country=country,
                         hashtags=hashtags,
+                        talkStyle=talk_style,
                         profileImages=profile_images,   
                         leaved=leaved,
                         personalChatAlarm=personal_chat_alarm,
@@ -654,6 +747,13 @@ class UserService:
                     "INSERT INTO leaved_users (user_id, reason) VALUES (%s, %s)",
                     (id, reason)
                 )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (id,)
+                )
+                
                 await conn.commit()
                 return True
 
@@ -738,6 +838,13 @@ class UserService:
                         """,
                         (user_id, start_index + idx, image_url, True)
                     )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (user_id,)
+                )
+                
                 await conn.commit()
                 return image_url_list
 
@@ -788,6 +895,13 @@ class UserService:
                         """,
                         (user_id, image_index, image_url, True)
                     )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (user_id,)
+                )
+                
                 await conn.commit()
                 return image_url_list
     
@@ -836,6 +950,12 @@ class UserService:
                         """,
                         (new_index, image_id)
                     )
-                    
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (user_id,)
+                )
+                
                 await conn.commit()
                 return True

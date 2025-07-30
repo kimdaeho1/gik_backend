@@ -49,6 +49,7 @@ class UserProfileResponse(BaseModel):
     position: str
     country: str
     hashtags: Hashtags
+    talkStyle: Optional[str]
     profileImages: List[str]
     marketingAlarm: bool
     nightAlarm: bool
@@ -76,6 +77,7 @@ class UserDetailResponse(BaseModel):
     height: int
     weight: int
     hashtags: Hashtags
+    talkStyle: Optional[str]
     leaved: bool
     blockUserList: Optional[List[str]]
     personalChatAlarm: bool
@@ -147,3 +149,7 @@ class UserReportRequest(BaseModel):
 class UserImageDeleteRequest(BaseModel):
     userId: str
     imageIndex: int
+
+class UserTalkStyleRequest(BaseModel):
+    id: str
+    talkStyle: str

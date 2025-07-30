@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status
-from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest
+from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest
 from app.services.user_service import UserService
 
 
@@ -261,6 +261,28 @@ async def update_user_position(
         )
     return {"success": result, "message": "나의 포지션 변경 성공."}
     
+
+# [유저] 내 소통 스타일 수정 (선택사항)
+@router.post("/v1/gik-backend/my-profile/talk-style", status_code=status.HTTP_200_OK)
+async def update_user_talk_style(
+    user_talk_style: UserTalkStyleRequest
+):
+    """
+    유저 소통 스타일 수정
+    id: 유저 ID
+    talkStyle: 변경된 소통 스타일
+    """
+    result: bool = await user_service.update_user_talk_style(
+        user_id = user_talk_style.id,
+        talk_style = user_talk_style.talkStyle
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 소통 스타일 변경 실패."
+        )
+    return {"success": result, "message": "나의 소통 스타일 변경 성공."}
+
 
 # [유저] 내 정보 수정 (알람)
 @router.patch("/v1/gik-backend/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
