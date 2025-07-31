@@ -682,16 +682,22 @@ class UserService:
                 return user_profiles
 
     
-    async def fetch_user_id_list(self) -> bool:
+    async def fetch_user_id_list(
+        self,
+        relation: str,
+        talk_style: str
+    ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 query = """
                     SELECT id
                     FROM users
                     WHERE leaved = FALSE
+                    AND FIND_IN_SET(%s, relation)
+                    AND talk_style = %s
                 """
                 
-                await cur.execute(query)
+                await cur.execute(query, (relation, talk_style))
                 rows = await cur.fetchall()
 
                 user_id_list = [row[0] for row in rows]
