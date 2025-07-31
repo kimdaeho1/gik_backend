@@ -663,7 +663,7 @@ class UserService:
                     # 유저 중복 확인
                     await cur.execute("SELECT 1 FROM users WHERE id = %s", (user.id,))
                     if await cur.fetchone():
-                        raise HTTPException(status_code=400, detail=f"User with id {user.id} already exists.")
+                        return True
 
                     # users 삽입
                     await cur.execute(

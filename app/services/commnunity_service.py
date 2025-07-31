@@ -20,7 +20,7 @@ class CommunityService:
                         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
                         data.post_id, data.user_id, data.title, data.content,
-                        0, data.anonymous, False, data.created_at
+                        data.view_count, data.anonymous, False, data.created_at
                     ))
 
                     # 2. post_images

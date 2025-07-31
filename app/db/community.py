@@ -38,3 +38,4 @@ class FullPostMigrationRequest(BaseModel):
     comments: List[PostComment] = []
     post_reports: List[PostReport] = []
     comment_reports: List[CommentReport] = []
+    view_count: int
