@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status
+from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
 from typing import Optional
 from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest
 from app.services.user_service import UserService
@@ -406,7 +406,7 @@ async def fetch_user_list(
 # [유저] 유저 ID 목록 조회 (탈퇴하지 않은 유저 전체) / 희망하는 관계, 소통 스타일을 쿼리 파라미터로 받아서 필터
 @router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
 async def fetch_user_id_list(
-    relation: str = None,
+    relation: str= None,
     talkStyle: str = None
 ):
     """
