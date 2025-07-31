@@ -735,6 +735,14 @@ class UserService:
         user_created_at: str,
         leaved_at: str
     ) -> bool:
+        
+        # 유저 중복 확인
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM leaved_users WHERE user_id = %s", (user_id,))
+                if await cur.fetchone():
+                    return True
+                    
         query_update_user = """
             UPDATE users
             SET leaved = TRUE

@@ -16,11 +16,11 @@ class CommunityService:
                     await cur.execute("""
                         INSERT INTO posts (
                             post_id, user_id, title, content, view_count,
-                            anonymous, deleted, created_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            anonymous, deleted, created_at, updated_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
                         data.post_id, data.user_id, data.title, data.content,
-                        data.view_count, data.anonymous, False, data.created_at
+                        data.view_count, data.anonymous, False, data.created_at, data.created_at
                     ))
 
                     # 2. post_images
@@ -35,19 +35,19 @@ class CommunityService:
                     # 3. post_likes
                     for uid in data.like_user_ids:
                         await cur.execute("""
-                            INSERT INTO post_likes (post_id, user_id)
-                            VALUES (%s, %s)
-                        """, (data.post_id, uid))
+                            INSERT INTO post_likes (post_id, user_id, created_at)
+                            VALUES (%s, %s, %s)
+                        """, (data.post_id, uid, data.created_at))
 
                     # 4. post_comments
                     for comment in data.comments:
                         await cur.execute("""
                             INSERT INTO post_comments (
-                                post_id, user_id, content, anonymous, deleted, created_at
-                            ) VALUES (%s, %s, %s, %s, %s, %s)
+                                post_id, user_id, content, anonymous, deleted, created_at, updated_at
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                         """, (
                             data.post_id, comment.user_id, comment.content,
-                            comment.anonymous, False, comment.created_at
+                            comment.anonymous, False, comment.created_at, comment.created_at
                         ))
 
                     # 5. post_reports
