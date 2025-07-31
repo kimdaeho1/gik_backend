@@ -682,6 +682,7 @@ class UserService:
                 return user_profiles
 
     # TODO : 쿼리문 걸리는 WHERE절에 index를 거는게 좋아보인다고함. 나중에라도 걸어보세요. 
+    # TODO : python 툴 찾아보기
     async def fetch_user_id_list(
         self,
         relation: str,
@@ -689,19 +690,44 @@ class UserService:
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-
+                
+                # relation, talk_style 파싱
+                relation = [r.strip() for r in relation.split(",")] if relation else []
+                talk_style = [t.strip() for t in talk_style.split(",")] if talk_style else []
+                
                 query = """
                     SELECT id
                     FROM users
                     WHERE leaved = FALSE
                 """
+                
+                # query문을 execute하기 위한 arguments와 필터링을 수행할 filters 리스트
                 arguments = []
+                filters = []
+
+                # relation이 존재한다면, FIND_IN_SET을 사용한 relation 필터링
                 if relation:
-                    query += "AND FIND_IN_SET(%s, relation)"
-                    arguments.append(relation)
+                    relation_filter = []
+                    for r in relation:
+                        relation_filter.append("FIND_IN_SET(%s, relation)")
+                        arguments.append(r)
+                    # relation이 여러개일 경우 OR 조건인 한 문장으로 filters에 추가
+                    # 예: FIND_IN_SET(%s, relation) OR FIND_IN_SET(%s, relation)
+                    filters.append(f"({' OR '.join(relation_filter)})")
+
+                # talk_style이 존재한다면, talk_style 필터링
                 if talk_style:
-                    query += "AND talk_style = %s"
-                    arguments.append(talk_style) 
+                    talk_style_filter = []
+                    for t in talk_style:
+                        talk_style_filter.append("talk_style = %s")
+                        arguments.append(t)
+                    # talk_style이 여러개일 경우 OR 조건인 한 문장으로 filters에 추가
+                    # 예: talk_style = %s OR talk_style = %s
+                    filters.append(f"({' OR '.join(talk_style_filter)})")
+
+                # 둘다 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
+                if filters:
+                    query += " AND " + " AND ".join(filters)
 
                 await cur.execute(query, arguments)
                 rows = await cur.fetchall()
