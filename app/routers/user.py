@@ -408,19 +408,21 @@ async def fetch_user_list(
     }
 
 
-# [유저] 유저 ID 목록 조회 (탈퇴하지 않은 유저 전체)
+# [유저] 유저 ID 목록 조회 (탈퇴하지 않은 유저 전체) / 희망하는 관계, 소통 스타일을 쿼리 파라미터로 받아서 필터
 @router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
 async def fetch_user_id_list(
+    relation: str,
+    talkStyle: str
 ):
     """
     유저 ID 목록 조회
     """
-    user_ids = await user_service.fetch_user_id_list()
+    user_ids = await user_service.fetch_user_id_list(
+        relation=relation,
+        talk_style=talkStyle
+    )
     if not user_ids:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="유저 ID 목록 조회 실패."
-        )
+        return []
     
     return {
         "success": True,
