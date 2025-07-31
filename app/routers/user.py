@@ -396,12 +396,6 @@ async def fetch_user_list(
     """
     
     users = await user_service.fetch_user_list(user_id_list.userIdList)
-    if not users:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="유저 목록 조회 실패."
-        )
-    
     return {
         "success": True,
         "message": "유저 목록 조회 성공",
@@ -489,34 +483,11 @@ async def user_health_check(
     return {"success": result, "message": "유저 실시간 정보 업데이트 성공."}
 
 
-@router.post("/v1/gik-backend/user/images", status_code=status.HTTP_200_OK)
-async def upload_user_images(
-    user_id: str = Form(...),
-    images: List[UploadFile] = File(default=None),
-):
-    """
-    유저 프로필 사진 업로드
-    user_id: 이미지를 사용한 사용자의 id
-    image_label: 이미지 사용처
-        - user_profile: 유저 프로필 사진
-    """
-    
-    image_url_list = await user_service.upload_user_images(user_id, images)
-    
-    if not image_url_list:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="이미지 업로드 실패."
-        )
-    
-    return {"success": True, "message": "이미지 업로드 성공", "image_urls": image_url_list}
-
-
 @router.patch("/v1/gik-backend/user/images", status_code=status.HTTP_200_OK)
 async def update_user_images(
     user_id: str = Form(...),
-    image_index: int = Form(...),
-    images: List[UploadFile] = File(default=None),
+    image_index: Optional[List[str]] = Form(default=[]),
+    images: Optional[List[UploadFile]] = File(default=None),
 ):
     """
     유저 프로필 사진 수정
@@ -534,26 +505,3 @@ async def update_user_images(
         )
     
     return {"success": True, "message": "이미지 수정 성공", "image_urls": image_url_list}
-
-
-@router.post("/v1/gik-backend/user/images/delete", status_code=status.HTTP_200_OK)
-async def delete_user_images(
-    delete_request: UserImageDeleteRequest
-):
-    """
-    유저 프로필 사진 삭제
-    user_id: 이미지를 사용한 사용자의 id
-    image_index: 삭제할 이미지 인덱스
-    """
-    result = await user_service.delete_user_images(
-        user_id = delete_request.userId,
-        image_index = delete_request.imageIndex
-    )
-    
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="이미지 삭제 실패."
-        )
-    
-    return {"success": True, "message": "이미지 삭제 성공."}

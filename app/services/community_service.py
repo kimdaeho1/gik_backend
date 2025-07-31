@@ -117,7 +117,7 @@ class CommunityService:
         title: str,
         content: str,
         url_list: List[str],
-        images: List[UploadFile] = []
+        images: List[UploadFile]
     ) -> bool:
         try: 
             async with self.db.get_connection() as conn:
@@ -181,7 +181,7 @@ class CommunityService:
                             )
                     
                     # 유지한 이미지들의 index 재정렬
-                    for idx, url in enumerate(url_list):
+                    for idx, url in enumerate(keep_images):
                         await cur.execute(
                             """
                             UPDATE post_images
@@ -191,10 +191,13 @@ class CommunityService:
                             (idx, post_id, url)
                         )
 
+                    print(origin_images)
+                    print(keep_images)
                     # 기존의 이미지중 1번째 이미지를 삭제해 섬네일을 재 생성해야하는 경우
                     # 섬네일을 재 생성해야되는 경우, 경로와 이름이 모두 일치해 덮어쓰기됨
                     if keep_images and (origin_images[0][0] != keep_images[0]):
                         try:
+                            print("asdofijaspoefjaposejfpsaoejfpasoejfpasoejfpasoejfapsoefj")
                             image_url = keep_images[0]
                             s3_key = image_url.replace(f"{CLOUDFRONT_URL}/", "")
                             response = requests.get(image_url)
@@ -270,7 +273,6 @@ class CommunityService:
                     WHERE post_id = %s
                     """
                     await cur.execute(update_query, (post_id,))
-                        
                     await conn.commit()
                     return True
         except Exception as e:
@@ -1301,7 +1303,7 @@ class CommunityService:
                         # 댓글 좋아요 수 조회
                         comment_like_query = """
                             SELECT COUNT(*)
-                            FROM post_comment_likes
+                            FROM post_comment_likes 
                             WHERE comment_id = %s
                         """
                         await cur.execute(comment_like_query, (comment_id,))
