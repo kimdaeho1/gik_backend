@@ -597,7 +597,7 @@ class UserService:
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (reportUserId,)
                 )
-                
+                 
                 await conn.commit()
                 return True
             
@@ -681,7 +681,7 @@ class UserService:
                     ))
                 return user_profiles
 
-    
+    # TODO : 쿼리문 걸리는 WHERE절에 index를 거는게 좋아보인다고함. 나중에라도 걸어보세요. 
     async def fetch_user_id_list(
         self,
         relation: str,
@@ -689,19 +689,23 @@ class UserService:
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+
                 query = """
                     SELECT id
                     FROM users
                     WHERE leaved = FALSE
-                    AND FIND_IN_SET(%s, relation)
-                    AND talk_style = %s
                 """
-                
-                await cur.execute(query, (relation, talk_style))
+                arguments = []
+                if relation:
+                    query += "AND FIND_IN_SET(%s, relation)"
+                    arguments.append(relation)
+                if talk_style:
+                    query += "AND talk_style = %s"
+                    arguments.append(talk_style) 
+
+                await cur.execute(query, arguments)
                 rows = await cur.fetchall()
-
                 user_id_list = [row[0] for row in rows]
-
                 return user_id_list
     
 
