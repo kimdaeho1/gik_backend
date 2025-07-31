@@ -582,7 +582,7 @@ class CommunityService:
                         comment_query = """
                             SELECT COUNT(*)
                             FROM post_comments
-                            WHERE post_id = %s, deleted = %s
+                            WHERE post_id = %s AND deleted = %s
                         """
                         await cur.execute(comment_query, (post_id, False))
                         comment_count = (await cur.fetchone())[0]
