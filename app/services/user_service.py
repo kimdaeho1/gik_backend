@@ -132,7 +132,7 @@ class UserService:
                         post_comment_alarm_agree, post_like_alarm_agree,
                         banned, unbanned_dt, last_connected_at
                     FROM users
-                    WHERE id = %s
+                    WHERE id = %s AND leaved = FALSE
                     """
 
                     await cur.execute(user_query, (id,))
@@ -219,7 +219,7 @@ class UserService:
     async def update_user_nickname(self, id: str, nickname: str) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s",(id, ))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",(id, ))
                 result = await cur.fetchone()
                 if not result:
                     return "not_found"
@@ -247,7 +247,7 @@ class UserService:
     async def update_user_hashtag(self, id: str, hashtags: Hashtags) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id, ))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -280,7 +280,7 @@ class UserService:
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id, ))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -310,7 +310,7 @@ class UserService:
     async def update_user_fcm(self, id: str, fcm: str) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id, ))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -336,7 +336,7 @@ class UserService:
     async def update_user_relation(self, id: str, relation: str) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id, ))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -362,7 +362,7 @@ class UserService:
     async def update_user_position(self, id: str, position: str) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id, ))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id, ))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -392,7 +392,7 @@ class UserService:
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (user_id, ))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id, ))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -420,7 +420,7 @@ class UserService:
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id,))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -470,7 +470,7 @@ class UserService:
                         post_comment_alarm_agree, post_like_alarm_agree,
                         last_connected_at
                 FROM users
-                WHERE id = %s
+                WHERE id = %s AND leaved = FALSE
                 """
                 await cur.execute(user_query, (user_id,))
                 user_row = await cur.fetchone()
@@ -536,12 +536,20 @@ class UserService:
     async def block_user(self, id: str, user_id: str) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id,))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
                         status_code=404,
                         detail="User not found"
+                    )
+                
+                await cur.execute ("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Blocked user not found"
                     )
                 
                 await cur.execute(
@@ -568,7 +576,7 @@ class UserService:
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (reportUserId,))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (reportUserId,))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -576,7 +584,7 @@ class UserService:
                         detail="Reporting user not found"
                     )
                 
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (reportedUserId,))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (reportedUserId,))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -621,7 +629,7 @@ class UserService:
                         post_comment_alarm_agree, post_like_alarm_agree,
                         last_connected_at
                     FROM users
-                    WHERE id IN ({placeholders})
+                    WHERE id IN ({placeholders}) AND leaved = FALSE
                 """
                 await cur.execute(query, tuple(user_id_list))
                 rows = await cur.fetchall()
@@ -748,7 +756,7 @@ class UserService:
                 query = f"""
                     SELECT id, fcm
                     FROM users
-                    WHERE id IN ({placeholders})
+                    WHERE id IN ({placeholders}) AND leaved = FALSE
                 """
                 
                 await cur.execute(query, tuple(user_id))
@@ -766,7 +774,7 @@ class UserService:
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id,))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
@@ -832,7 +840,7 @@ class UserService:
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (user_id,))
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,))
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(
