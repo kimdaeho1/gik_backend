@@ -101,6 +101,13 @@ class CommunityService:
                                 """,
                                 (post_id, user_id, idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
+
+                    insert_history = """
+                        INSERT INTO posts_history (post_id, user_id, title, content)
+                        VALUES (%s, %s, %s, %s)
+                    """
+                    await cur.execute(insert_history, (post_id, user_id, title, content))
+                    
                     await conn.commit()
                     return post_id
                         
@@ -272,6 +279,20 @@ class CommunityService:
                     SET updated_at = CURRENT_TIMESTAMP
                     WHERE post_id = %s
                     """
+                    
+                    await cur.execute("SELECT * FROM posts WHERE post_id = %s", (post_id,))
+                    post_row = await cur.fetchone()
+                    columns = [col[0] for col in cur.description]
+                    
+                    if post_row:
+                        placeholders = ', '.join(['%s'] * len(columns))
+                        columns_sql = ', '.join(columns)
+                        insert_history_query = f"""
+                            INSERT INTO posts_history ({columns_sql})
+                            VALUES ({placeholders})
+                        """
+                        await cur.execute(insert_history_query, post_row)
+                    
                     await cur.execute(update_query, (post_id,))
                     await conn.commit()
                     return True
@@ -325,6 +346,19 @@ class CommunityService:
                     WHERE post_id = %s
                     """
                     await cur.execute(update_query, (post_id,))
+                    
+                    await cur.execute("SELECT * FROM posts WHERE post_id = %s", (post_id,))
+                    post_row = await cur.fetchone()
+                    columns = [col[0] for col in cur.description]
+                    
+                    if post_row:
+                        placeholders = ', '.join(['%s'] * len(columns))
+                        columns_sql = ', '.join(columns)
+                        insert_history_query = f"""
+                            INSERT INTO posts_history ({columns_sql})
+                            VALUES ({placeholders})
+                        """
+                        await cur.execute(insert_history_query, post_row)
                     
                     await conn.commit()
                     return True
@@ -658,6 +692,18 @@ class CommunityService:
                     WHERE post_id = %s
                     """
                     await cur.execute(update_query, (postId,))
+                    await cur.execute("SELECT * FROM posts WHERE post_id = %s", (post_id,))
+                    post_row = await cur.fetchone()
+                    columns = [col[0] for col in cur.description]
+                    
+                    if post_row:
+                        placeholders = ', '.join(['%s'] * len(columns))
+                        columns_sql = ', '.join(columns)
+                        insert_history_query = f"""
+                            INSERT INTO posts_history ({columns_sql})
+                            VALUES ({placeholders})
+                        """
+                        await cur.execute(insert_history_query, post_row)
                     
                     await conn.commit()
                     return True

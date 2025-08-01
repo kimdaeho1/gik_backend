@@ -6,7 +6,7 @@ from app.db.db_connection import db
 from sqlalchemy import text
 from typing import List, Optional
 
-
+# TODO: 회원탈퇴 하면 안보여야 하지 않을까요 친구야
 class UserService:
     def __init__(self):
         self.db = db
@@ -75,6 +75,8 @@ class UserService:
                         post_comment_alarm, post_like_alarm,
                         night_agree, leave
                     ))
+                    
+                    image_urls = []
 
                     for idx, file in enumerate(profile_images):
                         now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
@@ -87,7 +89,7 @@ class UserService:
                             raise Exception(f"S3 업로드 실패: {file.filename}")
 
                         image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
-
+                        image_urls.append(image_url)
                         await cur.execute(
                             """
                             INSERT INTO user_images (user_id, `index`, url, use_yn)
@@ -95,6 +97,32 @@ class UserService:
                             """,
                             (id, idx, image_url, True)
                         )
+                    
+                    insert_history = """
+                        INSERT INTO users_history (
+                            id, fcm, sns, name, phone, provider, email, nickname,
+                            birthday, age, height, weight, country, position, relation,
+                            hashtags, marketing_agree, service_agree, personal_agree,
+                            personal_chat_alarm_agree, group_chat_alarm_agree,
+                            post_comment_alarm_agree, post_like_alarm_agree,
+                            night_agree, leaved, image_list
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s, %s,
+                            %s, %s,
+                            %s, %s, %s
+                        )
+                    """
+                    await cur.execute(insert_history, (
+                        id, fcm, sns, name, phone, provider, email, nickname,
+                        birthday, age, height, weight, country, position, relation,
+                        hashtags.json(), marketing_agree, service_agree, personal_agree,
+                        personal_chat_alarm, group_chat_alarm,
+                        post_comment_alarm, post_like_alarm,
+                        night_agree, leave, image_urls
+                    ))
 
                     await conn.commit()
                     return True
@@ -240,6 +268,19 @@ class UserService:
                     (id, )
                 )
                 
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
+                
                 await conn.commit()
                 return "success"
 
@@ -265,6 +306,19 @@ class UserService:
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (id, )
                 )
+                
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
                 
                 await conn.commit()
                 return True
@@ -303,6 +357,19 @@ class UserService:
                     (id, )
                 )
                 
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
+                
                 await conn.commit()
                 return True
 
@@ -328,6 +395,19 @@ class UserService:
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (id, )
                 )
+                
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
                 
                 await conn.commit()
                 return True
@@ -355,6 +435,19 @@ class UserService:
                     (id, )
                 )
                 
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
+                
                 await conn.commit()
                 return True
     
@@ -380,6 +473,19 @@ class UserService:
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (id, )
                 )
+                
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
                 
                 await conn.commit()
                 return True
@@ -408,6 +514,20 @@ class UserService:
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (user_id, )
                 )
+                
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
+                    
                 await conn.commit()
                 return True
     
@@ -453,6 +573,19 @@ class UserService:
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (id,)
                 )
+                
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
                 
                 await conn.commit()
                 return True
@@ -789,6 +922,19 @@ class UserService:
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (id,)
                 )
+                
+                await cur.execute("SELECT * FROM users WHERE id = %s", (id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
                 
                 await conn.commit()
                 return True
