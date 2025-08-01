@@ -1071,6 +1071,22 @@ class UserService:
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (user_id,)
                 )
+                
+                
+                await cur.execute("SELECT * FROM users WHERE id = %s", (user_id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    columns.append("image_list")
+                    user_row = list(user_row) + [image_urls]
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
 
                 await conn.commit()
                 return image_url_list
