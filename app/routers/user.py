@@ -108,11 +108,7 @@ async def fetch_my_profile(
     id: 유저 ID
     """
     user = await user_service.fetch_my_profile(id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="내 정보 없음."
-        )
+
     return {
         "success": True,
         "message": "내 정보 조회 성공",
@@ -320,11 +316,6 @@ async def fetch_user_profile(
     user_id: 조회할 상대 유저 ID
     """
     user = await user_service.fetch_user_profile(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="유저 정보 조회 실패."
-        )
     
     return {
         "success": True,
@@ -433,12 +424,7 @@ async def fetch_user_fcm_list(
     """
     
     fcm_list = await user_service.fetch_user_fcm_list(user_id_list.userIdList)
-    if not fcm_list:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="유저 FCM 목록 조회 실패."
-        )
-    
+
     return {
         "success": True,
         "message": "유저 FCM 목록 조회 성공",
