@@ -138,10 +138,7 @@ class UserService:
                     await cur.execute(user_query, (id,))
                     user_row = await cur.fetchone()
                     if not user_row:
-                        raise HTTPException(
-                            status_code=404,
-                            detail="내 정보 조회 실패"
-                        )
+                        return {}
 
                     (
                         id, nickname, age, height, weight, sns,
@@ -476,7 +473,7 @@ class UserService:
                 user_row = await cur.fetchone()
 
                 if not user_row:
-                    return None
+                    return {}
 
                 (
                     id, fcm, nickname, relation, position,
