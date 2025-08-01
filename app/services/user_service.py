@@ -6,7 +6,7 @@ from app.db.db_connection import db
 from sqlalchemy import text
 from typing import List, Optional
 
-# TODO: 회원탈퇴 하면 안보여야 하지 않을까요 친구야
+
 class UserService:
     def __init__(self):
         self.db = db
@@ -76,6 +76,7 @@ class UserService:
                         night_agree, leave
                     ))
                     
+                    user_no = cur.lastrowid
                     image_urls = []
 
                     for idx, file in enumerate(profile_images):
@@ -98,16 +99,17 @@ class UserService:
                             (id, idx, image_url, True)
                         )
                     
+                    image_urls = ','.join(image_urls)
                     insert_history = """
                         INSERT INTO users_history (
-                            id, fcm, sns, name, phone, provider, email, nickname,
+                            user_no, id, fcm, sns, name, phone, provider, email, nickname,
                             birthday, age, height, weight, country, position, relation,
                             hashtags, marketing_agree, service_agree, personal_agree,
                             personal_chat_alarm_agree, group_chat_alarm_agree,
                             post_comment_alarm_agree, post_like_alarm_agree,
                             night_agree, leaved, image_list
                         ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s,
@@ -116,7 +118,7 @@ class UserService:
                         )
                     """
                     await cur.execute(insert_history, (
-                        id, fcm, sns, name, phone, provider, email, nickname,
+                        user_no, id, fcm, sns, name, phone, provider, email, nickname,
                         birthday, age, height, weight, country, position, relation,
                         hashtags.json(), marketing_agree, service_agree, personal_agree,
                         personal_chat_alarm, group_chat_alarm,
