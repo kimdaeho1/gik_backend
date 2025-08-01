@@ -57,6 +57,8 @@ class CommunityService:
                     
                     await cur.execute(insert_sql, (post_id, user_id, title, content))
                     
+                    id = cur.lastrowid
+                    
                     if images:
                         for idx, file in enumerate(images):
                             if not file:
@@ -101,9 +103,29 @@ class CommunityService:
                                 """,
                                 (post_id, user_id, idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
+
+                    await cur.execute(
+                        """
+                        SELECT url
+                        FROM post_images
+                        WHERE post_id = %s AND use_yn = %s
+                        ORDER BY `index`
+                        """,
+                        (post_id, True)
+                    )
+                    image_rows = await cur.fetchall()
+                    image_urls = [r[0] for r in image_rows]
+                    image_list = ", ".join(image_urls) if image_urls else None
+                    insert_history = """
+                        INSERT INTO posts_history (id, post_id, user_id, title, content, image_list)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """
+                    
+                    await cur.execute(insert_history, (id, post_id, user_id, title, content, image_list))
+
                     await conn.commit()
                     return post_id
-                        
+
                 except Exception as e:
                     await conn.rollback()
                     print(f"Error Creating Post: {e}")
@@ -190,9 +212,6 @@ class CommunityService:
                             """,
                             (idx, post_id, url)
                         )
-
-                    print(origin_images)
-                    print(keep_images)
                     # 기존의 이미지중 1번째 이미지를 삭제해 섬네일을 재 생성해야하는 경우
                     # 섬네일을 재 생성해야되는 경우, 경로와 이름이 모두 일치해 덮어쓰기됨
                     if keep_images and (origin_images[0][0] != keep_images[0]):
@@ -265,6 +284,20 @@ class CommunityService:
                                 """,
                                 (post_id, user_id, start_index + idx, f"{CLOUDFRONT_URL}/{s3_key}{str_filename}", True)
                             )
+
+                    # 이미지 URL들을 가져와서 image_list로 저장
+                    await cur.execute(
+                        """
+                        SELECT url
+                        FROM post_images
+                        WHERE post_id = %s AND use_yn = %s
+                        ORDER BY `index`
+                        """,
+                        (post_id, True)
+                    ) 
+                    image_rows = await cur.fetchall()
+                    image_urls = [r[0] for r in image_rows]
+                    image_list = ", ".join(image_urls) if image_urls else None
                     
                     # updated_at 필드 업데이트
                     update_query = """
@@ -272,6 +305,22 @@ class CommunityService:
                     SET updated_at = CURRENT_TIMESTAMP
                     WHERE post_id = %s
                     """
+                    
+                    await cur.execute("SELECT * FROM posts WHERE post_id = %s", (post_id,))
+                    post_row = await cur.fetchone()
+                    columns = [col[0] for col in cur.description]
+                    
+                    if post_row:
+                        columns.append("image_list")
+                        post_row = list(post_row) + [image_list]
+                        placeholders = ', '.join(['%s'] * len(columns))
+                        columns_sql = ', '.join(columns)
+                        insert_history_query = f"""
+                            INSERT INTO posts_history ({columns_sql})
+                            VALUES ({placeholders})
+                        """
+                        await cur.execute(insert_history_query, post_row)
+                    
                     await cur.execute(update_query, (post_id,))
                     await conn.commit()
                     return True
@@ -325,6 +374,19 @@ class CommunityService:
                     WHERE post_id = %s
                     """
                     await cur.execute(update_query, (post_id,))
+                    
+                    await cur.execute("SELECT * FROM posts WHERE post_id = %s", (post_id,))
+                    post_row = await cur.fetchone()
+                    columns = [col[0] for col in cur.description]
+                    
+                    if post_row:
+                        placeholders = ', '.join(['%s'] * len(columns))
+                        columns_sql = ', '.join(columns)
+                        insert_history_query = f"""
+                            INSERT INTO posts_history ({columns_sql})
+                            VALUES ({placeholders})
+                        """
+                        await cur.execute(insert_history_query, post_row)
                     
                     await conn.commit()
                     return True
@@ -658,6 +720,18 @@ class CommunityService:
                     WHERE post_id = %s
                     """
                     await cur.execute(update_query, (postId,))
+                    await cur.execute("SELECT * FROM posts WHERE post_id = %s", (post_id,))
+                    post_row = await cur.fetchone()
+                    columns = [col[0] for col in cur.description]
+                    
+                    if post_row:
+                        placeholders = ', '.join(['%s'] * len(columns))
+                        columns_sql = ', '.join(columns)
+                        insert_history_query = f"""
+                            INSERT INTO posts_history ({columns_sql})
+                            VALUES ({placeholders})
+                        """
+                        await cur.execute(insert_history_query, post_row)
                     
                     await conn.commit()
                     return True
