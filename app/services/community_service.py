@@ -674,9 +674,9 @@ class CommunityService:
                     await conn.begin()
                     
                     is_user="""
-                        SELECT id FROM users WHERE id = %s
+                        SELECT id FROM users WHERE id = %s 
                     """
-                    await cur.execute(is_user, (userId,))
+                    await cur.execute(is_user, (userId, ))
                     user_row = await cur.fetchone()
                     if not user_row:
                         raise HTTPException(
@@ -720,7 +720,7 @@ class CommunityService:
                     WHERE post_id = %s
                     """
                     await cur.execute(update_query, (postId,))
-                    await cur.execute("SELECT * FROM posts WHERE post_id = %s", (post_id,))
+                    await cur.execute("SELECT * FROM posts WHERE post_id = %s", (postId, ))
                     post_row = await cur.fetchone()
                     columns = [col[0] for col in cur.description]
                     
@@ -785,9 +785,9 @@ class CommunityService:
                     
                     # 사용자가 있는지
                     check_user = """
-                        SELECT id FROM users WHERE id = %s
+                        SELECT id FROM users WHERE id = %s AND leaved = %s
                     """
-                    await cur.execute(check_user, (user_id,))
+                    await cur.execute(check_user, (user_id, False))
                     user_row = await cur.fetchone()
                     if not user_row:
                         raise HTTPException(
@@ -834,9 +834,9 @@ class CommunityService:
                     
                     # 사용자가 있는지
                     check_user = """
-                        SELECT id FROM users WHERE id = %s
+                        SELECT id FROM users WHERE id = %s AND leaved = %s
                     """
-                    await cur.execute(check_user, (report_user_id,))
+                    await cur.execute(check_user, (report_user_id, False))
                     user_row = await cur.fetchone()
                     if not user_row:
                         raise HTTPException(
@@ -1250,9 +1250,9 @@ class CommunityService:
                     
                     # 사용자가 있는지 확인
                     check_user = """
-                        SELECT id FROM users WHERE id = %s
+                        SELECT id FROM users WHERE id = %s AND leaved = %s
                     """
-                    await cur.execute(check_user, (user_id,))
+                    await cur.execute(check_user, (user_id, False))
                     user_row = await cur.fetchone()
                     if not user_row:
                         raise HTTPException(
@@ -1306,7 +1306,7 @@ class CommunityService:
                         comment_query = """
                             SELECT COUNT(*)
                             FROM post_comments
-                            WHERE post_id = %s, deleted = %s
+                            WHERE post_id = %s AND deleted = %s
                         """
                         await cur.execute(comment_query, (post_id, False))
                         comment_count = (await cur.fetchone())[0]
@@ -1342,9 +1342,9 @@ class CommunityService:
                     
                     # 사용자가 있는지 확인
                     check_user = """
-                        SELECT id FROM users WHERE id = %s
+                        SELECT id FROM users WHERE id = %s AND leaved = %s
                     """
-                    await cur.execute(check_user, (user_id,))
+                    await cur.execute(check_user, (user_id, False))
                     user_row = await cur.fetchone()
                     if not user_row:
                         raise HTTPException(
@@ -1412,9 +1412,9 @@ class CommunityService:
                     
                     # 사용자가 있는지 확인
                     check_user = """
-                        SELECT id FROM users WHERE id = %s
+                        SELECT id FROM users WHERE id = %s AND leaved = %s
                     """
-                    await cur.execute(check_user, (user_id,))
+                    await cur.execute(check_user, (user_id, False))
                     user_row = await cur.fetchone()
                     if not user_row:
                         raise HTTPException(
@@ -1462,9 +1462,9 @@ class CommunityService:
                     
                     # 사용자가 있는지 확인
                     check_user = """
-                        SELECT id FROM users WHERE id = %s
+                        SELECT id FROM users WHERE id = %s AND leaved = %s
                     """
-                    await cur.execute(check_user, (report_user_id,))
+                    await cur.execute(check_user, (report_user_id, False))
                     user_row = await cur.fetchone()
                     if not user_row:
                         raise HTTPException(

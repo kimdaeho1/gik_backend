@@ -102,7 +102,7 @@ async def delete_post(
 
 # [게시글] 게시글 목록 불러오기
 @router.get("/v1/gik-backend/community", status_code=status.HTTP_200_OK)
-async def get_post(
+async def get_posts(
     page: int = Query(...)
 ):
     """
@@ -110,12 +110,6 @@ async def get_post(
     page: 페이지 인덱스 (1부터 시작, 20개씩 페이지네이션)
     """
     posts = await community_service.get_posts(page=page)
-    
-    if not posts:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="게시글을 찾을 수 없습니다."
-        )
     
     return {"success": True, "message": "게시글 목록 불러오기 성공", "posts": posts}
     
@@ -153,6 +147,7 @@ async def search_posts(
     posts = await community_service.search_posts(search=search)
     if not posts:
         return []
+    
     return {"success": True, "message": "게시글 검색 성공", "posts": posts}
 
 # TODO: snake_case로 변경 필요
@@ -353,11 +348,7 @@ async def get_comments(
     post_id: 댓글 목록을 불러올 게시글 ID
     """
     success = await community_service.get_comments(post_id=post_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="댓글 목록 불러오기 실패."
-        )
+
     
     return {"success": True, "message": "댓글 목록 불러오기 성공", "comments": success }
 
@@ -397,12 +388,9 @@ async def get_my_posts(
     user_id: 게시글을 작성한 사용자 ID
     """
     success = await community_service.get_my_posts(user_id=user_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="내 게시글을 찾을 수 없습니다."
-        )
+    
     return {"success": True, "message": "내 게시글 불러오기 성공", "posts": success}
+
 
 # [게시글] 내 댓글 불러오기
 @router.post("/v1/gik-backend/community/my-comment/{user_id}", status_code=status.HTTP_200_OK)
@@ -414,11 +402,7 @@ async def get_my_comments(
     user_id: 댓글을 작성한 사용자 ID
     """
     success = await community_service.get_my_comments(user_id=user_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="내 댓글을 찾을 수 없습니다."
-        )
+    
     return {"success": True, "message": "내 댓글 불러오기 성공", "comments": success}
 
 
