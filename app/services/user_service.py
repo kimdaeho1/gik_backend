@@ -736,13 +736,6 @@ class UserService:
         leaved_at: str
     ) -> bool:
         
-        # 유저 중복 확인
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM leaved_users WHERE user_id = %s", (user_id,))
-                if await cur.fetchone():
-                    return True
-                    
         query_update_user = """
             UPDATE users
             SET leaved = TRUE
@@ -753,19 +746,28 @@ class UserService:
             INSERT INTO leaved_users (user_id, reason, user_created_at, created_at)
             VALUES (%s, %s, %s, %s)
         """
-
+        # 유저 중복 확인
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+                
                 try:
+                    await conn.begin()
+                    # ✅ 무조건 users 테이블 업데이트
                     await cur.execute(query_update_user, (user_id,))
-                    await cur.execute(query_insert_leaved, (
-                        user_id,
-                        reason,
-                        user_created_at,
-                        leaved_at
-                    ))
+
+                    # ✅ leaved_users 테이블은 없을 때만 insert
+                    await cur.execute("SELECT 1 FROM leaved_users WHERE user_id = %s", (user_id,))
+                    if not await cur.fetchone():
+                        await cur.execute(query_insert_leaved, (
+                            user_id,
+                            reason,
+                            user_created_at,
+                            leaved_at
+                        ))
+
                     await conn.commit()
                     return True
+
                 except Exception as e:
                     await conn.rollback()
                     raise e
