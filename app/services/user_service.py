@@ -992,7 +992,7 @@ class UserService:
                         status_code=404,
                         detail="User not found"
                     )
-                    
+
                 await cur.execute(
                     "SELECT url FROM user_images WHERE user_id = %s AND use_yn = TRUE ORDER BY `index`",
                     (user_id,)
