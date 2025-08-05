@@ -493,5 +493,5 @@ async def update_user_images(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="이미지 수정 실패."
         )
-    
+
     return {"success": True, "message": "이미지 수정 성공", "image_urls": image_url_list}
