@@ -1084,7 +1084,7 @@ class UserService:
                 
                 if user_row:
                     columns.append("image_list")
-                    user_row = list(user_row) + [image_urls]
+                    user_row = list(user_row) + [",".join(image_url_list)]
                     placeholders = ', '.join(['%s'] * len(columns))
                     columns_sql = ', '.join(columns)
                     insert_history = f"""
