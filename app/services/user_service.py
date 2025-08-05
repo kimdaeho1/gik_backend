@@ -949,9 +949,7 @@ class UserService:
 
     async def user_health_check(
         self,
-        user_id: str,
-        user_latitude: float,
-        user_longitude: float,
+        user_id: str
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -970,13 +968,11 @@ class UserService:
                 
                 health_query = """
                     UPDATE users
-                    SET last_connected_at = CURRENT_TIMESTAMP,
-                        latitude = %s,
-                        longitude = %s
+                    SET last_connected_at = CURRENT_TIMESTAMP
                     WHERE id = %s
                 """
                 
-                await cur.execute(health_query, (user_latitude, user_longitude, user_id))
+                await cur.execute(health_query, (user_id,))
                 await conn.commit()
                 return True
 

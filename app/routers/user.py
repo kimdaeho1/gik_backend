@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
 from typing import Optional
-from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest, UserHealthCheckRequest
+from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest
 from app.services.user_service import UserService
 
 
@@ -453,18 +453,14 @@ async def leave_user(
     return {"success": result, "message": "유저 탈퇴 성공."}
 
 
-@router.patch("/v1/gik-backend/user/health", status_code=status.HTTP_200_OK)
+@router.patch("/v1/gik-backend/user/health/{user_id}", status_code=status.HTTP_200_OK)
 async def user_health_check(
-    user_health: UserHealthCheckRequest
+    user_id: str
 ):
     """
     유저 실시간 정보를 찍기 위한 API
     """
-    result = await user_service.user_health_check(
-        user_id=user_health.userId,
-        user_latitude=user_health.userLatitude,
-        user_longitude=user_health.userLongitude,
-    )
+    result = await user_service.user_health_check(user_id)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
