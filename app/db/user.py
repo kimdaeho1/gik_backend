@@ -153,3 +153,9 @@ class UserImageDeleteRequest(BaseModel):
 class UserTalkStyleRequest(BaseModel):
     id: str
     talkStyle: str
+
+
+class UserHealthCheckRequest(BaseModel):
+    userId: str
+    userLatitude: float
+    userLongitude: float
