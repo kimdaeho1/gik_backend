@@ -7,7 +7,7 @@ from app.db.db_connection import db
 from app.db.community import PostListResponse, CommentResponse, PostDetailResponse
 from typing import List, Optional
 from sqlalchemy import text
-from PIL import Image
+from PIL import Image, ImageFile, ImageOps
 import io, uuid, requests
 
 
@@ -79,10 +79,22 @@ class CommunityService:
                             
                             if idx == 0:
                                 image=Image.open(io.BytesIO(image_bytes))
-                                image.thumbnail((200, 200))
+                                # 방향 보정
+                                image= ImageOps.exif_transpose(image)
+                                
+                                # 가장 짧은 변이 200px이 되도록, 화질은 고화질로
+                                width, height = image.size
+                                min_size = 200
+                                scale = min_size / min(width, height)
+                                new_width = int(width * scale)
+                                new_height = int(height * scale)
+                                image = image.resize((new_width, new_height), Image.LANCZOS)
+
+                                # 섬네일 생성
                                 thumb_io = io.BytesIO()
-                                image_format = image.format if image.format else "JPG"
-                                image.save(thumb_io, format=image_format)
+                                # Pillow, PIL을 사용해서 섬네일을 생성할때, 기본 포멧이 JPEG가 되어야함(JPG면 오류)
+                                image_format = image.format if image.format else "JPEG"
+                                image.save(thumb_io, format=image_format, quality=95)
                                 thumb_io.seek(0)
                                 
                                 thumbnail_s3_key = f"community/{post_id}/thumbnail/"
@@ -216,13 +228,25 @@ class CommunityService:
                     # 섬네일을 재 생성해야되는 경우, 경로와 이름이 모두 일치해 덮어쓰기됨
                     if keep_images and (origin_images[0][0] != keep_images[0]):
                         try:
-                            print("asdofijaspoefjaposejfpsaoejfpasoejfpasoejfpasoejfapsoefj")
                             image_url = keep_images[0]
                             s3_key = image_url.replace(f"{CLOUDFRONT_URL}/", "")
                             response = requests.get(image_url)
                             image = Image.open(io.BytesIO(response.content))
-                            image.thumbnail((200, 200))
+                            
+                            # 방향 보정
+                            image = ImageOps.exif_transpose(image)
+                            
+                            # 가장 짧은 변이 200px이 되도록, 화질은 고화질로
+                            width, height = image.size
+                            min_size = 200
+                            scale = min_size / min(width, height)
+                            new_width = int(width * scale)
+                            new_height = int(height * scale)
+                            image = image.resize((new_width, new_height), Image.LANCZOS)
+                            
+                            # 섬네일 생성
                             thumb_io = io.BytesIO()
+                            # Pillow, PIL을 사용해서 섬네일을 생성할때, 기본 포멧이 JPEG가 되어야함(JPG면 오류)
                             image_format = image.format if image.format else "JPEG"
                             image.save(thumb_io, format=image_format)
                             thumb_io.seek(0)
@@ -259,9 +283,21 @@ class CommunityService:
                             
                             if idx == 0:
                                 image = Image.open(io.BytesIO(image_bytes))
-                                image.thumbnail((200, 200))
+                                
+                                # 방향 보정
+                                image = ImageOps.exif_transpose(image)
+                                
+                                # 가장 짧은 변이 200px이 되도록, 화질은 고화질로
+                                width, height = image.size
+                                min_size = 200
+                                scale = min_size / min(width, height)
+                                new_width = int(width * scale)
+                                new_height = int(height * scale)
+                                image = image.resize((new_width, new_height), Image.LANCZOS)
+                                
+                                # 섬네일 생성
                                 thumb_io = io.BytesIO()
-                                image_format = image.format if image.format else "JPG"
+                                image_format = image.format if image.format else "JPEG"
                                 image.save(thumb_io, format=image_format)
                                 thumb_io.seek(0)
                                 
