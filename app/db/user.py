@@ -63,6 +63,8 @@ class UserProfileResponse(BaseModel):
     blockPostList: Optional[List[str]]
     blockCommentList: Optional[List[str]]
     lastConnectedAt: datetime
+    latitude: Optional[float]
+    longitude: Optional[float]
 
 
 class UserDetailResponse(BaseModel):
@@ -85,6 +87,8 @@ class UserDetailResponse(BaseModel):
     postCommentAlarm: bool
     postLikeAlarm: bool
     lastConnectedAt: datetime
+    latitude: Optional[float]
+    longitude: Optional[float]
 
 
 class UserNicknameRequest(BaseModel):
@@ -153,3 +157,8 @@ class UserImageDeleteRequest(BaseModel):
 class UserTalkStyleRequest(BaseModel):
     id: str
     talkStyle: str
+
+
+class UserHealthCheckRequest(BaseModel):
+    userLatitude: Optional[float] = None
+    userLongitude: Optional[float] = None

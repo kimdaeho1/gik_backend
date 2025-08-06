@@ -455,12 +455,18 @@ async def leave_user(
 
 @router.patch("/v1/gik-backend/user/health/{user_id}", status_code=status.HTTP_200_OK)
 async def user_health_check(
-    user_id: str
+    user_id: str,
+    user_health: Optional[UserHealthCheckRequest] = None
+
 ):
     """
     유저 실시간 정보를 찍기 위한 API
     """
-    result = await user_service.user_health_check(user_id)
+    result = await user_service.user_health_check(
+        user_id,
+        user_latitude=user_health.userLatitude if user_health else None,
+        user_longitude=user_health.userLongitude if user_health else None
+    )
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

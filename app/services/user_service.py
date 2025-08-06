@@ -160,7 +160,8 @@ class UserService:
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
-                        banned, unbanned_dt, last_connected_at
+                        banned, unbanned_dt, last_connected_at,
+                        latitude, longitude
                     FROM users
                     WHERE id = %s AND leaved = FALSE
                     """
@@ -176,7 +177,8 @@ class UserService:
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
-                        banned, unbanned_dt, last_connected_at
+                        banned, unbanned_dt, last_connected_at,
+                        latitude, longitude
                     ) = user_row
                     
                     hashtags = Hashtags.parse_raw(hashtags_json)
@@ -233,7 +235,9 @@ class UserService:
                         blockUserList=block_user_list,
                         blockPostList=block_post_list,
                         blockCommentList=block_comment_list,
-                        lastConnectedAt=last_connected_at
+                        lastConnectedAt=last_connected_at,
+                        latitude=latitude,
+                        longitude=longitude
                     )
         except Exception as e:
             print(f"Error fetching user profile: {e}")
@@ -600,7 +604,8 @@ class UserService:
                         talk_style, leaved,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
-                        last_connected_at
+                        last_connected_at,
+                        latitude, longitude
                 FROM users
                 WHERE id = %s AND leaved = FALSE
                 """
@@ -616,7 +621,8 @@ class UserService:
                     talk_style, leaved,
                     personal_chat_alarm, group_chat_alarm,
                     post_comment_alarm, post_like_alarm,
-                    last_connected_at
+                    last_connected_at,
+                    latitude, longitude
                 ) = user_row
                 
                 hashtags = Hashtags.parse_raw(hashtags_json)
@@ -661,7 +667,9 @@ class UserService:
                     postCommentAlarm=post_comment_alarm,
                     postLikeAlarm=post_like_alarm,
                     blockUserList=block_user_list,
-                    lastConnectedAt=last_connected_at
+                    lastConnectedAt=last_connected_at,
+                    latitude=latitude,
+                    longitude=longitude
                 )
 
     
@@ -759,7 +767,8 @@ class UserService:
                         relation, position, country, hashtags, leaved, talk_style,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
-                        last_connected_at
+                        last_connected_at,
+                        latitude, longitude
                     FROM users
                     WHERE id IN ({placeholders}) AND leaved = FALSE
                 """
@@ -773,7 +782,8 @@ class UserService:
                         relation, position, country, hashtags_json, leaved, talk_style,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
-                        last_connected_at
+                        last_connected_at,
+                        latitude, longitude
                     ) = row
                     
                     hashtags = Hashtags.parse_raw(hashtags_json)
@@ -817,7 +827,9 @@ class UserService:
                         postCommentAlarm=post_comment_alarm,
                         postLikeAlarm=post_like_alarm,
                         blockUserList=block_user_list,
-                        lastConnectedAt=last_connected_at
+                        lastConnectedAt=last_connected_at,
+                        latitude=latitude,
+                        longitude=longitude
                     ))
                 return user_profiles
 
@@ -949,7 +961,9 @@ class UserService:
 
     async def user_health_check(
         self,
-        user_id: str
+        user_id: str,
+        user_latitude: Optional[float],
+        user_longitude: Optional[float],
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
