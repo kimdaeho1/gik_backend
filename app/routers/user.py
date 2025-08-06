@@ -453,15 +453,16 @@ async def leave_user(
     return {"success": result, "message": "유저 탈퇴 성공."}
 
 
-@router.patch("/v1/gik-backend/user/health", status_code=status.HTTP_200_OK)
+@router.patch("/v1/gik-backend/user/health/{user_id}", status_code=status.HTTP_200_OK)
 async def user_health_check(
+    user_id: str,
     user_health: UserHealthCheckRequest
 ):
     """
     유저 실시간 정보를 찍기 위한 API
     """
     result = await user_service.user_health_check(
-        user_id=user_health.userId,
+        user_id,
         user_latitude=user_health.userLatitude,
         user_longitude=user_health.userLongitude,
     )

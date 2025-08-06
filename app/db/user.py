@@ -156,6 +156,5 @@ class UserTalkStyleRequest(BaseModel):
 
 
 class UserHealthCheckRequest(BaseModel):
-    userId: str
     userLatitude: float
     userLongitude: float
