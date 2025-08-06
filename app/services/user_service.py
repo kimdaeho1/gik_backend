@@ -982,13 +982,11 @@ class UserService:
                 
                 health_query = """
                     UPDATE users
-                    SET last_connected_at = CURRENT_TIMESTAMP,
-                        latitude = %s,
-                        longitude = %s
+                    SET last_connected_at = CURRENT_TIMESTAMP
                     WHERE id = %s
                 """
                 
-                await cur.execute(health_query, (user_latitude, user_longitude, user_id))
+                await cur.execute(health_query, (user_id,))
                 await conn.commit()
                 return True
 
@@ -1008,7 +1006,7 @@ class UserService:
                         status_code=404,
                         detail="User not found"
                     )
-                    
+
                 await cur.execute(
                     "SELECT url FROM user_images WHERE user_id = %s AND use_yn = TRUE ORDER BY `index`",
                     (user_id,)
@@ -1100,7 +1098,7 @@ class UserService:
                 
                 if user_row:
                     columns.append("image_list")
-                    user_row = list(user_row) + [image_urls]
+                    user_row = list(user_row) + [",".join(image_url_list)]
                     placeholders = ', '.join(['%s'] * len(columns))
                     columns_sql = ', '.join(columns)
                     insert_history = f"""
