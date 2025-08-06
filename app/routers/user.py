@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
 from typing import Optional
-from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest, UserHealthCheckRequest
+from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest, UserHealthCheckRequest 
 from app.services.user_service import UserService
 
 
