@@ -982,7 +982,7 @@ class UserService:
                     
                 health_query = """
                     UPDATE users
-                    SET last_connected_at = CURRENT_TIMESTAMP
+                    SET last_connected_at = CURRENT_TIMESTAMP,
                         latitude = %s,
                         longitude = %s
                     WHERE id = %s
