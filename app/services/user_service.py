@@ -979,14 +979,15 @@ class UserService:
                         status_code=404,
                         detail="존재하지 않는 유저입니다."
                     )
-                
+                    
                 health_query = """
                     UPDATE users
                     SET last_connected_at = CURRENT_TIMESTAMP
+                        latitude = %s,
+                        longitude = %s
                     WHERE id = %s
                 """
-                
-                await cur.execute(health_query, (user_id,))
+                await cur.execute(health_query, (user_latitude, user_longitude, user_id))
                 await conn.commit()
                 return True
 
