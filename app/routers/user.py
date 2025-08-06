@@ -457,6 +457,7 @@ async def leave_user(
 async def user_health_check(
     user_id: str,
     user_health: Optional[UserHealthCheckRequest] = None
+
 ):
     """
     유저 실시간 정보를 찍기 위한 API
@@ -494,5 +495,5 @@ async def update_user_images(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="이미지 수정 실패."
         )
-    
+
     return {"success": True, "message": "이미지 수정 성공", "image_urls": image_url_list}
