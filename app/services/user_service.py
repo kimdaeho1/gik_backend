@@ -987,7 +987,6 @@ class UserService:
                         longitude = %s
                     WHERE id = %s
                 """
-                
                 await cur.execute(health_query, (user_latitude, user_longitude, user_id))
                 await conn.commit()
                 return True
