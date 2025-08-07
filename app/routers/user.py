@@ -426,7 +426,8 @@ async def fetch_near_user_id_list(
     """
     유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
     """
-    # TODO: verify_token과 get_user_id_from_token을 굳이 따로 쓸 필요가 있는가.
+    # get_user_id_from_token을 쓰는 이유는, verify_token이 Optional[str] 이기 때문에 사용할 수 없음.
+    # get_user_id_from_token이 있는 이유는 str을 반환하기 때문.
     user_id = await get_user_id_from_token(token.credentials)
     user_ids = await user_service.fetch_near_user_id_list(
         user_id,

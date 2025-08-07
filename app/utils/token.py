@@ -46,10 +46,10 @@ def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dic
     else:
         return None
 
-
+# raise에러가 나면 return None은 의미가 없고, 그렇기 때문에 str.
 async def get_user_id_from_token(token: str) -> str:
     user_id = verify_token(token)
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token.")
-        return None
+    
     return user_id
