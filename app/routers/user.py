@@ -1,9 +1,13 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
+from fastapi import Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest, UserHealthCheckRequest 
 from app.services.user_service import UserService
+from app.utils.token import get_user_id_from_token
 
+oauth2_scheme = HTTPBearer()
 router = APIRouter()
 user_service = UserService()
 
@@ -412,14 +416,23 @@ async def fetch_user_id_list(
         "userIds": user_ids
     }
 
-
+# [유저] 유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
 @router.post("/v1/gik-backend/user/id_list/near", status_code=status.HTTP_200_OK)
-async def fetch_user_id_list_near(token: str = Depends(oauth2_scheme)):
-    user_id = await user_service.get_user_id_from_token(token)
+async def fetch_near_user_id_list(
+    token: str = Depends(oauth2_scheme),
+    relation: str = None,
+    talkStyle: str = None
+):
     """
     유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
     """
-    user_ids = await user_service.fetch_user_id_list_near(user_id)
+    # TODO: verify_token과 get_user_id_from_token을 굳이 따로 쓸 필요가 있는가.
+    user_id = await get_user_id_from_token(token.credentials)
+    user_ids = await user_service.fetch_near_user_id_list(
+        user_id,
+        relation=relation,
+        talk_style=talkStyle
+    )
     return {
         "success": True,
         "message": "근처 유저 ID 목록 조회 성공",
