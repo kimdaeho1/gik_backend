@@ -4,7 +4,6 @@ from typing import Optional
 from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest, UserHealthCheckRequest 
 from app.services.user_service import UserService
 
-
 router = APIRouter()
 user_service = UserService()
 
