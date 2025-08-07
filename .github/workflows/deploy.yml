@@ -74,6 +74,14 @@ jobs:
                   {
                     "name": "DB_PASSWORD",
                     "value": "${{ secrets.DB_PASSWORD }}"
+                  },
+                  {
+                    "name": "JWT_SECRET_KEY",
+                    "value": "${{ secrets.JWT_SECRET_KEY }}"
+                  },
+                  {
+                    "name": "HASH_ALGORITHM",
+                    "value": "${{ secrets.HASH_ALGORITHM }}"
                   }
                 ],
                 "logConfiguration": {
