@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status
 from app.routers import image
-from app.routers import user, community
+from app.routers import user, community, token
 from app.db.db_connection import db
 
 
@@ -8,6 +8,7 @@ app = FastAPI()
 app.include_router(image.router)
 app.include_router(user.router)
 app.include_router(community.router)
+app.include_router(token.router)
 
 @app.get("/")
 async def root():

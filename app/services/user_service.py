@@ -10,7 +10,29 @@ from typing import List, Optional
 class UserService:
     def __init__(self):
         self.db = db
-
+    
+    async def fetch_active_user(
+        self,
+        user_id: str
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM users
+                    WHERE id = %s AND leaved = FALSE
+                    """
+                    , (user_id, )
+                )
+                
+                result = await cur.fetchone()
+                if result:
+                    return True
+                else:
+                    return False
+    
+    
     async def create_user(
         self,
         id: str,
