@@ -413,18 +413,18 @@ async def fetch_user_id_list(
     }
 
 
-# @router.post("/v1/gik-backend/user/id_list/near", status_code=status.HTTP_200_OK)
-# async def fetch_user_id_list_near(token: str = Depends(oauth2_scheme)):
-#     user_id = await user_service.get_user_id_from_token(token)
-#     """
-#     유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
-#     """
-#     user_ids = await user_service.fetch_user_id_list_near(user_id)
-#     return {
-#         "success": True,
-#         "message": "근처 유저 ID 목록 조회 성공",
-#         "userIds": user_ids
-#     }
+@router.post("/v1/gik-backend/user/id_list/near", status_code=status.HTTP_200_OK)
+async def fetch_user_id_list_near(token: str = Depends(oauth2_scheme)):
+    user_id = await user_service.get_user_id_from_token(token)
+    """
+    유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
+    """
+    user_ids = await user_service.fetch_user_id_list_near(user_id)
+    return {
+        "success": True,
+        "message": "근처 유저 ID 목록 조회 성공",
+        "userIds": user_ids
+    }
 
 
 # [유저] 유저 FCM 목록 조회 (탈퇴하지 않은 유저 전체) 유저id리스트 보내주면

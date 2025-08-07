@@ -909,6 +909,9 @@ class UserService:
                 return user_id_list
     
 
+    async 
+    
+    
     async def fetch_user_fcm_list(
         self,
         user_id: List[str]

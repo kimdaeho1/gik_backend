@@ -11,7 +11,7 @@ user_service = UserService()
 token_service = TokenService()
 
 
-@router.get("/v1/gik-backend/user/token/{user_id}", status_code=status.HTTP_200_OK)
+@router.get("/v1/gik-backend/token/{user_id}", status_code=status.HTTP_200_OK)
 async def generate_user_token(
     user_id: str,
 ):
