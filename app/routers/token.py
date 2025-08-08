@@ -1,14 +1,36 @@
-from fastapi import APIRouter, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.user_service import UserService
 from app.services.token_service import TokenService
-from app.utils.token import create_access_token, create_refresh_token
+from app.utils.token import create_access_token, create_refresh_token, create_new_tokens_based_on_refresh_token, get_user_id_from_token
 from jose import jwt
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = HTTPBearer()
 router = APIRouter()
 user_service = UserService()
 token_service = TokenService()
+
+# TODO: expired_in을 어떻게 처리할지.
+@router.get("/v1/gik-backend/token/refresh", status_code=status.HTTP_200_OK)
+async def refresh_token(
+    token: str = Depends(oauth2_scheme)
+):
+    """
+    리프레시 토큰을 사용해 새로운 엑세스 토큰과 리프레스 토큰 발급
+    token : 기존의 리프레시 토큰
+    """
+    new_tokens = create_new_tokens_based_on_refresh_token(token.credentials)
+    if new_tokens is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="잘못되거나 만료된 토큰입니다."
+        )
+    return {
+        "success": True,
+        "message": "새 토큰이 발급되었습니다",
+        "access_token": new_tokens["access_token"],
+        "refresh_token": new_tokens["refresh_token"],
+    }
 
 
 @router.get("/v1/gik-backend/token/{user_id}", status_code=status.HTTP_200_OK)
@@ -16,7 +38,7 @@ async def generate_user_token(
     user_id: str,
 ):
     """
-    DB에 유저id를 검색하고, 일치하는 유저에게 토큰을 발급합니다.
+    DB에 유저id를 검색하고, 일치하는 유저에게 토큰 발급
     user_id : 발급받는 유저의 ID
     """
     # 유저가 존재하는지 확인
@@ -44,3 +66,22 @@ async def generate_user_token(
         "access_token": access_token,
         "refresh_token": refresh_token,
     }
+
+
+@router.post("/v1/gik-backend/token/logout", status_code=status.HTTP_200_OK)
+async def logout_user(
+    token: str = Depends(oauth2_scheme)
+):
+    """
+    DB 에서 해당 유저의 액세스 토큰과 리프레시 토큰 제거
+    token : 로그아웃할 유저의 액세스 토큰
+    """
+    # 토큰에서 유저 ID 추출
+    user_id = await get_user_id_from_token(token.credentials)
+        
+    # 유저 로그아웃
+    success = await token_service.logout_user(user_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="로그아웃 실패")
+        
+    return {"success": True, "message": "로그아웃이 완료되었습니다."}
