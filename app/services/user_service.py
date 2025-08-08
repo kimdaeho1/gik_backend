@@ -998,7 +998,7 @@ class UserService:
                 rows = await cur.fetchall()
                 
                 # response는 {"userId": user_id, "distance": distance, 소수점 7자리까지}
-                distance_user_list = [{"userId": row[0], "distance": round(row[1], 7)} for row in rows]
+                distance_user_list = [row[0] for row in rows]
                 
                 # TODO: 위치정보가 없는 사람들도 그냥 필터링만 해서 보내주는지 논의 필요.
                 # 4. 위치 정보 없는 사용자를 추가한 list
@@ -1037,7 +1037,7 @@ class UserService:
                 null_rows = await cur.fetchall()
                 
                 # null_rows에서 userId와 None 거리를 가진 리스트 생성, {"userId": user_id, "distance": null}
-                null_user_list = [{"userId": row[0], "distance": None} for row in null_rows]
+                null_user_list = [row[0] for row in null_rows]
                 
                 # 두개의 리스트를 합해서 반환, 거리가 있는 것 우선
                 return distance_user_list + null_user_list

@@ -417,7 +417,7 @@ async def fetch_user_id_list(
     }
 
 # [유저] 유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
-@router.post("/v1/gik-backend/user/id_list/near", status_code=status.HTTP_200_OK)
+@router.get("/v1/gik-backend/users/id_list/near", status_code=status.HTTP_200_OK)
 async def fetch_near_user_id_list(
     token: str = Depends(oauth2_scheme),
     relation: str = None,
