@@ -37,6 +37,7 @@ def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dic
     user_id = verify_token(refresh_token)
     if user_id:
         return {
+            "user_id": user_id,
             "access_token": create_access_token(user_id),
             "refresh_token": create_refresh_token(user_id),
         }
