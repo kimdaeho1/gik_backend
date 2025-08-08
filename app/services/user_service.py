@@ -907,8 +907,142 @@ class UserService:
                 rows = await cur.fetchall()
                 user_id_list = [row[0] for row in rows]
                 return user_id_list
-    
 
+
+    async def fetch_near_user_id_list(
+        self,
+        user_id: str,
+        relation: str,
+        talk_style: str
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                
+                # relation, talk_style 파싱
+                relation = [r.strip() for r in relation.split(",")] if relation else []
+                talk_style = [t.strip() for t in talk_style.split(",")] if talk_style else []
+
+                # 1. 사용자가 존재하는지, 존재한다면 위도와 경도값이 있는지 -> 없으면 return False
+                await cur.execute(
+                    """
+                    SELECT 1 
+                    FROM users 
+                    WHERE id = %s AND leaved = FALSE
+                    """, (user_id,)
+                    )
+
+                result = await cur.fetchone()
+
+                # 사용자가 없으면
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="탈퇴하거나 존재하지 않는 사용자입니다."
+                    )
+
+                # 2. 가져온 user_id를 가지고 위도와 경도값을 가져온다.
+                await cur.execute(
+                    """
+                    SELECT latitude, longitude 
+                    FROM users 
+                    WHERE id = %s
+                    """, (user_id,)
+                    )
+                
+                user_location = await cur.fetchone()
+
+                # 사용자의 위도와 경도값이 없으면 빈 리스트를 반환
+                if not user_location or None in user_location:
+                    return []
+
+                lat, lng = user_location
+                
+                # 3. 위도 경도값이 없는 사용자를 제외한 사용자와의 거리를 계산해 가까운 순으로 정렬한다.
+                # 3-1. 만약 필터링이 있다면, 필터링을 적용해서 정렬한다.
+                query = """
+                    SELECT id,
+                        (6371 * acos(
+                            cos(radians(%s)) * cos(radians(latitude)) *
+                            cos(radians(longitude) - radians(%s)) +
+                            sin(radians(%s)) * sin(radians(latitude))
+                        )) AS distance
+                    FROM users
+                    WHERE leaved = FALSE
+                        AND latitude IS NOT NULL 
+                        AND longitude IS NOT NULL
+                        AND id != %s
+                """
+                arguments = [lat, lng, lat, user_id]
+                filters = []
+                
+                if relation:
+                    relation_filter = []
+                    for r in relation:
+                        relation_filter.append("FIND_IN_SET(%s, relation)")
+                        arguments.append(r)
+                    filters.append(f"({' OR '.join(relation_filter)})")
+                
+                if talk_style:
+                    talk_style_filter = []
+                    for t in talk_style:
+                        talk_style_filter.append("talk_style = %s")
+                        arguments.append(t)
+                    filters.append(f"({' OR '.join(talk_style_filter)})")
+                
+                if filters:
+                    query += " AND " + " AND ".join(filters)
+                # 거리를 기준으로 오름차순 정렬
+                query += " ORDER BY distance"
+
+                await cur.execute(query, arguments)
+                rows = await cur.fetchall()
+                
+                # response는 {"userId": user_id, "distance": distance, 소수점 7자리까지}
+                distance_user_list = [{"userId": row[0], "distance": round(row[1], 7)} for row in rows]
+                
+                # TODO: 위치정보가 없는 사람들도 그냥 필터링만 해서 보내주는지 논의 필요.
+                # 4. 위치 정보 없는 사용자를 추가한 list
+                
+                # latitude와 longitude가 null인 사용자를 가져오는 쿼리문
+                null_query = """
+                    SELECT id
+                    FROM users
+                    WHERE leaved = FALSE
+                        AND (latitude IS NULL OR longitude IS NULL)
+                        AND id != %s
+                """
+                
+                null_arguments = [user_id]
+                null_filters = []
+                
+                # 기존의 필터링 그대로
+                if relation:
+                    null_relation_filter = []
+                    for r in relation:
+                        null_relation_filter.append("FIND_IN_SET(%s, relation)")
+                        null_arguments.append(r)
+                    null_filters.append(f"({' OR '.join(null_relation_filter)})")
+                    
+                if talk_style:
+                    null_talk_style_filter = []
+                    for t in talk_style:
+                        null_talk_style_filter.append("talk_style = %s")
+                        null_arguments.append(t)
+                    null_filters.append(f"({' OR '.join(null_talk_style_filter)})")
+
+                if null_filters:
+                    null_query += " AND " + " AND ".join(null_filters)
+
+                await cur.execute(null_query, null_arguments)
+                null_rows = await cur.fetchall()
+                
+                # null_rows에서 userId와 None 거리를 가진 리스트 생성, {"userId": user_id, "distance": null}
+                null_user_list = [{"userId": row[0], "distance": None} for row in null_rows]
+                
+                # 두개의 리스트를 합해서 반환, 거리가 있는 것 우선
+                return distance_user_list + null_user_list
+                
+    
     async def fetch_user_fcm_list(
         self,
         user_id: List[str]
