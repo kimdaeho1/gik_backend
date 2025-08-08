@@ -35,13 +35,10 @@ def verify_token(token: str) -> Optional[str]:
 # TODO: access_token, refresh_token만 하면 되는거 아님? user_id, expires_in이 필요한건가?
 def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dict]:
     user_id = verify_token(refresh_token)
-
     if user_id:
         return {
-            "user_id": user_id,
             "access_token": create_access_token(user_id),
             "refresh_token": create_refresh_token(user_id),
-            "expires_in": ACCESS_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
         }
     else:
         return None
@@ -51,5 +48,5 @@ async def get_user_id_from_token(token: str) -> str:
     user_id = verify_token(token)
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token.")
-    
+
     return user_id

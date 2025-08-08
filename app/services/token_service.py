@@ -30,3 +30,26 @@ class TokenService:
         except Exception as e:
             print(f"토큰 발급에 실패했습니다: {e}")
             return False
+
+
+    async def logout_user(
+        self,
+        user_id: str
+    ):
+        try:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        """
+                        UPDATE users
+                        SET access_token = NULL, refresh_token = NULL, fcm = ""
+                        WHERE id = %s
+                        """
+                        , (user_id,)
+                    )
+                    await conn.commit()
+                    return True
+                
+        except Exception as e:
+            print(f"로그아웃에 실패했습니다: {e}")
+            return False
