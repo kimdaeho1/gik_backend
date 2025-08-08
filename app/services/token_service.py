@@ -32,6 +32,24 @@ class TokenService:
             return False
 
 
+    async def refresh_user_token(
+        self,
+        user_id: str,
+        access_token: str,
+        refresh_token: str
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET access_token = %s, refresh_token = %s
+                    WHERE id = %s
+                    """, (access_token, refresh_token, user_id)
+                )
+            await conn.commit()
+            return True
+
     async def logout_user(
         self,
         user_id: str
