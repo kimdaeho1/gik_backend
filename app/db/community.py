@@ -43,7 +43,7 @@ class PostListResponse(BaseModel):
     category: str
     title: str
     content: str
-    is_admin: bool
+    isAdmin: bool
     images: List[str]
     viewCount: int
     likeUserIds: List[str]
@@ -72,7 +72,7 @@ class PostDetailResponse(BaseModel):
     category: str
     title: str
     content: str
-    is_admin: bool
+    isAdmin: bool
     viewCount: int
     likeCount: int
     images: List[str]
