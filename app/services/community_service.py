@@ -11,16 +11,17 @@ from PIL import Image, ImageFile, ImageOps
 import io, uuid, requests
 
 
-
 class CommunityService:
     def __init__(self):
         self.db = db
-    
+
+
     async def create_post(
         self,
         user_id: str,
         title: str,
         content: str,
+        category: Optional[str] = "자유·수다",
         images: Optional[List[UploadFile]] = []
     ) -> Optional[str]:
         async with self.db.get_connection() as conn:
@@ -28,12 +29,20 @@ class CommunityService:
                 try:
                     await conn.begin()
 
+                    # 유저가 존재하는지 확인
+                    check_user = """
+                        SELECT id FROM users WHERE id = %s
+                    """
+                    await cur.execute(check_user, (user_id,))
+                    user_row = await cur.fetchone()
+                    user_id = user_row[0] if user_row else None
+                    
+                    # 유저가 존재하지 않으면 예외 발생
                     if not user_id:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail="유저가 없습니다"
                         )
-                    
                     
                     post_id = str(uuid.uuid4())
                     check_post = """
@@ -49,13 +58,13 @@ class CommunityService:
                     
                     insert_sql = """
                         INSERT INTO posts (
-                            post_id, user_id, title, content
+                            post_id, user_id, title, content, category
                         ) VALUES (
-                            %s, %s, %s, %s
+                            %s, %s, %s, %s, %s
                         )
                     """
                     
-                    await cur.execute(insert_sql, (post_id, user_id, title, content))
+                    await cur.execute(insert_sql, (post_id, user_id, title, content, category))
                     
                     id = cur.lastrowid
                     
@@ -143,7 +152,7 @@ class CommunityService:
                     print(f"Error Creating Post: {e}")
                     return None
                                 
-    
+
     async def edit_post(
         self,
         post_id: str,
@@ -430,20 +439,34 @@ class CommunityService:
             print(f"Error Deleting Post: {e}")
             return False
     
-    
-    async def get_posts(self, page: int) -> List[PostDetailResponse]:
+    # 카테고리별 list따로 불러오기.
+    async def get_posts(
+        self, 
+        page: int,
+        category: Optional[str]=None,
+    ) -> List[PostDetailResponse]:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
                     offset = (page - 1) * 20
-                    query = """
-                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
-                        FROM posts
-                        WHERE deleted = %s
-                        ORDER BY created_at DESC
-                        LIMIT 20 OFFSET %s
-                    """
-                    await cur.execute(query, (False, offset))
+                    if category is None:
+                        query = """
+                            SELECT post_id, user_id, category, title, content, is_admin, view_count, anonymous, created_at
+                            FROM posts
+                            WHERE deleted = %s
+                            ORDER BY created_at DESC
+                            LIMIT 20 OFFSET %s
+                        """
+                        await cur.execute(query, (False, offset))
+                    else:
+                        query = """
+                            SELECT post_id, user_id, category, title, content, is_admin, view_count, anonymous, created_at
+                            FROM posts
+                            WHERE deleted = %s AND category = %s
+                            ORDER BY created_at DESC
+                            LIMIT 20 OFFSET %s
+                        """
+                        await cur.execute(query, (False, category, offset))
                     post_rows = await cur.fetchall()
 
                     posts = []
@@ -452,8 +475,10 @@ class CommunityService:
                         (
                             post_id,
                             user_id,
+                            category_val,
                             title,
                             content,
+                            is_admin,
                             view_count,
                             anonymous,
                             created_at
@@ -491,8 +516,10 @@ class CommunityService:
                         posts.append(PostListResponse(
                             id=post_id,
                             userId=user_id,
+                            category=category_val,
                             title=title,
                             content=content,
+                            is_admin=is_admin,
                             images=image_urls,
                             viewCount=view_count,
                             likeUserIds=like_user_ids,
@@ -507,8 +534,6 @@ class CommunityService:
             return []
 
 
-    
-    
     async def get_post_detail(self, post_id: str) -> Optional[PostDetailResponse]:
         try:
             async with self.db.get_connection() as conn:
@@ -522,7 +547,7 @@ class CommunityService:
                     
                     # 게시글 기본 정보 쿼리
                     query = """
-                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
+                        SELECT post_id, user_id, category, title, content, is_admin, view_count, anonymous, created_at
                         FROM posts
                         WHERE post_id = %s AND deleted = %s
                     """
@@ -534,8 +559,10 @@ class CommunityService:
                     (
                         post_id,
                         user_id,
+                        category_val,
                         title,
                         content,
+                        is_admin,
                         view_count,
                         anonymous,
                         created_at
@@ -614,8 +641,10 @@ class CommunityService:
                     return PostDetailResponse(
                         id=post_id,
                         userId=user_id,
+                        category=category_val,
                         title=title,
                         content=content,
+                        is_admin=is_admin,
                         viewCount=view_count,
                         likeCount=like_count,
                         images=image_urls,
@@ -628,29 +657,46 @@ class CommunityService:
             print(f"Error Fetching Post Detail: {e}")
             return None
 
-
-    async def search_posts(self, search: str) -> List[PostListResponse]:
+    # 역시 카테고리, is_admin 필요
+    async def search_posts(
+        self, 
+        search: str,
+        category: Optional[str] = None,
+    ) -> List[PostListResponse]:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
-                    search_query = """
-                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
-                        FROM posts
-                        WHERE (title LIKE %s OR content LIKE %s) AND deleted = %s
-                        ORDER BY created_at DESC
-                    """
-                    search_param = f"%{search}%"
-                    await cur.execute(search_query, (search_param, search_param, False))
-                    post_rows = await cur.fetchall()
+                    
+                    if category is None:
+                        search_query = """
+                            SELECT post_id, user_id, category, title, content, is_admin, view_count, anonymous, created_at
+                            FROM posts
+                            WHERE (title LIKE %s OR content LIKE %s) AND deleted = %s
+                            ORDER BY created_at DESC
+                        """
+                        search_param = f"%{search}%"
+                        await cur.execute(search_query, (search_param, search_param, False))
+                    else:
+                        search_query = """
+                            SELECT post_id, user_id, category, title, content, is_admin, view_count, anonymous, created_at
+                            FROM posts
+                            WHERE (title LIKE %s OR content LIKE %s) AND deleted = %s AND category = %s
+                            ORDER BY created_at DESC
+                        """
+                        search_param = f"%{search}%"
+                        await cur.execute(search_query, (search_param, search_param, False, category))
 
+                    post_rows = await cur.fetchall()
                     posts = []
 
                     for row in post_rows:
                         (
                             post_id,
                             user_id,
+                            category_val,
                             title,
                             content,
+                            is_admin,
                             view_count,
                             anonymous,
                             created_at
@@ -665,7 +711,6 @@ class CommunityService:
                         await cur.execute(image_query, (post_id, True))
                         image_rows = await cur.fetchall()
                         image_urls = [r[0] for r in image_rows]
-
                         
                         like_query = """
                             SELECT user_id
@@ -688,8 +733,10 @@ class CommunityService:
                         posts.append(PostListResponse(
                             id=post_id,
                             userId=user_id,
+                            category=category_val,
                             title=title,
                             content=content,
+                            is_admin=is_admin,
                             images=image_urls,
                             viewCount=view_count,
                             likeUserIds=like_user_ids,
@@ -1298,7 +1345,7 @@ class CommunityService:
                         
                     # 사용자 게시글 조회
                     query = """
-                        SELECT post_id, user_id, title, content, view_count, anonymous, created_at
+                        SELECT post_id, user_id, category, title, content, is_admin, view_count, anonymous, created_at
                         FROM posts
                         WHERE user_id = %s AND deleted = %s
                         ORDER BY created_at DESC
@@ -1311,8 +1358,10 @@ class CommunityService:
                         (
                             post_id,
                             user_id,
+                            category,
                             title,
                             content,
+                            is_admin,
                             view_count,
                             anonymous,
                             created_at
@@ -1350,8 +1399,10 @@ class CommunityService:
                         posts.append(PostListResponse(
                             id=post_id,
                             userId=user_id,
+                            category=category,
                             title=title,
                             content=content,
+                            is_admin=is_admin,
                             images=image_urls,
                             viewCount=view_count,
                             likeUserIds=like_user_ids,

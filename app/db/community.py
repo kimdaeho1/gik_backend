@@ -40,8 +40,10 @@ class PostCommentEditRequest(BaseModel):
 class PostListResponse(BaseModel):
     id: str
     userId: str
+    category: str
     title: str
     content: str
+    is_admin: bool
     images: List[str]
     viewCount: int
     likeUserIds: List[str]
@@ -67,8 +69,10 @@ class CommentResponse(BaseModel):
 class PostDetailResponse(BaseModel):
     id: str
     userId: str
+    category: str
     title: str
     content: str
+    is_admin: bool
     viewCount: int
     likeCount: int
     images: List[str]

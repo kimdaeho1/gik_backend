@@ -7,13 +7,14 @@ from app.services.community_service import CommunityService
 router = APIRouter()
 community_service = CommunityService()
 
-
+# TODO : category, is_admin 컬럼 추가해서 전면 수정 필요 is_admin은 admin웹페이지에서 쓴 글만 true로, default NULL.
 # [게시글] 게시글 등록
 @router.post("/v1/gik-backend/community", status_code=status.HTTP_201_CREATED)
 async def create_post(
     user_id: str = Form(...),
     title: str = Form(...),
     content: str = Form(...),
+    category: Optional[str] = Form(default="자유·수다"),
     images: Optional[List[UploadFile]] = File(default=[])
 ):
     """
@@ -21,6 +22,8 @@ async def create_post(
     userId: 게시글을 작성한 사용자 ID
     title: 게시글 제목
     content: 게시글 내용
+    category: 게시글 카테고리 
+        - 자유·수다, 모집·소개, 정보·공유, 긱 스토리, 이벤트(2025 프라이드 엑스포)
     images: 게시글에 첨부할 이미지 리스트 (최대 x장)
     """
     
@@ -28,6 +31,7 @@ async def create_post(
         user_id=user_id,
         title=title,
         content=content,
+        category=category,
         images=images
     )
     
@@ -38,7 +42,7 @@ async def create_post(
         )
     return {"success": True, "message": "게시글 등록 성공", "postId": post_id}
 
-
+# 카테고리는 수정이 안되는거라고 하셔서(수민님) 일단은 카테고리 수정은 제외함.
 # [게시글] 게시글 수정
 @router.patch("/v1/gik-backend/community/{post_id}", status_code=status.HTTP_200_OK)
 async def edit_post(
@@ -99,17 +103,21 @@ async def delete_post(
     
     return {"success": True, "message": "게시글 삭제 성공"}
 
-
+# TODO: 카테고리 별 list를 따로 불러올 필요가 있음.
 # [게시글] 게시글 목록 불러오기
 @router.get("/v1/gik-backend/community", status_code=status.HTTP_200_OK)
 async def get_posts(
-    page: int = Query(...)
+    page: int = Query(...),
+    category: Optional[str] = Query(default=None),
 ):
     """
     게시글 목록 불러오기
     page: 페이지 인덱스 (1부터 시작, 20개씩 페이지네이션)
     """
-    posts = await community_service.get_posts(page=page)
+    posts = await community_service.get_posts(
+        page=page,
+        category=category
+    )
     
     return {"success": True, "message": "게시글 목록 불러오기 성공", "posts": posts}
     
@@ -137,14 +145,17 @@ async def get_post_detail(
 # [게시글] 게시글 검색
 @router.get("/v1/gik-backend/community/search/{search}", status_code=status.HTTP_200_OK)
 async def search_posts(
-    search: str
+    search: str,
+    category: Optional[str] = None
 ):
     """
     게시글 검색
     search(수정 예정): 검색어
     """
-    
-    posts = await community_service.search_posts(search=search)
+    posts = await community_service.search_posts(
+        search=search,
+        category=category
+    )
     if not posts:
         return []
     
