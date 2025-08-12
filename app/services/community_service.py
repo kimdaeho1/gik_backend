@@ -444,7 +444,7 @@ class CommunityService:
         self, 
         page: int,
         category: Optional[str]=None,
-    ) -> List[PostDetailResponse]:
+    ) -> List[PostListResponse]:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
