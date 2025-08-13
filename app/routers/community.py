@@ -156,9 +156,6 @@ async def search_posts(
         search=search,
         category=category
     )
-    if not posts:
-        return []
-    
     return {"success": True, "message": "게시글 검색 성공", "posts": posts}
 
 # TODO: snake_case로 변경 필요
