@@ -14,7 +14,7 @@ async def create_post(
     user_id: str = Form(...),
     title: str = Form(...),
     content: str = Form(...),
-    category: Optional[str] = Form(default="자유·수다"),
+    category: Optional[str] = Form(default="talk"),
     images: Optional[List[UploadFile]] = File(default=[])
 ):
     """
@@ -23,7 +23,7 @@ async def create_post(
     title: 게시글 제목
     content: 게시글 내용
     category: 게시글 카테고리 
-        - 자유·수다, 모집·소개, 정보·공유, 긱 스토리, 이벤트(2025 프라이드 엑스포)
+        - talk(자유·수다), meet(모집·소개), info(정보·공유), story(긱 스토리), event(2025 프라이드 엑스포)
     images: 게시글에 첨부할 이미지 리스트 (최대 x장)
     """
     

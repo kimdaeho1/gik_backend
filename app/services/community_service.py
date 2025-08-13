@@ -21,7 +21,7 @@ class CommunityService:
         user_id: str,
         title: str,
         content: str,
-        category: Optional[str] = "자유·수다",
+        category: Optional[str] = "talk",
         images: Optional[List[UploadFile]] = []
     ) -> Optional[str]:
         async with self.db.get_connection() as conn:
