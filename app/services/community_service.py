@@ -330,7 +330,7 @@ class CommunityService:
                                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                         detail=f"Failed to upload thumbnail for {file.filename} to S3"
                                     )
-                                    
+
                             await cur.execute(
                                 """
                                 INSERT INTO post_images (
