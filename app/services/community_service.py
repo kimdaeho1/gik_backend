@@ -249,6 +249,10 @@ class CommunityService:
                             # 방향 보정
                             image = ImageOps.exif_transpose(image)
                             
+                            # png일때 RGBA라서 JPEG로 저장하지 못하는 경우 발생.
+                            if image.mode != "RGB":
+                                image = image.convert("RGB")
+                            
                             # 가장 짧은 변이 200px이 되도록, 화질은 고화질로
                             width, height = image.size
                             min_size = 200
@@ -300,6 +304,10 @@ class CommunityService:
                                 # 방향 보정
                                 image = ImageOps.exif_transpose(image)
                                 
+                                # png일때 RGBA라서 JPEG로 저장하지 못하는 경우 발생.
+                                if image.mode != "RGB":
+                                    image = image.convert("RGB")
+
                                 # 가장 짧은 변이 200px이 되도록, 화질은 고화질로
                                 width, height = image.size
                                 min_size = 200
