@@ -40,6 +40,7 @@ class User(BaseModel):
 class UserProfileResponse(BaseModel):
     id: str
     nickname: str
+    birthday: str
     age: int
     height: int
     weight: int
@@ -71,6 +72,7 @@ class UserDetailResponse(BaseModel):
     id: str
     fcm: str
     nickname: str
+    birthday: str
     profileImages: List[str]
     relation: str
     position: str

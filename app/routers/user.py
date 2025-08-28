@@ -11,7 +11,7 @@ oauth2_scheme = HTTPBearer()
 router = APIRouter()
 user_service = UserService()
 
-# TODO: device_os 필요할듯
+# TODO: device_os 필요할듯, self_introduction 필드 추가. (default NULL), 
 # [유저] 회원가입
 @router.post("/v1/gik-backend/user", status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(

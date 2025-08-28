@@ -32,7 +32,7 @@ class UserService:
                 else:
                     return False
     
-    
+    # TODO : self_introduction 필드 추가.
     async def create_user(
         self,
         id: str,
@@ -177,7 +177,7 @@ class UserService:
                 async with conn.cursor() as cur:
                     user_query = """
                     SELECT
-                        id, nickname, age, height, weight, sns, 
+                        id, nickname, birthday, age, height, weight, sns, 
                         relation, position, country, hashtags, talk_style,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
@@ -194,7 +194,7 @@ class UserService:
                         return {}
 
                     (
-                        id, nickname, age, height, weight, sns,
+                        id, nickname, birthday, age, height, weight, sns,
                         relation, position, country, hashtags_json, talk_style,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm, group_chat_alarm,
@@ -235,6 +235,7 @@ class UserService:
                     return UserProfileResponse(
                         id=id,
                         nickname=nickname,
+                        birthday=birthday,
                         age=age,
                         height=height,
                         weight=weight,
@@ -621,7 +622,7 @@ class UserService:
             async with conn.cursor() as cur:
                 user_query = """
                 SELECT
-                        id, fcm, nickname, relation, position,
+                        id, fcm, nickname, birthday, relation, position,
                         country, age, height, weight, hashtags, 
                         talk_style, leaved,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
@@ -638,7 +639,7 @@ class UserService:
                     return {}
 
                 (
-                    id, fcm, nickname, relation, position,
+                    id, fcm, nickname, birthday, relation, position,
                     country, age, height, weight, hashtags_json,
                     talk_style, leaved,
                     personal_chat_alarm, group_chat_alarm,
@@ -674,6 +675,7 @@ class UserService:
                     id=id,
                     fcm=fcm,
                     nickname=nickname,
+                    birthday=birthday,
                     relation=relation,
                     position=position,
                     country=country,
@@ -785,7 +787,7 @@ class UserService:
 
                 query = f"""
                     SELECT 
-                        id, fcm, nickname, age, height, weight, 
+                        id, fcm, nickname, birthday, age, height, weight, 
                         relation, position, country, hashtags, leaved, talk_style,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
@@ -800,7 +802,7 @@ class UserService:
 
                 for row in rows:
                     (
-                        id, fcm, nickname, age, height, weight,
+                        id, fcm, nickname, birthday, age, height, weight,
                         relation, position, country, hashtags_json, leaved, talk_style,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
@@ -834,6 +836,7 @@ class UserService:
                         id=id,
                         fcm=fcm,
                         nickname=nickname,
+                        birthday=birthday,
                         age=age,
                         height=height,
                         weight=weight,
