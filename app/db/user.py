@@ -130,6 +130,10 @@ class UserAlarmRequest(BaseModel):
     id: str
     value: bool
 
+class UserIntroductionRequest(BaseModel):
+    id: str
+    selfIntroduction: str
+
 
 class UserListRequest(BaseModel):
     userIdList: List[str]
