@@ -52,6 +52,7 @@ class UserService:
         position: str,
         relation: str,
         hashtags: Hashtags,
+        self_introduction: Optional[str],
         personal_chat_alarm: bool,
         group_chat_alarm: bool,
         post_comment_alarm: bool,
@@ -76,14 +77,14 @@ class UserService:
                         INSERT INTO users (
                             id, fcm, sns, name, phone, provider, email, nickname,
                             birthday, age, height, weight, country, position, relation,
-                            hashtags, marketing_agree, service_agree, personal_agree,
+                            hashtags, self_introduction, marketing_agree, service_agree, personal_agree,
                             personal_chat_alarm_agree, group_chat_alarm_agree,
                             post_comment_alarm_agree, post_like_alarm_agree,
                             night_agree, leaved
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s,
                             %s, %s,
                             %s, %s,
                             %s, %s
@@ -92,7 +93,7 @@ class UserService:
                     await cur.execute(insert_sql, (
                         id, fcm, sns, name, phone, provider, email, nickname,
                         birthday, age, height, weight, country, position, relation,
-                        hashtags.json(), marketing_agree, service_agree, personal_agree,
+                        hashtags.json(), self_introduction, marketing_agree, service_agree, personal_agree,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
                         night_agree, leave
@@ -126,14 +127,14 @@ class UserService:
                         INSERT INTO users_history (
                             user_no, id, fcm, sns, name, phone, provider, email, nickname,
                             birthday, age, height, weight, country, position, relation,
-                            hashtags, marketing_agree, service_agree, personal_agree,
+                            hashtags, self_introduction, marketing_agree, service_agree, personal_agree,
                             personal_chat_alarm_agree, group_chat_alarm_agree,
                             post_comment_alarm_agree, post_like_alarm_agree,
                             night_agree, leaved, image_list
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s,
                             %s, %s,
                             %s, %s,
                             %s, %s, %s
@@ -142,7 +143,7 @@ class UserService:
                     await cur.execute(insert_history, (
                         user_no, id, fcm, sns, name, phone, provider, email, nickname,
                         birthday, age, height, weight, country, position, relation,
-                        hashtags.json(), marketing_agree, service_agree, personal_agree,
+                        hashtags.json(), self_introduction, marketing_agree, service_agree, personal_agree,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
                         night_agree, leave, image_urls
@@ -613,6 +614,49 @@ class UserService:
                     """
                     await cur.execute(insert_history, user_row)
                 
+                await conn.commit()
+                return True
+
+
+    async def update_user_self_introduction(
+        self,
+        user_id: str,
+        user_self_introduction: str,
+    ) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,))
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="User not found"
+                    )
+                
+                await cur.execute(
+                    "UPDATE users SET self_introduction = %s WHERE id = %s",
+                    (user_self_introduction, user_id)
+                )
+                
+                # updated_at 필드 업데이트
+                await cur.execute(
+                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (user_id,)
+                )
+                
+                await cur.execute("SELECT * FROM users WHERE id = %s", (user_id, ))
+                user_row = await cur.fetchone()
+                columns = [col[0] for col in cur.description]
+                
+                if user_row:
+                    placeholders = ', '.join(['%s'] * len(columns))
+                    columns_sql = ', '.join(columns)
+                    insert_history = f"""
+                    INSERT INTO users_history ({columns_sql})
+                    VALUES ({placeholders})
+                    """
+                    await cur.execute(insert_history, user_row)
+
                 await conn.commit()
                 return True
 

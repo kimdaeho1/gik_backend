@@ -28,9 +28,15 @@ def verify_token(token: str) -> Optional[str]:
         user_id = payload.get("user_id")
         return user_id
     except ExpiredSignatureError:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Token has expired."
+        )
     except jwt.JWTError:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid token."
+        )
 
 # TODO: access_token, refresh_token만 하면 되는거 아님? user_id, expires_in이 필요한건가?
 def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dict]:
