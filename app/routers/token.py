@@ -20,6 +20,12 @@ async def refresh_token(
     token : 기존의 리프레시 토큰
     """
     new_tokens = create_new_tokens_based_on_refresh_token(token.credentials)
+    success: bool = await token_service.refresh_user_token(
+        new_tokens["user_id"],
+        new_tokens["access_token"],
+        new_tokens["refresh_token"]
+    )
+    
     if not success:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
