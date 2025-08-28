@@ -172,7 +172,7 @@ class UserService:
             )
 
 
-    async def fetch_my_profile(self, id: str) -> UserProfileResponse | None:
+    async def fetch_my_profile(self, user_id: str) -> UserProfileResponse | None:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
@@ -189,7 +189,7 @@ class UserService:
                     WHERE id = %s AND leaved = FALSE
                     """
 
-                    await cur.execute(user_query, (id,))
+                    await cur.execute(user_query, (user_id,))
                     user_row = await cur.fetchone()
                     if not user_row:
                         return {}
@@ -212,29 +212,29 @@ class UserService:
                     WHERE user_id = %s AND use_yn = TRUE
                     """
 
-                    await cur.execute(profile_images_query, (id,))
+                    await cur.execute(profile_images_query, (user_id,))
                     profile_images = [row[0] for row in await cur.fetchall()]
 
                     block_user_query = """
                         SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
                     """
-                    await cur.execute(block_user_query, (id,))
+                    await cur.execute(block_user_query, (user_id,))
                     block_user_list = [row[0] for row in await cur.fetchall()]
 
                     block_post_query = """
                         SELECT blocked_post_id FROM post_block_list WHERE block_user_id = %s
                     """
-                    await cur.execute(block_post_query, (id,))
+                    await cur.execute(block_post_query, (user_id,))
                     block_post_list = [row[0] for row in await cur.fetchall()]
 
                     block_comment_query = """
                         SELECT blocked_comment_id FROM comment_block_list WHERE block_user_id = %s
                     """
-                    await cur.execute(block_comment_query, (id,))
+                    await cur.execute(block_comment_query, (user_id,))
                     block_comment_list = [row[0] for row in await cur.fetchall()]
 
                     return UserProfileResponse(
-                        id=id,
+                        id=user_id,
                         nickname=nickname,
                         birthday=birthday,
                         age=age,

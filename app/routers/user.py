@@ -103,6 +103,25 @@ async def check_user_nickname(
     }
 
 
+@router.get("/v1/gik-backend/my-profile", status_code=status.HTTP_200_OK)
+async def fetch_my_profile_by_token(
+    token = Depends(oauth2_scheme)
+):
+    """
+    유저 프로필 조회
+    id: 유저 ID
+    """
+    id = await get_user_id_from_token(token.credentials)
+    user = await user_service.fetch_my_profile(user_id=id)
+
+    return {
+        "success": True,
+        "message": "내 정보 조회 성공",
+        "user": user
+    }
+
+
+# TODO : 토큰으로 한번 검증 후에 만약 없다면 id로 검증.
 # [유저] 내 정보 조회 (user_id로)
 @router.get("/v1/gik-backend/my-profile/{id}", status_code=status.HTTP_200_OK)
 async def fetch_my_profile(
@@ -112,7 +131,7 @@ async def fetch_my_profile(
     유저 프로필 조회
     id: 유저 ID
     """
-    user = await user_service.fetch_my_profile(id)
+    user = await user_service.fetch_my_profile(user_id=id)
 
     return {
         "success": True,
