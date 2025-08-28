@@ -20,19 +20,6 @@ async def refresh_token(
     token : 기존의 리프레시 토큰
     """
     new_tokens = create_new_tokens_based_on_refresh_token(token.credentials)
-    if new_tokens is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="잘못되거나 만료된 토큰입니다."
-        )
-    
-    # DB에 토큰 저장
-    success: bool = await token_service.refresh_user_token(
-        new_tokens["user_id"],
-        new_tokens["access_token"],
-        new_tokens["refresh_token"]
-    )
-    
     if not success:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
