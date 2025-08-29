@@ -50,6 +50,7 @@ class UserProfileResponse(BaseModel):
     position: str
     country: str
     hashtags: Hashtags
+    selfIntroduction: Optional[str]
     talkStyle: Optional[str]
     profileImages: List[str]
     marketingAlarm: bool
@@ -81,6 +82,7 @@ class UserDetailResponse(BaseModel):
     height: int
     weight: int
     hashtags: Hashtags
+    selfIntroduction: Optional[str]
     talkStyle: Optional[str]
     leaved: bool
     blockUserList: Optional[List[str]]

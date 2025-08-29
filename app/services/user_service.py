@@ -179,7 +179,7 @@ class UserService:
                     user_query = """
                     SELECT
                         id, nickname, birthday, age, height, weight, sns, 
-                        relation, position, country, hashtags, talk_style,
+                        relation, position, country, hashtags, self_introduction, talk_style,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
@@ -196,7 +196,7 @@ class UserService:
 
                     (
                         id, nickname, birthday, age, height, weight, sns,
-                        relation, position, country, hashtags_json, talk_style,
+                        relation, position, country, hashtags_json, self_introduction, talk_style,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
@@ -246,6 +246,7 @@ class UserService:
                         position=position,
                         country=country,
                         hashtags=hashtags,
+                        selfIntroduction=self_introduction,
                         talkStyle=talk_style,
                         profileImages=profile_images,
                         marketingAlarm=marketing_agree,
@@ -667,7 +668,7 @@ class UserService:
                 user_query = """
                 SELECT
                         id, fcm, nickname, birthday, relation, position,
-                        country, age, height, weight, hashtags, 
+                        country, age, height, weight, hashtags, self_introduction,
                         talk_style, leaved,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
@@ -684,7 +685,7 @@ class UserService:
 
                 (
                     id, fcm, nickname, birthday, relation, position,
-                    country, age, height, weight, hashtags_json,
+                    country, age, height, weight, hashtags_json, self_introduction,
                     talk_style, leaved,
                     personal_chat_alarm, group_chat_alarm,
                     post_comment_alarm, post_like_alarm,
@@ -727,6 +728,7 @@ class UserService:
                     height=height,
                     weight=weight,
                     hashtags=hashtags,
+                    selfIntroduction=self_introduction,
                     talkStyle=talk_style,
                     profileImages=profile_images,   
                     leaved=leaved,
@@ -832,7 +834,7 @@ class UserService:
                 query = f"""
                     SELECT 
                         id, fcm, nickname, birthday, age, height, weight, 
-                        relation, position, country, hashtags, leaved, talk_style,
+                        relation, position, country, hashtags, self_introduction, leaved, talk_style,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
                         last_connected_at,
@@ -847,7 +849,7 @@ class UserService:
                 for row in rows:
                     (
                         id, fcm, nickname, birthday, age, height, weight,
-                        relation, position, country, hashtags_json, leaved, talk_style,
+                        relation, position, country, hashtags_json, self_introduction, leaved, talk_style,
                         personal_chat_alarm, group_chat_alarm,
                         post_comment_alarm, post_like_alarm,
                         last_connected_at,
@@ -888,6 +890,7 @@ class UserService:
                         position=position,
                         country=country,
                         hashtags=hashtags,
+                        selfIntroduction=self_introduction,
                         talkStyle=talk_style,
                         profileImages=profile_images,   
                         leaved=leaved,
