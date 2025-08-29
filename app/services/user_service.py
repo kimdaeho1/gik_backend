@@ -909,6 +909,7 @@ class UserService:
     # TODO : python 툴 찾아보기
     async def fetch_user_id_list(
         self,
+        position: str,
         relation: str,
         talk_style: str
     ) -> bool:
@@ -916,6 +917,7 @@ class UserService:
             async with conn.cursor() as cur:
                 
                 # relation, talk_style 파싱
+                position = [p.strip() for p in position.split(",")] if position else []
                 relation = [r.strip() for r in relation.split(",")] if relation else []
                 talk_style = [t.strip() for t in talk_style.split(",")] if talk_style else []
                 
@@ -929,6 +931,16 @@ class UserService:
                 arguments = []
                 filters = []
 
+                # position이 존재한다면, FIND_IN_SET을 사용한 position 필터링
+                if position:
+                    position_filter = []
+                    for p in position:
+                        position_filter.append("FIND_IN_SET(%s, position)")
+                        arguments.append(p)
+                    # position이 여러개일 경우 OR 조건인 한 문장으로 filters에 추가
+                    # 예: FIND_IN_SET(%s, position) OR FIND_IN_SET(%s, position)
+                    filters.append(f"({' OR '.join(position_filter)})")
+                    
                 # relation이 존재한다면, FIND_IN_SET을 사용한 relation 필터링
                 if relation:
                     relation_filter = []
