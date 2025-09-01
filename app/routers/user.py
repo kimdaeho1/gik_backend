@@ -489,7 +489,9 @@ async def fetch_user_id_list(
 @router.get("/v1/gik-backend/users/id_list/near", status_code=status.HTTP_200_OK)
 async def fetch_near_user_id_list(
     token: str = Depends(oauth2_scheme),
+    position: str = None,
     relation: str = None,
+    bdsmType: str = None,
     talkStyle: str = None
 ):
     """
@@ -500,7 +502,9 @@ async def fetch_near_user_id_list(
     user_id = await get_user_id_from_token(token.credentials)
     user_ids = await user_service.fetch_near_user_id_list(
         user_id,
+        position=position,
         relation=relation,
+        bdsm_type=bdsmType,
         talk_style=talkStyle
     )
     return {

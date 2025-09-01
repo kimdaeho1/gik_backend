@@ -1043,14 +1043,18 @@ class UserService:
     async def fetch_near_user_id_list(
         self,
         user_id: str,
+        position: str,
         relation: str,
+        bdsm_type: str,
         talk_style: str
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 
                 # relation, talk_style 파싱
+                position = [p.strip() for p in position.split(",")] if position else []
                 relation = [r.strip() for r in relation.split(",")] if relation else []
+                bdsm_type = [b.strip() for b in bdsm_type.split(",")] if bdsm_type else []
                 talk_style = [t.strip() for t in talk_style.split(",")] if talk_style else []
 
                 # 1. 사용자가 존재하는지, 존재한다면 위도와 경도값이 있는지 -> 없으면 return False
@@ -1106,6 +1110,13 @@ class UserService:
                 arguments = [lat, lng, lat, user_id]
                 filters = []
                 
+                if position:
+                    position_filter = []
+                    for p in position:
+                        position_filter.append("FIND_IN_SET(%s, position)")
+                        arguments.append(p)
+                    filters.append(f"({' OR '.join(position_filter)})")
+                
                 if relation:
                     relation_filter = []
                     for r in relation:
@@ -1119,6 +1130,13 @@ class UserService:
                         talk_style_filter.append("talk_style = %s")
                         arguments.append(t)
                     filters.append(f"({' OR '.join(talk_style_filter)})")
+                
+                if bdsm_type:
+                    bdsm_type_filter = []
+                    for b in bdsm_type:
+                        bdsm_type_filter.append("FIND_IN_SET(%s, bdsm_type)")
+                        arguments.append(b)
+                    filters.append(f"({' OR '.join(bdsm_type_filter)})")
                 
                 if filters:
                     query += " AND " + " AND ".join(filters)
@@ -1147,6 +1165,14 @@ class UserService:
                 null_filters = []
                 
                 # 기존의 필터링 그대로
+            
+                if position:
+                    null_position_filter = []
+                    for p in position:
+                        null_position_filter.append("FIND_IN_SET(%s, position)")
+                        null_arguments.append(p)
+                    null_filters.append(f"({' OR '.join(null_position_filter)})")
+                
                 if relation:
                     null_relation_filter = []
                     for r in relation:
@@ -1160,6 +1186,13 @@ class UserService:
                         null_talk_style_filter.append("talk_style = %s")
                         null_arguments.append(t)
                     null_filters.append(f"({' OR '.join(null_talk_style_filter)})")
+                
+                if bdsm_type:
+                    null_bdsm_type_filter = []
+                    for b in bdsm_type:
+                        null_bdsm_type_filter.append("FIND_IN_SET(%s, bdsm_type)")
+                        null_arguments.append(b)
+                    null_filters.append(f"({' OR '.join(null_bdsm_type_filter)})")
 
                 if null_filters:
                     null_query += " AND " + " AND ".join(null_filters)
