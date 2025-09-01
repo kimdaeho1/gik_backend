@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Qu
 from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
-from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest, UserHealthCheckRequest, UserIntroductionRequest
+from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest, UserHealthCheckRequest, UserIntroductionRequest, UserBdsmRequest
 from app.services.user_service import UserService
 from app.utils.token import get_user_id_from_token
 
@@ -33,6 +33,7 @@ async def create_user_endpoint(
     relation: str = Form(...),
     hashtags: str = Form(...),
     self_introduction: Optional[str] = Form(default=None),
+    bdsm_type: Optional[str] = Form(default=None),
     personal_chat_alarm: bool = Form(...),
     group_chat_alarm: bool = Form(...),
     post_comment_alarm: bool = Form(...),
@@ -67,6 +68,7 @@ async def create_user_endpoint(
         relation=relation,
         hashtags=hashtags_obj,
         self_introduction=self_introduction,
+        bdsm_type=bdsm_type,
         personal_chat_alarm=personal_chat_alarm,
         group_chat_alarm=group_chat_alarm,
         post_comment_alarm=post_comment_alarm,
@@ -351,6 +353,27 @@ async def update_user_self_introduction(
     return {"success": result, "message": "나의 자기소개 변경 성공."}
 
 
+# [유저] 내 정보 수정 (bdsm 타입)
+@router.patch("/v1/gik-backend/my-profile/bdsm-type", status_code=status.HTTP_200_OK)
+async def update_user_bdsm_type(
+    user_bdsm_type: UserBdsmRequest
+):
+    """
+    유저 bdsm 타입 변경
+    user_bdsm_type: bdsm 타입
+    """
+    result: bool = await user_service.update_user_bdsm_type(
+        user_id=user_bdsm_type.id,
+        bdsm_type=user_bdsm_type.bdsmType
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="나의 bdsm 타입 변경 실패."
+        )
+    return {"success": result, "message": "나의 bdsm 타입 변경 성공."}
+
+
 # [유저] 상대 유저 상세정보 조회
 @router.get("/v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
 async def fetch_user_profile(
@@ -444,6 +467,7 @@ async def fetch_user_list(
 async def fetch_user_id_list(
     position: str= None,
     relation: str= None,
+    bdsmType: str = None,
     talkStyle: str = None
 ):
     """
@@ -452,6 +476,7 @@ async def fetch_user_id_list(
     user_ids = await user_service.fetch_user_id_list(
         position=position,
         relation=relation,
+        bdsm_type=bdsmType,
         talk_style=talkStyle
     )
     return {
