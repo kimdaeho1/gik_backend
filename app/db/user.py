@@ -51,6 +51,7 @@ class UserProfileResponse(BaseModel):
     country: str
     hashtags: Hashtags
     selfIntroduction: Optional[str]
+    bdsmType: Optional[str]
     talkStyle: Optional[str]
     profileImages: List[str]
     marketingAlarm: bool
@@ -83,6 +84,7 @@ class UserDetailResponse(BaseModel):
     weight: int
     hashtags: Hashtags
     selfIntroduction: Optional[str]
+    bdsmType: Optional[str]
     talkStyle: Optional[str]
     leaved: bool
     blockUserList: Optional[List[str]]
@@ -135,6 +137,11 @@ class UserAlarmRequest(BaseModel):
 class UserIntroductionRequest(BaseModel):
     id: str
     selfIntroduction: str
+
+
+class UserBdsmRequest(BaseModel):
+    id: str
+    bdsmType: str
 
 
 class UserListRequest(BaseModel):
