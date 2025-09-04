@@ -1545,7 +1545,7 @@ class UserService:
                 if push_type == "userAction":
                     await cur.execute(
                         """
-                        SELECT token, payload, delivered_at
+                        SELECT token, payload, delivered_at, opened_at
                         FROM push_user_log
                         WHERE user_no = %s
                             AND status IN ('SUCCESS', 'OPENED')
@@ -1558,7 +1558,7 @@ class UserService:
                 else:
                     await cur.execute(
                         """
-                        SELECT token, payload, delivered_at
+                        SELECT token, payload, delivered_at, opened_at
                         FROM push_user_log
                         WHERE user_no = %s
                             AND status IN ('SUCCESS', 'OPENED')
@@ -1572,12 +1572,13 @@ class UserService:
                     return []
                 push_list = []
 
-                for token, payload, delivered_at in result:
+                for token, payload, delivered_at, opened_at in result:
                     push_list.append(
                         {
                             "token": token,
                             "payload": payload,
                             "deliveredAt": delivered_at,
+                            "openedAt": opened_at,
                         }
                     )
                 return push_list
