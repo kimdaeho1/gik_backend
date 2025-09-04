@@ -232,7 +232,7 @@ class UserService:
                         self_introduction, bdsm_type, talk_style,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
-                        post_comment_alarm_agree, post_like_alarm_agree,
+                        post_comment_alarm_agree, post_like_alarm_agree, profile_alarm_agree,
                         banned, unbanned_dt, last_connected_at,
                         latitude, longitude
                     FROM users
@@ -266,6 +266,7 @@ class UserService:
                         group_chat_alarm,
                         post_comment_alarm,
                         post_like_alarm,
+                        profile_alarm,
                         banned,
                         unbanned_dt,
                         last_connected_at,
@@ -325,6 +326,7 @@ class UserService:
                         groupChatAlarm=group_chat_alarm,
                         postCommentAlarm=post_comment_alarm,
                         postLikeAlarm=post_like_alarm,
+                        profileAlarm=profile_alarm,
                         banned=banned,
                         unBannedDate=unbanned_dt,
                         blockUserList=block_user_list,

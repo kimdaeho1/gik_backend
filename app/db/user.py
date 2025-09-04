@@ -3,11 +3,13 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+
 class Hashtags(BaseModel):
     bodyType: List[str]
     hobbies: List[str]
     outfitStyle: List[str]
     personality: List[str]
+
 
 class User(BaseModel):
     id: str
@@ -37,6 +39,7 @@ class User(BaseModel):
     nightAgree: bool
     leave: bool
 
+
 class UserProfileResponse(BaseModel):
     id: str
     nickname: str
@@ -60,6 +63,7 @@ class UserProfileResponse(BaseModel):
     groupChatAlarm: bool
     postCommentAlarm: bool
     postLikeAlarm: bool
+    profileAlarm: bool
     banned: bool
     unBannedDate: Optional[datetime]
     blockUserList: Optional[List[str]]
@@ -124,7 +128,7 @@ class UserRelationRequest(BaseModel):
     id: str
     relation: str
 
-    
+
 class UserPositionRequest(BaseModel):
     id: str
     position: str
@@ -133,6 +137,7 @@ class UserPositionRequest(BaseModel):
 class UserAlarmRequest(BaseModel):
     id: str
     value: bool
+
 
 class UserIntroductionRequest(BaseModel):
     id: str
@@ -146,11 +151,11 @@ class UserBdsmRequest(BaseModel):
 
 class UserListRequest(BaseModel):
     userIdList: List[str]
-    
+
 
 class UserLeaveRequest(BaseModel):
     id: str
-    reason:str
+    reason: str
 
 
 class UserBlockRequest(BaseModel):
@@ -168,6 +173,7 @@ class UserReportRequest(BaseModel):
 class UserImageDeleteRequest(BaseModel):
     userId: str
     imageIndex: int
+
 
 class UserTalkStyleRequest(BaseModel):
     id: str
