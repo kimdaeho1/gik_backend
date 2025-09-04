@@ -303,6 +303,15 @@ class UserService:
                     await cur.execute(block_comment_query, (user_id,))
                     block_comment_list = [row[0] for row in await cur.fetchall()]
 
+                    user_no = await self.fetch_user_no(user_id)
+
+                    push_read_query = """
+                        SELECT 1 FROM push_user_log WHERE user_no = %s AND delivery_state = 'DELIVERED' LIMIT 1
+                    """
+                    await cur.execute(push_read_query, (user_no,))
+                    push_read_row = await cur.fetchone()
+                    pushRead = bool(push_read_row[0] if push_read_row else False)
+
                     return UserProfileResponse(
                         id=user_id,
                         nickname=nickname,
@@ -327,6 +336,7 @@ class UserService:
                         postCommentAlarm=post_comment_alarm,
                         postLikeAlarm=post_like_alarm,
                         profileAlarm=profile_alarm,
+                        pushRead=pushRead,
                         banned=banned,
                         unBannedDate=unbanned_dt,
                         blockUserList=block_user_list,
@@ -1555,18 +1565,32 @@ class UserService:
                         """,
                         (user_no, offset),
                     )
-                else:
+                elif push_type:
                     await cur.execute(
                         """
                         SELECT token, payload, delivered_at, opened_at
                         FROM push_user_log
                         WHERE user_no = %s
                             AND status IN ('SUCCESS', 'OPENED')
+                            AND push_type = %s
+                        ORDER BY delivered_at DESC
+                        LIMIT 20 OFFSET %s
+                        """,
+                        (user_no, push_type, offset),
+                    )
+                else:
+                    await cur.execute(
+                        """
+                        SELECT token, payload, delivered_at, opened_at
+                        FROM push_user_log
+                        WHERE user_no = %s
+                            AND status = 'SUCCESS'
                         ORDER BY delivered_at DESC
                         LIMIT 20 OFFSET %s
                         """,
                         (user_no, offset),
                     )
+
                 result = await cur.fetchall()
                 if not result:
                     return []
@@ -1629,6 +1653,51 @@ class UserService:
                         AND token = %s
                     """,
                     (user_no, push_id, user_fcm),
+                )
+                await conn.commit()
+                return True
+
+    async def receive_all_user_push(self, user_id: str) -> None:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT user_no
+                    FROM users
+                    WHERE id = %s
+                        AND leaved = FALSE
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+                user_no = result[0]
+
+                await cur.execute(
+                    """
+                    SELECT fcm
+                    FROM users
+                    WHERE id = %s
+                        AND leaved = FALSE
+                        AND fcm IS NOT NULL
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                user_fcm = result[0] if result else None
+
+                await cur.execute(
+                    """
+                    UPDATE push_user_log
+                    SET delivery_state = 'OPENED', opened_at = CURRENT_TIMESTAMP
+                    WHERE user_no = %s
+                        AND status = 'SUCCESS'
+                        AND token = %s
+                    """,
+                    (user_no, user_fcm),
                 )
                 await conn.commit()
                 return True
