@@ -590,7 +590,7 @@ async def fetch_user_push_list(
     """
     유저가 받은 푸시 목록 조회
     page: 페이지 번호 (1부터 시작)
-    push_type: 푸시 타입(없으면 전체, userActions, announcements)
+    push_type: 푸시 타입(없으면 전체, userAction, announcement)
     """
     user_id = await get_user_id_from_token(token.credentials)
     push_list = await user_service.fetch_user_push_list(
