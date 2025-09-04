@@ -1,17 +1,41 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
-from fastapi import Depends
+from fastapi import BackgroundTasks, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
-from app.db.user import Hashtags, UserProfileResponse, UserDetailResponse, UserNicknameRequest, UserHashtagRequest, UserInfoRequest, UserFcmRequest, UserRelationRequest, UserPositionRequest, UserAlarmRequest, UserListRequest, UserLeaveRequest, UserBlockRequest, UserReportRequest, UserImageDeleteRequest, UserTalkStyleRequest, UserHealthCheckRequest, UserIntroductionRequest, UserBdsmRequest
+from app.db.user import (
+    Hashtags,
+    UserProfileResponse,
+    UserDetailResponse,
+    UserNicknameRequest,
+    UserHashtagRequest,
+    UserInfoRequest,
+    UserFcmRequest,
+    UserRelationRequest,
+    UserPositionRequest,
+    UserAlarmRequest,
+    UserListRequest,
+    UserLeaveRequest,
+    UserBlockRequest,
+    UserReportRequest,
+    UserImageDeleteRequest,
+    UserTalkStyleRequest,
+    UserHealthCheckRequest,
+    UserIntroductionRequest,
+    UserBdsmRequest,
+)
 from app.services.user_service import UserService
+from app.services.push_service import PushService
 from app.utils.token import get_user_id_from_token
+import uuid
 
 oauth2_scheme = HTTPBearer()
 router = APIRouter()
 user_service = UserService()
+push_service = PushService()
 
-# TODO: device_os 필요할듯, self_introduction 필드 추가. (default NULL), 
+
+# TODO: device_os 필요할듯, self_introduction 필드 추가. (default NULL),
 # [유저] 회원가입
 @router.post("/v1/gik-backend/user", status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
@@ -42,7 +66,7 @@ async def create_user_endpoint(
     personal_agree: bool = Form(...),
     marketing_agree: bool = Form(...),
     night_agree: bool = Form(...),
-    leave: bool = Form(...)
+    leave: bool = Form(...),
 ):
     """
     유저 회원가입
@@ -77,22 +101,21 @@ async def create_user_endpoint(
         personal_agree=personal_agree,
         marketing_agree=marketing_agree,
         night_agree=night_agree,
-        leave=leave
+        leave=leave,
     )
 
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="이미 존재하는 유저입니다."
+            status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 유저입니다."
         )
     return {"message": "유저가 성공적으로 등록되었습니다."}
 
 
 # [유저] 닉네임 중복 확인
-@router.get("/v1/gik-backend/user/check-nickname/{nickname}", status_code=status.HTTP_200_OK) 
-async def check_user_nickname(
-    nickname: str
-):
+@router.get(
+    "/v1/gik-backend/user/check-nickname/{nickname}", status_code=status.HTTP_200_OK
+)
+async def check_user_nickname(nickname: str):
     """
     유저 닉네임 중복 확인
     nickname: 유저 닉네임
@@ -101,14 +124,12 @@ async def check_user_nickname(
     return {
         "success": True,
         "message": "중복된 닉네임입니다." if exist else "중복되지 않은 닉네임입니다.",
-        "exist": exist
+        "exist": exist,
     }
 
 
 @router.get("/v1/gik-backend/my-profile", status_code=status.HTTP_200_OK)
-async def fetch_my_profile_by_token(
-    token = Depends(oauth2_scheme)
-):
+async def fetch_my_profile_by_token(token=Depends(oauth2_scheme)):
     """
     유저 프로필 조회
     id: 유저 ID
@@ -116,37 +137,25 @@ async def fetch_my_profile_by_token(
     id = await get_user_id_from_token(token.credentials)
     user = await user_service.fetch_my_profile(user_id=id)
 
-    return {
-        "success": True,
-        "message": "내 정보 조회 성공",
-        "user": user
-    }
+    return {"success": True, "message": "내 정보 조회 성공", "user": user}
 
 
 # TODO : 토큰으로 한번 검증 후에 만약 없다면 id로 검증.
 # [유저] 내 정보 조회 (user_id로)
 @router.get("/v1/gik-backend/my-profile/{id}", status_code=status.HTTP_200_OK)
-async def fetch_my_profile(
-    id: str
-):
+async def fetch_my_profile(id: str):
     """
     유저 프로필 조회
     id: 유저 ID
     """
     user = await user_service.fetch_my_profile(user_id=id)
 
-    return {
-        "success": True,
-        "message": "내 정보 조회 성공",
-        "user": user
-    }
+    return {"success": True, "message": "내 정보 조회 성공", "user": user}
 
 
 # [유저] 내 정보 수정 (닉네임)
 @router.patch("/v1/gik-backend/my-profile/nickname", status_code=status.HTTP_200_OK)
-async def update_user_nickname(
-    user_nickname: UserNicknameRequest
-):
+async def update_user_nickname(user_nickname: UserNicknameRequest):
     """
     유저 닉네임 수정
     id: 유저 ID
@@ -154,27 +163,19 @@ async def update_user_nickname(
     """
     result: bool = await user_service.update_user_nickname(
         user_nickname.id, user_nickname.nickname
-        )
+    )
     if result == "duplicate":
-        return {
-            "success": False,
-            "message": "이미 존재하는 닉네임입니다."
-        }
-    
+        return {"success": False, "message": "이미 존재하는 닉네임입니다."}
+
     if result == "not_found":
-        return {
-            "success": False,
-            "message": "나의 닉네임 변경 실패."
-        }
-    
+        return {"success": False, "message": "나의 닉네임 변경 실패."}
+
     return {"success": True, "message": "나의 닉네임 변경 성공."}
 
 
 # [유저] 내 정보 수정 (해시태그)
 @router.patch("/v1/gik-backend/my-profile/hashtag", status_code=status.HTTP_200_OK)
-async def update_user_hashtag(
-    user_hashtags: UserHashtagRequest
-):
+async def update_user_hashtag(user_hashtags: UserHashtagRequest):
     """
     유저 해시태그 수정
     id: 유저 ID
@@ -185,17 +186,14 @@ async def update_user_hashtag(
     )
     if result is False:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 해시태그 변경 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="나의 해시태그 변경 실패."
         )
     return {"success": result, "message": "나의 해시태그 변경 성공."}
 
 
 # [유저] 내 정보 수정 (기본정보)
 @router.patch("/v1/gik-backend/my-profile/info", status_code=status.HTTP_200_OK)
-async def update_user_info(
-    user_info: UserInfoRequest
-):
+async def update_user_info(user_info: UserInfoRequest):
     """
     유저 기본 정보 수정
     id: 유저 ID
@@ -209,133 +207,111 @@ async def update_user_info(
         user_info.age,
         user_info.height,
         user_info.weight,
-        user_info.country
+        user_info.country,
     )
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 기본정보 변경 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="나의 기본정보 변경 실패."
         )
     return {"success": result, "message": "나의 기본정보 변경 성공."}
 
 
 # [유저] 내 정보 수정 (fcm 코드)
 @router.patch("/v1/gik-backend/my-profile/fcm", status_code=status.HTTP_200_OK)
-async def update_user_fcm(
-    user_fcm: UserFcmRequest
-):
+async def update_user_fcm(user_fcm: UserFcmRequest):
     """
     유저 FCM 코드 수정
     id: 유저 ID
     fcm: 변경된 FCM 코드
     """
-    result: bool = await user_service.update_user_fcm(
-        user_fcm.id,
-        user_fcm.fcm
-    )
+    result: bool = await user_service.update_user_fcm(user_fcm.id, user_fcm.fcm)
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 FCM 코드 변경 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="나의 FCM 코드 변경 실패."
         )
     return {"success": result, "message": "나의 FCM 코드 변경 성공"}
 
 
 # [유저] 내 정보 수정 (희망 관계)
 @router.patch("/v1/gik-backend/my-profile/relation", status_code=status.HTTP_200_OK)
-async def update_user_relation(
-    user_relation: UserRelationRequest
-):
+async def update_user_relation(user_relation: UserRelationRequest):
     """
     유저 희망 관계 수정
     id: 유저 ID
     relation: 변경된 희망 관계
     """
     result: bool = await user_service.update_user_relation(
-        user_relation.id,
-        user_relation.relation
+        user_relation.id, user_relation.relation
     )
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 희망 관계 변경 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="나의 희망 관계 변경 실패."
         )
     return {"success": result, "message": "나의 희망 관계 변경 성공."}
 
 
 # [유저] 내 정보 수정 (포지션)
 @router.patch("/v1/gik-backend/my-profile/position", status_code=status.HTTP_200_OK)
-async def update_user_position(
-    user_position: UserPositionRequest
-):
+async def update_user_position(user_position: UserPositionRequest):
     """
     유저 포지션 수정
     id: 유저 ID
     position: 변경된 포지션
     """
     result: bool = await user_service.update_user_position(
-        user_position.id,
-        user_position.position
+        user_position.id, user_position.position
     )
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 포지션 변경 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="나의 포지션 변경 실패."
         )
     return {"success": result, "message": "나의 포지션 변경 성공."}
-    
+
 
 # [유저] 내 소통 스타일 수정 (선택사항)
 @router.post("/v1/gik-backend/my-profile/talk-style", status_code=status.HTTP_200_OK)
-async def update_user_talk_style(
-    user_talk_style: UserTalkStyleRequest
-):
+async def update_user_talk_style(user_talk_style: UserTalkStyleRequest):
     """
     유저 소통 스타일 수정
     id: 유저 ID
     talkStyle: 변경된 소통 스타일
     """
     result: bool = await user_service.update_user_talk_style(
-        user_id = user_talk_style.id,
-        talk_style = user_talk_style.talkStyle
+        user_id=user_talk_style.id, talk_style=user_talk_style.talkStyle
     )
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 소통 스타일 변경 실패."
+            detail="나의 소통 스타일 변경 실패.",
         )
     return {"success": result, "message": "나의 소통 스타일 변경 성공."}
 
 
 # [유저] 내 정보 수정 (알람)
 @router.patch("/v1/gik-backend/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
-async def update_user_alarm(
-    user_alarm: UserAlarmRequest,
-    type: str
-):
+async def update_user_alarm(user_alarm: UserAlarmRequest, type: str):
     """
     유저 알람 설정 수정
     id: 유저 ID
-    type: 알람 종류 (markeing_agree, personal_chat, group_chat, post_comment, post_like, night_agree)
+    type: 알람 종류 (markeing_agree, personal_chat, group_chat, post_comment, post_like, night_agree, profile_agree)
     value: 변경된 알람 설정 값 (True/False)
     """
     result: bool = await user_service.update_user_alarm(
-        user_alarm.id,
-        type,
-        user_alarm.value
+        user_alarm.id, type, user_alarm.value
     )
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 알람 설정 변경 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="나의 알람 설정 변경 실패."
         )
     return {"success": result, "message": "나의 알람 설정 변경 성공."}
 
 
 # [유저] 내 정보 수정 (자기소개)
-@router.patch("/v1/gik-backend/my-profile/self-introduction", status_code=status.HTTP_200_OK)
+@router.patch(
+    "/v1/gik-backend/my-profile/self-introduction", status_code=status.HTTP_200_OK
+)
 async def update_user_self_introduction(
-    user_self_introduction: UserIntroductionRequest
+    user_self_introduction: UserIntroductionRequest,
 ):
     """
     유저 자기소개 변경
@@ -343,84 +319,111 @@ async def update_user_self_introduction(
     """
     result: bool = await user_service.update_user_self_introduction(
         user_id=user_self_introduction.id,
-        user_self_introduction=user_self_introduction.selfIntroduction
+        user_self_introduction=user_self_introduction.selfIntroduction,
     )
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 자기소개 변경 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="나의 자기소개 변경 실패."
         )
     return {"success": result, "message": "나의 자기소개 변경 성공."}
 
 
 # [유저] 내 정보 수정 (bdsm 타입)
 @router.patch("/v1/gik-backend/my-profile/bdsm-type", status_code=status.HTTP_200_OK)
-async def update_user_bdsm_type(
-    user_bdsm_type: UserBdsmRequest
-):
+async def update_user_bdsm_type(user_bdsm_type: UserBdsmRequest):
     """
     유저 bdsm 타입 변경
     user_bdsm_type: bdsm 타입
     """
     result: bool = await user_service.update_user_bdsm_type(
-        user_id=user_bdsm_type.id,
-        bdsm_type=user_bdsm_type.bdsmType
+        user_id=user_bdsm_type.id, bdsm_type=user_bdsm_type.bdsmType
     )
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="나의 bdsm 타입 변경 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="나의 bdsm 타입 변경 실패."
         )
     return {"success": result, "message": "나의 bdsm 타입 변경 성공."}
 
 
 # [유저] 상대 유저 상세정보 조회
 @router.get("/v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
-async def fetch_user_profile(
-    user_id: str
-):
+async def fetch_user_profile(user_id: str):
     """
     상대 유저 프로필 조회
     user_id: 조회할 상대 유저 ID
     """
     user = await user_service.fetch_user_profile(user_id)
-    
-    return {
-        "success": True,
-        "message": "유저 정보 조회 성공",
-        "user": user
-    }
-    
+
+    return {"success": True, "message": "유저 정보 조회 성공", "user": user}
+
+
+# [유저] 상대 유저 상세정보 조회(토큰, 푸시)
+@router.get("/v1/gik-backend/user-token/{user_id}", status_code=status.HTTP_200_OK)
+async def fetch_user_profile_with_push(
+    user_id: str, background_tasks: BackgroundTasks, token: str = Depends(oauth2_scheme)
+):
+    """
+    상대 유저 프로필 조회
+    user_id: 조회할 상대 유저 ID
+    token: 본인 엑세스 토큰
+    background_tasks: 백그라운드 task에 넣어 push 작업의 안정성 향상
+    """
+
+    # 1. api 작업 - 조회할 상대방의 프로필 정보 가져오기
+    target_profile = await user_service.fetch_user_profile(user_id)
+
+    # 2-1. push 작업 토큰을 사용해 api를 호출한 사용자의 id 가져오기
+    viewer_id = await get_user_id_from_token(token.credentials)
+
+    # 2-2. push 작업 - fcm 토큰 가져오기
+    target_token = await user_service.fetch_user_fcm(user_id)
+
+    # 2-3. push 작업 - api를 호출한 사용자의 닉네임 가져오기
+    nickname = await user_service.fetch_user_nickname(viewer_id)
+
+    # 3. push_logging 작업 - 로그를 남기기 위한 유저 no 가져오기
+    target_user_no = await user_service.fetch_user_no(user_id)
+
+    # 4. push 전송 (backgroud task 내에 들어갈 때 함수 대신 객체를 넣으면 안됨)
+    push_id = str(uuid.uuid4())
+
+    background_tasks.add_task(
+        push_service.push_task,
+        target_token,
+        title="내 프로필을 보고 간 사람이 있어요 👀",
+        body=f"{nickname}님이 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
+        data={"type": "userActions", "viewerId": viewer_id, "pushId": push_id},
+        ttl_seconds=3600,
+        collapse_key=f"profile-view-{user_id}",
+        android_priority="normal",
+        mutable_content=False,
+        content_available=True,
+        user_no=target_user_no,
+    )
+    return {"success": True, "message": "유저 정보 조회 성공", "user": target_profile}
+
 
 # [유저] 상대 유저 차단
 @router.post("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
-async def block_user(
-    user_block: UserBlockRequest
-):
+async def block_user(user_block: UserBlockRequest):
     """
     상대 유저 차단
     id: 유저 ID (본인)
     user_id: 차단할 상대 유저 ID
     """
-    result = await user_service.block_user(
-        user_block.id,
-        user_block.userId
-    )
-    
+    result = await user_service.block_user(user_block.id, user_block.userId)
+
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유저 차단 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="유저 차단 실패."
         )
-    
+
     return {"success": result, "message": "유저 차단 성공."}
 
 
 # [유저] 상대 유저 신고
 @router.post("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
-async def report_user(
-    user_report: UserReportRequest
-):
+async def report_user(user_report: UserReportRequest):
     """
     유저 신고
     chatId: 채팅방 ID (채팅방에서 신고했다면 존재)
@@ -432,58 +435,45 @@ async def report_user(
         user_report.chatId,
         user_report.reportUserId,
         user_report.reportedUserId,
-        user_report.reason
+        user_report.reason,
     )
-    
+
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유저 신고 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="유저 신고 실패."
         )
-    
+
     return {"success": result, "message": "유저 신고 성공."}
 
 
 # [유저] 유저 목록으로 조회
 @router.post("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
-async def fetch_user_list(
-    user_id_list: UserListRequest
-):
+async def fetch_user_list(user_id_list: UserListRequest):
     """
     유저 목록으로 조회
     user_id: 조회할 유저 ID 목록
     """
-    
+
     users = await user_service.fetch_user_list(user_id_list.userIdList)
-    return {
-        "success": True,
-        "message": "유저 목록 조회 성공",
-        "users": users
-    }
+    return {"success": True, "message": "유저 목록 조회 성공", "users": users}
 
 
 # [유저] 유저 ID 목록 조회 (탈퇴하지 않은 유저 전체) / 희망하는 관계, 소통 스타일을 쿼리 파라미터로 받아서 필터
 @router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
 async def fetch_user_id_list(
-    position: str= None,
-    relation: str= None,
+    position: str = None,
+    relation: str = None,
     bdsmType: str = None,
-    talkStyle: str = None
+    talkStyle: str = None,
 ):
     """
     유저 ID 목록 조회
     """
     user_ids = await user_service.fetch_user_id_list(
-        position=position,
-        relation=relation,
-        bdsm_type=bdsmType,
-        talk_style=talkStyle
+        position=position, relation=relation, bdsm_type=bdsmType, talk_style=talkStyle
     )
-    return {
-        "success": True,
-        "message": "유저 ID 목록 조회 성공",
-        "userIds": user_ids
-    }
+    return {"success": True, "message": "유저 ID 목록 조회 성공", "userIds": user_ids}
+
 
 # [유저] 유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
 @router.get("/v1/gik-backend/users/id_list/near", status_code=status.HTTP_200_OK)
@@ -492,7 +482,7 @@ async def fetch_near_user_id_list(
     position: str = None,
     relation: str = None,
     bdsmType: str = None,
-    talkStyle: str = None
+    talkStyle: str = None,
 ):
     """
     유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
@@ -505,73 +495,58 @@ async def fetch_near_user_id_list(
         position=position,
         relation=relation,
         bdsm_type=bdsmType,
-        talk_style=talkStyle
+        talk_style=talkStyle,
     )
     return {
         "success": True,
         "message": "근처 유저 ID 목록 조회 성공",
-        "userIds": user_ids
+        "userIds": user_ids,
     }
 
 
 # [유저] 유저 FCM 목록 조회 (탈퇴하지 않은 유저 전체) 유저id리스트 보내주면
 @router.post("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
-async def fetch_user_fcm_list(
-    user_id_list: UserListRequest
-):
+async def fetch_user_fcm_list(user_id_list: UserListRequest):
     """
     유저 FCM 목록 조회
     """
-    
+
     fcm_list = await user_service.fetch_user_fcm_list(user_id_list.userIdList)
 
-    return {
-        "success": True,
-        "message": "유저 FCM 목록 조회 성공",
-        "fcmList": fcm_list
-    }
+    return {"success": True, "message": "유저 FCM 목록 조회 성공", "fcmList": fcm_list}
 
 
 # [유저] 회원 탈퇴 (leaved 탈퇴)
 @router.post("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
-async def leave_user(
-    user_leave: UserLeaveRequest
-):
+async def leave_user(user_leave: UserLeaveRequest):
     """
     유저 탈퇴
     """
-    
-    result = await user_service.leave_user(
-        user_leave.id,
-        user_leave.reason
-    )
+
+    result = await user_service.leave_user(user_leave.id, user_leave.reason)
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유저 탈퇴 실패."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="유저 탈퇴 실패."
         )
     return {"success": result, "message": "유저 탈퇴 성공."}
 
 
 @router.patch("/v1/gik-backend/user/health/{user_id}", status_code=status.HTTP_200_OK)
 async def user_health_check(
-    user_id: str,
-    user_health: Optional[UserHealthCheckRequest] = None
-
+    user_id: str, user_health: Optional[UserHealthCheckRequest] = None
 ):
-
     """
     유저 실시간 정보를 찍기 위한 API
     """
     result = await user_service.user_health_check(
         user_id,
         user_latitude=user_health.userLatitude if user_health else None,
-        user_longitude=user_health.userLongitude if user_health else None
+        user_longitude=user_health.userLongitude if user_health else None,
     )
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유저 실시간 정보 업데이트 실패."
+            detail="유저 실시간 정보 업데이트 실패.",
         )
     return {"success": result, "message": "유저 실시간 정보 업데이트 성공."}
 
@@ -590,11 +565,59 @@ async def update_user_images(
         - user_profile: 유저 프로필 사진
     """
     image_url_list = await user_service.update_user_images(user_id, image_index, images)
-    
+
     if not image_url_list:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="이미지 수정 실패."
+            detail="이미지 수정 실패.",
         )
 
-    return {"success": True, "message": "이미지 수정 성공", "image_urls": image_url_list}
+    return {
+        "success": True,
+        "message": "이미지 수정 성공",
+        "image_urls": image_url_list,
+    }
+
+
+@router.get("/v1/gik-backend/user/push/list", status_code=status.HTTP_200_OK)
+async def fetch_user_push_list(
+    push_type: Optional[str] = Query(None),
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    유저가 받은 푸시 목록 조회
+    page: 페이지 번호 (1부터 시작)
+    push_type: 푸시 타입(없으면 전체, userActions, announcements)
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    push_list = await user_service.fetch_user_push_list(
+        push_type=push_type, page=page, user_id=user_id
+    )
+
+    return {
+        "success": True,
+        "message": "유저 푸시 목록 조회 성공",
+        "pushList": push_list,
+    }
+
+
+@router.patch("/v1/gik-backend/user/push/receive", status_code=status.HTTP_200_OK)
+async def receive_user_push(
+    push_id: str = Query(...), token: str = Depends(oauth2_scheme)
+):
+    """
+    유저의 푸시 수신, db의 delivery_state를 OPENED로 변경
+    push_id: 푸시 ID
+    """
+    # 토큰에서 유저 아이디 추출,
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.receive_user_push(push_id=push_id, user_id=user_id)
+
+    if result is False:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="유저 푸시 수신 처리 실패.",
+        )
+
+    return {"success": result, "message": "유저 푸시 수신 처리 성공"}
