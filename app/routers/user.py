@@ -392,7 +392,7 @@ async def fetch_user_profile_with_push(
         target_token,
         title="내 프로필을 보고 간 사람이 있어요 👀",
         body=f"{nickname}님이 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
-        data={"type": "userActions", "viewerId": viewer_id, "pushId": push_id},
+        data={"type": "profile", "viewerId": viewer_id, "pushId": push_id},
         ttl_seconds=3600,
         collapse_key=f"profile-view-{user_id}",
         android_priority="normal",
@@ -533,11 +533,13 @@ async def leave_user(user_leave: UserLeaveRequest):
 
 @router.patch("/v1/gik-backend/user/health/{user_id}", status_code=status.HTTP_200_OK)
 async def user_health_check(
-    user_id: str, user_health: Optional[UserHealthCheckRequest] = None
+    user_id: str,
+    user_health: Optional[UserHealthCheckRequest] = None,
 ):
     """
     유저 실시간 정보를 찍기 위한 API
     """
+
     result = await user_service.user_health_check(
         user_id,
         user_latitude=user_health.userLatitude if user_health else None,
