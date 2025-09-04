@@ -1521,7 +1521,7 @@ class UserService:
 
     async def fetch_user_push_list(
         self, push_type: str, page: int, user_id: str
-    ) -> List[str]:
+    ) -> List[dict]:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 offset = (page - 1) * 20
@@ -1540,18 +1540,18 @@ class UserService:
                     raise HTTPException(status_code=404, detail="User not found")
                 user_no = result[0]
 
-                if push_type:
+                if push_type == "userAction":
                     await cur.execute(
                         """
                         SELECT token, payload, delivered_at
                         FROM push_user_log
                         WHERE user_no = %s
-                            AND status = 'SUCCESS'
-                            AND push_type = %s
+                            AND status IN ('SUCCESS', 'OPENED')
+                            AND push_type IN ('profile', 'postLike', 'postComment')
                         ORDER BY delivered_at DESC
                         LIMIT 20 OFFSET %s
                         """,
-                        (user_no, push_type, offset),
+                        (user_no, offset),
                     )
                 else:
                     await cur.execute(
@@ -1559,7 +1559,7 @@ class UserService:
                         SELECT token, payload, delivered_at
                         FROM push_user_log
                         WHERE user_no = %s
-                            AND status = 'SUCCESS'
+                            AND status IN ('SUCCESS', 'OPENED')
                         ORDER BY delivered_at DESC
                         LIMIT 20 OFFSET %s
                         """,
