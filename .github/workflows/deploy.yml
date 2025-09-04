@@ -83,6 +83,10 @@ jobs:
                     "name": "HASH_ALGORITHM",
                     "value": "${{ secrets.HASH_ALGORITHM }}"
                   }
+                  {
+                    "name": "FIREBASE_CREDENTIALS",
+                    "value": "${{ secrets.FIREBASE_CREDENTIALS }}"
+                  }
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
