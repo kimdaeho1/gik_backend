@@ -343,7 +343,7 @@ async def create_comment(comment_request: PostCommentRequest):
 
 
 @router.post(
-    "/v1/gik-backend/communtiy/comments-token", status_code=status.HTTP_201_CREATED
+    "/v1/gik-backend/community/comments-token", status_code=status.HTTP_201_CREATED
 )
 async def create_comment_with_push(
     comment_request: PostCommentRequestToken,
