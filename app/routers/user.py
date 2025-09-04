@@ -623,3 +623,21 @@ async def receive_user_push(
         )
 
     return {"success": result, "message": "유저 푸시 수신 처리 성공"}
+
+
+@router.patch("/v1/gik-backen/user/push/all-receive", status_code=status.HTTP_200_OK)
+async def receive_all_user_push(token: str = Depends(oauth2_scheme)):
+    """
+    유저의 모든 푸시 수신, db의 delivery_state를 OPENED로 변경
+    """
+    # 토큰에서 유저 아이디 추출,
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.receive_all_user_push(user_id=user_id)
+
+    if result is False:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="유저 모든 푸시 수신 처리 실패.",
+        )
+
+    return {"success": result, "message": "유저 모든 푸시 수신 처리 성공"}
