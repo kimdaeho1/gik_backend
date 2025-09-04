@@ -242,7 +242,7 @@ async def like_post_with_push(
         title="❤️내 게시글이 반응 폭발 중!",
         body=f"회원님의 게시글이 좋아요 {like_count}개를 돌파했어요. 지금 확인해 보세요!",
         data={
-            "type": "userActions",
+            "type": "postLike",
             "postId": post_id_request.postId,
             "pushId": push_id,
         },
@@ -387,7 +387,7 @@ async def create_comment_with_push(
         title="📩 새로운 댓글이 달렸어요!",
         body=f"내 글에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
         data={
-            "type": "userActions",
+            "type": "postComment",
             "postId": comment_request.postId,
             "pushId": push_id,
         },
