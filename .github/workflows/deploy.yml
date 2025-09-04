@@ -84,8 +84,32 @@ jobs:
                     "value": "${{ secrets.HASH_ALGORITHM }}"
                   },
                   {
-                    "name": "FIREBASE_CREDENTIALS",
-                    "value": "${{ secrets.FIREBASE_CREDENTIALS }}"
+                    "name": "FIREBASE_ADMIN_PROJECT_ID",
+                    "value": "${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_PRIVATE_KEY",
+                    "value": "${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_PRIVATE_KEY_ID",
+                    "value": "${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY_ID }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_CLIENT_EMAIL",
+                    "value": "${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_CLIENT_ID",
+                    "value": "${{ secrets.FIREBASE_ADMIN_CLIENT_ID }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_AUTH_PROVIDER_X509_CERT_URL",
+                    "value": "${{ secrets.FIREBASE_ADMIN_AUTH_PROVIDER_X509_CERT_URL }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_CLIENT_X509_CERT_URL",
+                    "value": "${{ secrets.FIREBASE_ADMIN_CLIENT_X509_CERT_URL }}"
                   }
                 ],
                 "logConfiguration": {
