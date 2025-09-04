@@ -1623,3 +1623,37 @@ class CommunityService:
                     await conn.rollback()
                     print(f"Error Reporting Comment: {e}")
                     return False
+
+
+    async def fetch_post_user_id(self, post_id: str) -> Optional[str]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    query = """
+                        SELECT user_id FROM posts WHERE post_id = %s AND deleted = %s
+                    """
+                    await cur.execute(query, (post_id, False))
+                    row = await cur.fetchone()
+                    if row:
+                        return row[0]
+                    return None
+                except Exception as e:
+                    print(f"Error Fetching Post User ID: {e}")
+                    return None
+
+
+    async def fetch_post_like_count(self, post_id: str) -> Optional[str]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    query = """
+                        SELECT COUNT(*) FROM post_likes WHERE post_id = %s
+                    """
+                    await cur.execute(query, (post_id,))
+                    row = await cur.fetchone()
+                    if row:
+                        return row[0]
+                    return 0
+                except Exception as e:
+                    print(f"Error Fetching Post Like Count: {e}")
+                    return None

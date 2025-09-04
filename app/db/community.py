@@ -112,7 +112,17 @@ class CommentBlockRequest(BaseModel):
     userId: str
     commentId: int
     
+
 class CommentReportRequest(BaseModel):
     reportCommentId: int
     reportUserId: str
     reason: str
+
+
+class PostCommentRequestToken(BaseModel):
+    postId: str
+    content: str
+
+
+class PostLikeRequestToken(BaseModel):
+    postId: str
