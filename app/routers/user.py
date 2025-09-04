@@ -625,7 +625,7 @@ async def receive_user_push(
     return {"success": result, "message": "유저 푸시 수신 처리 성공"}
 
 
-@router.patch("/v1/gik-backen/user/push/all-receive", status_code=status.HTTP_200_OK)
+@router.patch("/v1/gik-backend/user/push/all-receive", status_code=status.HTTP_200_OK)
 async def receive_all_user_push(token: str = Depends(oauth2_scheme)):
     """
     유저의 모든 푸시 수신, db의 delivery_state를 OPENED로 변경
