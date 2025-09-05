@@ -399,8 +399,8 @@ async def fetch_user_profile_with_push(
             data={"type": "profile", "viewerId": viewer_id, "pushId": push_id},
             ttl_seconds=3600,
             collapse_key=f"profile-view-{user_id}",
-            android_priority="normal",
-            mutable_content=False,
+            android_priority="high",
+            mutable_content=True,
             content_available=True,
             user_no=target_user_no,
         )
