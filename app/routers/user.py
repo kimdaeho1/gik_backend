@@ -399,8 +399,8 @@ async def fetch_user_profile_with_push(
             data={"type": "profile", "viewerId": viewer_id, "pushId": push_id},
             ttl_seconds=3600,
             collapse_key=f"profile-view-{user_id}",
-            android_priority="normal",
-            mutable_content=False,
+            android_priority="high",
+            mutable_content=True,
             content_available=True,
             user_no=target_user_no,
         )
@@ -645,3 +645,15 @@ async def receive_all_user_push(token: str = Depends(oauth2_scheme)):
         )
 
     return {"success": result, "message": "유저 모든 푸시 수신 처리 성공"}
+
+
+@router.patch("/v1/gik-backend/user/migration", status_code=status.HTTP_200_OK)
+async def migrate_user_data():
+    result = await user_service.fix_outfit_style()
+    return {"success": result, "message": "유저 데이터 마이그레이션 완료"}
+
+
+@router.patch("/v1/gik-backend/user/migration", status_code=status.HTTP_200_OK)
+async def migrate_user_data(user_id: str):
+    result = await user_service.fix_outfit_style_one(user_id)
+    return {"success": result, "message": "유저 데이터 마이그레이션 완료"}

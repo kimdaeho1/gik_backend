@@ -254,7 +254,7 @@ async def like_post_with_push(
             ttl_seconds=3600,
             collapse_key=f"post_like_{post_id_request.postId}",
             android_priority="high",
-            mutable_content=False,
+            mutable_content=True,
             content_available=True,
             user_no=target_user_no,
         )
@@ -401,7 +401,7 @@ async def create_comment_with_push(
             ttl_seconds=3600,
             collapse_key=f"post_comment_{comment_request.postId}",
             android_priority="high",
-            mutable_content=False,
+            mutable_content=True,
             content_available=True,
             user_no=target_user_no,
         )
