@@ -5,6 +5,7 @@ from app.db.user import User, Hashtags, UserProfileResponse, UserDetailResponse
 from app.db.db_connection import db
 from sqlalchemy import text
 from typing import List, Optional
+import json
 
 
 class UserService:

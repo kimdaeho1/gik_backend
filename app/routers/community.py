@@ -224,35 +224,40 @@ async def like_post_with_push(
     # 3-1. 푸시 전송을 위한 해당 게시글의 작성자 ID 조회.
     post_user_id = await community_service.fetch_post_user_id(post_id_request.postId)
 
-    # 3-2. 푸시 전송을 위한 해당 게시글 작성자의 fcm 토큰 조회.
-    target_token = await user_service.fetch_user_fcm(post_user_id)
+    # 3-2. 만약 게시글 작성자와 좋아요를 누른 사람이 다를 경우에만 푸시 전송. 같으면 바로 return.
+    if viewer_id != post_user_id:
 
-    # 3-3. 푸시 로그 작성을 위한 작성자의 user_no조회
-    target_user_no = await user_service.fetch_user_no(post_user_id)
+        # 3-3. 푸시 로그 작성을 위한 작성자의 user_no조회
+        target_user_no = await user_service.fetch_user_no(post_user_id)
 
-    # 3-4. 좋아요 개수 조회
-    like_count = await community_service.fetch_post_like_count(post_id_request.postId)
+        # 3-4. 푸시 전송을 위한 해당 게시글 작성자의 fcm 토큰 조회.
+        target_token = await user_service.fetch_user_fcm(post_user_id)
 
-    push_id = str(uuid.uuid4())
+        # 3-5. 좋아요 개수 조회
+        like_count = await community_service.fetch_post_like_count(
+            post_id_request.postId
+        )
 
-    # 4. background task에 푸시 전송 작업 추가
-    background_tasks.add_task(
-        push_service.push_task,
-        target_token,
-        title="❤️내 게시글이 반응 폭발 중!",
-        body=f"회원님의 게시글이 좋아요 {like_count}개를 돌파했어요. 지금 확인해 보세요!",
-        data={
-            "type": "postLike",
-            "postId": post_id_request.postId,
-            "pushId": push_id,
-        },
-        ttl_seconds=3600,
-        collapse_key=f"post_like_{post_id_request.postId}",
-        android_priority="high",
-        mutable_content=False,
-        content_available=True,
-        user_no=target_user_no,
-    )
+        push_id = str(uuid.uuid4())
+
+        # 4. background task에 푸시 전송 작업 추가
+        background_tasks.add_task(
+            push_service.push_task,
+            target_token,
+            title="❤️내 게시글이 반응 폭발 중!",
+            body=f"회원님의 게시글이 좋아요 {like_count}개를 돌파했어요. 지금 확인해 보세요!",
+            data={
+                "type": "postLike",
+                "postId": post_id_request.postId,
+                "pushId": push_id,
+            },
+            ttl_seconds=3600,
+            collapse_key=f"post_like_{post_id_request.postId}",
+            android_priority="high",
+            mutable_content=False,
+            content_available=True,
+            user_no=target_user_no,
+        )
     return {"success": True, "message": "게시글 좋아요 성공"}
 
 
@@ -372,32 +377,34 @@ async def create_comment_with_push(
     # 3-1. 푸시 작업을 위한 해당 게시글의 작성자 ID 조회.
     post_user_id = await community_service.fetch_post_user_id(comment_request.postId)
 
-    # 3-2. 푸시를 보낼 작성자의 fcm 토큰 조회
-    target_token = await user_service.fetch_user_fcm(post_user_id)
+    # 3-2. 만약 댓글 작성자와 게시글 작성자가 다를 경우에만 푸시 전송. 같으면 바로 return.
+    if commenter_id != post_user_id:
+        # 3-3. 푸시를 보낼 작성자의 fcm 토큰 조회
+        target_token = await user_service.fetch_user_fcm(post_user_id)
 
-    # 3-3. 푸시 로그 작성을 위한 작성자의 user_no조회
-    target_user_no = await user_service.fetch_user_no(post_user_id)
+        # 3-4. 푸시 로그 작성을 위한 작성자의 user_no조회
+        target_user_no = await user_service.fetch_user_no(post_user_id)
 
-    # 4. background task에 푸시 전송 작업 추가
-    push_id = str(uuid.uuid4())
+        # 4. background task에 푸시 전송 작업 추가
+        push_id = str(uuid.uuid4())
 
-    background_tasks.add_task(
-        push_service.push_task,
-        target_token,
-        title="📩 새로운 댓글이 달렸어요!",
-        body=f"내 글에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
-        data={
-            "type": "postComment",
-            "postId": comment_request.postId,
-            "pushId": push_id,
-        },
-        ttl_seconds=3600,
-        collapse_key=f"post_comment_{comment_request.postId}",
-        android_priority="high",
-        mutable_content=False,
-        content_available=True,
-        user_no=target_user_no,
-    )
+        background_tasks.add_task(
+            push_service.push_task,
+            target_token,
+            title="📩 새로운 댓글이 달렸어요!",
+            body=f"내 글에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
+            data={
+                "type": "postComment",
+                "postId": comment_request.postId,
+                "pushId": push_id,
+            },
+            ttl_seconds=3600,
+            collapse_key=f"post_comment_{comment_request.postId}",
+            android_priority="high",
+            mutable_content=False,
+            content_available=True,
+            user_no=target_user_no,
+        )
     return {"success": success, "message": "댓글 작성 성공"}
 
 
