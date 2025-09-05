@@ -185,6 +185,7 @@ class PushService:
                 error_message="token empty",
                 delivery_state="FAILED",
             )
+            return
 
         msg = self._build_message(
             token=token,
