@@ -179,7 +179,7 @@ class PushService:
                 push_id=push_id,
                 push_type=data.get("type"),
                 token="",
-                status="NO_TOKEN",
+                status="FAIL",
                 payload_obj=payload_obj,
                 error_code="404",
                 error_message="token empty",
