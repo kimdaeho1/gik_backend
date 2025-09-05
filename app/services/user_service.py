@@ -1676,20 +1676,6 @@ class UserService:
                     raise HTTPException(status_code=404, detail="User not found")
                 user_no = result[0]
 
-                # await cur.execute(
-                #     """
-                #     SELECT fcm
-                #     FROM users
-                #     WHERE id = %s
-                #         AND leaved = FALSE
-                #         AND fcm IS NOT NULL
-                #     LIMIT 1
-                #     """,
-                #     (user_id,),
-                # )
-                # result = await cur.fetchone()
-                # user_fcm = result[0] if result else None
-
                 await cur.execute(
                     """
                     UPDATE push_user_log
