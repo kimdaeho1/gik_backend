@@ -645,15 +645,3 @@ async def receive_all_user_push(token: str = Depends(oauth2_scheme)):
         )
 
     return {"success": result, "message": "유저 모든 푸시 수신 처리 성공"}
-
-
-@router.patch("/v1/gik-backend/user/migration", status_code=status.HTTP_200_OK)
-async def migrate_user_data():
-    result = await user_service.fix_outfit_style()
-    return {"success": result, "message": "유저 데이터 마이그레이션 완료"}
-
-
-@router.patch("/v1/gik-backend/user/migration", status_code=status.HTTP_200_OK)
-async def migrate_user_data(user_id: str):
-    result = await user_service.fix_outfit_style_one(user_id)
-    return {"success": result, "message": "유저 데이터 마이그레이션 완료"}
