@@ -1617,20 +1617,6 @@ class UserService:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT fcm
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
-                        AND fcm IS NOT NULL
-                    LIMIT 1
-                    """,
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                user_fcm = result[0] if result else None
-
-                await cur.execute(
-                    """
                     SELECT user_no
                     FROM users
                     WHERE id = %s
@@ -1651,9 +1637,8 @@ class UserService:
                     WHERE user_no = %s
                         AND push_id = %s
                         AND status = 'SUCCESS'
-                        AND token = %s
                     """,
-                    (user_no, push_id, user_fcm),
+                    (user_no, push_id),
                 )
                 await conn.commit()
                 return True
