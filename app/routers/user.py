@@ -384,22 +384,26 @@ async def fetch_user_profile_with_push(
     # 3. push_logging 작업 - 로그를 남기기 위한 유저 no 가져오기
     target_user_no = await user_service.fetch_user_no(user_id)
 
-    # 4. push 전송 (backgroud task 내에 들어갈 때 함수 대신 객체를 넣으면 안됨)
-    push_id = str(uuid.uuid4())
+    # 3-1. 만약 상대방이 나를 차단했다면 ( # TODO: 플로우 다시 설계.)
+    is_blocked = await user_service.fetch_user_blocked(user_id, viewer_id)
 
-    background_tasks.add_task(
-        push_service.push_task,
-        target_token,
-        title="내 프로필을 보고 간 사람이 있어요 👀",
-        body=f"{nickname}님이 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
-        data={"type": "profile", "viewerId": viewer_id, "pushId": push_id},
-        ttl_seconds=3600,
-        collapse_key=f"profile-view-{user_id}",
-        android_priority="normal",
-        mutable_content=False,
-        content_available=True,
-        user_no=target_user_no,
-    )
+    if not is_blocked:
+        # 4. push 전송 (backgroud task 내에 들어갈 때 함수 대신 객체를 넣으면 안됨)
+        push_id = str(uuid.uuid4())
+
+        background_tasks.add_task(
+            push_service.push_task,
+            target_token,
+            title="내 프로필을 보고 간 사람이 있어요 👀",
+            body=f"{nickname}님이 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
+            data={"type": "profile", "viewerId": viewer_id, "pushId": push_id},
+            ttl_seconds=3600,
+            collapse_key=f"profile-view-{user_id}",
+            android_priority="normal",
+            mutable_content=False,
+            content_available=True,
+            user_no=target_user_no,
+        )
     return {"success": True, "message": "유저 정보 조회 성공", "user": target_profile}
 
 

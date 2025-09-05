@@ -1687,3 +1687,17 @@ class UserService:
                 )
                 await conn.commit()
                 return True
+
+    async def fetch_user_blocked(self, user_id: str, viewer_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_block_list
+                    WHERE block_user_id = %s AND blocked_user_id = %s
+                    """,
+                    (user_id, viewer_id),
+                )
+                result = await cur.fetchone()
+                return bool(result)
