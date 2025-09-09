@@ -469,7 +469,7 @@ async def fetch_user_id_list(
     relation: str = None,
     bdsmType: str = None,
     talkStyle: str = None,
-    age: int = None,
+    age: str = None,
 ):
     """
     유저 ID 목록 조회
