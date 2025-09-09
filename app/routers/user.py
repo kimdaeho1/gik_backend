@@ -469,12 +469,17 @@ async def fetch_user_id_list(
     relation: str = None,
     bdsmType: str = None,
     talkStyle: str = None,
+    age: str = None,
 ):
     """
     유저 ID 목록 조회
     """
     user_ids = await user_service.fetch_user_id_list(
-        position=position, relation=relation, bdsm_type=bdsmType, talk_style=talkStyle
+        position=position,
+        relation=relation,
+        bdsm_type=bdsmType,
+        talk_style=talkStyle,
+        age=age,
     )
     return {"success": True, "message": "유저 ID 목록 조회 성공", "userIds": user_ids}
 

@@ -1026,7 +1026,7 @@ class UserService:
     # TODO : 쿼리문 걸리는 WHERE절에 index를 거는게 좋아보인다고함. 나중에라도 걸어보세요.
     # TODO : python 툴 찾아보기
     async def fetch_user_id_list(
-        self, position: str, relation: str, bdsm_type: str, talk_style: str
+        self, position: str, relation: str, bdsm_type: str, talk_style: str, age: str
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1040,6 +1040,7 @@ class UserService:
                 talk_style = (
                     [t.strip() for t in talk_style.split(",")] if talk_style else []
                 )
+                age = [a.strip() for a in age.split(",")] if age else []
 
                 query = """
                     SELECT id
@@ -1088,6 +1089,11 @@ class UserService:
                         bdsm_type_filter.append("FIND_IN_SET(%s, bdsm_type)")
                         arguments.append(b)
                     filters.append(f"({' OR '.join(bdsm_type_filter)})")
+
+                # age가 제대로 들어온다면, between 필터링
+                if len(age) == 2:
+                    filters.append("age BETWEEN %s AND %s")
+                    arguments.extend(age)
 
                 # 전부 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
                 if filters:
