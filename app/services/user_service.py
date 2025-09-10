@@ -747,6 +747,18 @@ class UserService:
                 await conn.commit()
                 return True
 
+    async def check_user_block(self, user_id: str, opponent_id: str) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                block_query = """
+                SELECT 1
+                FROM user_block_list
+                WHERE blocked_user_id = %s AND block_user_id = %s
+                """
+                await cur.execute(block_query, (user_id, opponent_id))
+                result = await cur.fetchone()
+                return result is not None
+
     async def fetch_user_profile(self, user_id: str) -> UserDetailResponse | None:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1107,6 +1119,7 @@ class UserService:
     async def fetch_near_user_id_list(
         self,
         user_id: str,
+        age: str,
         position: str,
         relation: str,
         bdsm_type: str,
@@ -1124,6 +1137,7 @@ class UserService:
                 talk_style = (
                     [t.strip() for t in talk_style.split(",")] if talk_style else []
                 )
+                age = [a.strip() for a in age.split(",")] if age else []
 
                 # 1. 사용자가 존재하는지, 존재한다면 위도와 경도값이 있는지 -> 없으면 return False
                 await cur.execute(
@@ -1207,6 +1221,10 @@ class UserService:
                         arguments.append(b)
                     filters.append(f"({' OR '.join(bdsm_type_filter)})")
 
+                if len(age) == 2:
+                    filters.append("age BETWEEN %s AND %s")
+                    arguments.extend(age)
+
                 if filters:
                     query += " AND " + " AND ".join(filters)
                 # 거리를 기준으로 오름차순 정렬
@@ -1262,6 +1280,11 @@ class UserService:
                         null_bdsm_type_filter.append("FIND_IN_SET(%s, bdsm_type)")
                         null_arguments.append(b)
                     null_filters.append(f"({' OR '.join(null_bdsm_type_filter)})")
+
+                if age:
+                    if len(age) == 2:
+                        null_filters.append("age BETWEEN %s AND %s")
+                        null_arguments.extend(age)
 
                 if null_filters:
                     null_query += " AND " + " AND ".join(null_filters)
@@ -1679,7 +1702,7 @@ class UserService:
                 await conn.commit()
                 return True
 
-    async def fetch_user_blocked(self, user_id: str, viewer_id: str):
+    async def fetch_user_blocked(self, user_id: str, opponent_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
@@ -1688,7 +1711,63 @@ class UserService:
                     FROM user_block_list
                     WHERE block_user_id = %s AND blocked_user_id = %s
                     """,
-                    (user_id, viewer_id),
+                    (user_id, opponent_id),
                 )
                 result = await cur.fetchone()
                 return bool(result)
+
+    async def insert_user_profile_view(self, user_id: str, viewer_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT viewer_id
+                    FROM users_profile_view
+                    WHERE user_id = %s AND viewer_id = %s
+                    """,
+                    (user_id, viewer_id),
+                )
+
+                is_viewed = await cur.fetchone()
+
+                if is_viewed:
+                    await cur.execute(
+                        """
+                        UPDATE users_profile_view
+                        SET updated_at = CURRENT_TIMESTAMP,
+                            view_count = view_count + 1
+                        WHERE user_id = %s AND viewer_id = %s
+                        """,
+                        (user_id, viewer_id),
+                    )
+
+                else:
+                    await cur.execute(
+                        """
+                        INSERT INTO users_profile_view (user_id, viewer_id, type, created_at, view_count)
+                        VALUES (%s, %s, 'view', CURRENT_TIMESTAMP, 1)
+                        """,
+                        (user_id, viewer_id),
+                    )
+                await conn.commit()
+
+    async def fetch_user_profile_view(self, page: int, user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                offset = (page - 1) * 20
+                await cur.execute(
+                    """
+                    SELECT viewer_id
+                    FROM users_profile_view
+                    WHERE user_id = %s
+                        AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
+                    ORDER BY updated_at DESC
+                    LIMIT 20 OFFSET %s
+                    """,
+                    (user_id, offset),
+                )
+
+                rows = await cur.fetchall()
+                viewer_ids = [row[0] for row in rows]
+
+                return viewer_ids

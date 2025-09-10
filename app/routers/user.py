@@ -357,6 +357,25 @@ async def fetch_user_profile(user_id: str):
     return {"success": True, "message": "유저 정보 조회 성공", "user": user}
 
 
+# [유저] 상대 유저의 차단 여부 확인 True/False로 체크
+@router.get("/v1/gik-backend/user/block/{opponent_id}", status_code=status.HTTP_200_OK)
+async def check_user_block(opponent_id: str, token: str = Depends(oauth2_scheme)):
+    """
+    상대 유저의 차단 여부 확인
+    token: 본인 엑세스 토큰
+    user_id: 상대 유저 ID
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.check_user_block(
+        user_id=user_id, opponent_id=opponent_id
+    )
+    return {
+        "success": result,
+        "message": "상대 유저의 차단 여부 확인 성공",
+        "isBlocked": result,
+    }
+
+
 # [유저] 상대 유저 상세정보 조회(토큰, 푸시)
 @router.get("/v1/gik-backend/user-token/{user_id}", status_code=status.HTTP_200_OK)
 async def fetch_user_profile_with_push(
@@ -404,6 +423,7 @@ async def fetch_user_profile_with_push(
             content_available=True,
             user_no=target_user_no,
         )
+        await user_service.insert_user_profile_view(user_id, viewer_id)
     return {"success": True, "message": "유저 정보 조회 성공", "user": target_profile}
 
 
@@ -488,6 +508,7 @@ async def fetch_user_id_list(
 @router.get("/v1/gik-backend/users/id_list/near", status_code=status.HTTP_200_OK)
 async def fetch_near_user_id_list(
     token: str = Depends(oauth2_scheme),
+    age: str = None,
     position: str = None,
     relation: str = None,
     bdsmType: str = None,
@@ -650,3 +671,22 @@ async def receive_all_user_push(token: str = Depends(oauth2_scheme)):
         )
 
     return {"success": result, "message": "유저 모든 푸시 수신 처리 성공"}
+
+
+@router.get("/v1/gik-backend/user/profile/viewed", status_code=status.HTTP_200_OK)
+async def fetch_user_profile_view(
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    유저를 보고간 사람 조회
+    """
+
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.fetch_user_profile_view(page=page, user_id=user_id)
+
+    return {
+        "success": True,
+        "message": "유저를 보고간 사람 조회 성공",
+        "viewList": result,
+    }
