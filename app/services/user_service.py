@@ -1757,11 +1757,18 @@ class UserService:
                 offset = (page - 1) * 20
                 await cur.execute(
                     """
-                    SELECT viewer_id, updated_at, view_count
-                    FROM users_profile_view
-                    WHERE user_id = %s
-                        AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
-                    ORDER BY updated_at DESC
+                    SELECT upv.viewer_id, upv.updated_at, upv.view_count
+                    FROM users_profile_view upv
+                    JOIN users u
+                        ON upv.viewer_id = u.id
+                    LEFT JOIN user_block_list ubl
+                        ON upv.user_id = ubl.block_user_id
+                        AND upv.viewer_id = ubl.blocked_user_id
+                    WHERE upv.user_id = %s
+                        AND upv.updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
+                        AND u.leaved = FALSE
+                        AND ubl.id IS NULL
+                    ORDER BY upv.updated_at DESC
                     LIMIT 20 OFFSET %s
                     """,
                     (user_id, offset),
@@ -1776,5 +1783,4 @@ class UserService:
                     }
                     for row in rows
                 ]
-
                 return view_list
