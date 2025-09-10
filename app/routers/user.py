@@ -522,6 +522,7 @@ async def fetch_near_user_id_list(
     user_id = await get_user_id_from_token(token.credentials)
     user_ids = await user_service.fetch_near_user_id_list(
         user_id,
+        age=age,
         position=position,
         relation=relation,
         bdsm_type=bdsmType,
