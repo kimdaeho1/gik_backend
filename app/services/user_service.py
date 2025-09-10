@@ -1757,7 +1757,7 @@ class UserService:
                 offset = (page - 1) * 20
                 await cur.execute(
                     """
-                    SELECT viewer_id
+                    SELECT viewer_id, updated_at, view_count
                     FROM users_profile_view
                     WHERE user_id = %s
                         AND updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
@@ -1768,6 +1768,13 @@ class UserService:
                 )
 
                 rows = await cur.fetchall()
-                viewer_ids = [row[0] for row in rows]
+                view_list = [
+                    {
+                        "id": row[0],
+                        "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
+                        "viewCount": row[2],
+                    }
+                    for row in rows
+                ]
 
-                return viewer_ids
+                return view_list
