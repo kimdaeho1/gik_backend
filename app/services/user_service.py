@@ -313,6 +313,20 @@ class UserService:
                     push_read_row = await cur.fetchone()
                     pushRead = bool(push_read_row[0] if push_read_row else False)
 
+                    profile_read_query = """
+                        SELECT 1 
+                        FROM push_user_log 
+                        WHERE user_no = %s 
+                            AND status = 'SUCCESS'
+                            AND delivery_state = 'DELIVERED' 
+                            AND push_type = 'profile'
+                    """
+                    await cur.execute(profile_read_query, (user_no,))
+                    profile_read_row = await cur.fetchone()
+                    profileRead = bool(
+                        profile_read_row[0] if profile_read_row else False
+                    )
+
                     return UserProfileResponse(
                         id=user_id,
                         nickname=nickname,
@@ -338,6 +352,7 @@ class UserService:
                         postLikeAlarm=post_like_alarm,
                         profileAlarm=profile_alarm,
                         pushRead=pushRead,
+                        profileRead=profileRead,
                         banned=banned,
                         unBannedDate=unbanned_dt,
                         blockUserList=block_user_list,
@@ -1759,31 +1774,13 @@ class UserService:
                 offset = (page - 1) * 20
                 await cur.execute(
                     """
-                    SELECT upv.viewer_id, 
-                            upv.updated_at, 
-                            upv.view_count,
-                            CASE
-                                WHEN pul.delivery_state = 'OPENED' THEN TRUE
-                                ELSE FALSE
-                            END AS opened
+                    SELECT upv.viewer_id, upv.updated_at, upv.view_count
                     FROM users_profile_view upv
                     JOIN users u
                         ON upv.viewer_id = u.id
                     LEFT JOIN user_block_list ubl
                         ON upv.user_id = ubl.block_user_id
                         AND upv.viewer_id = ubl.blocked_user_id
-                    LEFT JOIN users target
-                        ON upv.user_id = target.id
-                    LEFT JOIN push_user_log pul
-                        ON pul.id = (
-                            SELECT id
-                            FROM push_user_log
-                            WHERE user_no = target.user_no
-                                AND push_type = 'profile'
-                                AND delivery_state IN ('DELIVERED', 'OPENED')
-                            ORDER BY delivered_at DESC
-                            LIMIT 1
-                        )
                     WHERE upv.user_id = %s
                         AND upv.updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
                         AND u.leaved = FALSE
@@ -1800,7 +1797,6 @@ class UserService:
                         "id": row[0],
                         "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
                         "viewCount": row[2],
-                        "opened": bool(row[3]),
                     }
                     for row in rows
                 ]

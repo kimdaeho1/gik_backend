@@ -65,6 +65,7 @@ class UserProfileResponse(BaseModel):
     postLikeAlarm: bool
     profileAlarm: bool
     pushRead: bool
+    profileRead: bool
     banned: bool
     unBannedDate: Optional[datetime]
     blockUserList: Optional[List[str]]
