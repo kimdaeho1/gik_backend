@@ -313,6 +313,20 @@ class UserService:
                     push_read_row = await cur.fetchone()
                     pushRead = bool(push_read_row[0] if push_read_row else False)
 
+                    profile_read_query = """
+                        SELECT 1 
+                        FROM push_user_log 
+                        WHERE user_no = %s 
+                            AND status = 'SUCCESS'
+                            AND delivery_state = 'DELIVERED' 
+                            AND push_type = 'profile'
+                    """
+                    await cur.execute(profile_read_query, (user_no,))
+                    profile_read_row = await cur.fetchone()
+                    profileRead = bool(
+                        profile_read_row[0] if profile_read_row else False
+                    )
+
                     return UserProfileResponse(
                         id=user_id,
                         nickname=nickname,
@@ -338,6 +352,7 @@ class UserService:
                         postLikeAlarm=post_like_alarm,
                         profileAlarm=profile_alarm,
                         pushRead=pushRead,
+                        profileRead=profileRead,
                         banned=banned,
                         unBannedDate=unbanned_dt,
                         blockUserList=block_user_list,
@@ -1751,6 +1766,8 @@ class UserService:
                     )
                 await conn.commit()
 
+    # TODO : profile중에 안읽은게 있는지 확인하는거, 그거랑 마케팅/공지 같은 것들도 따로 관리하도록.
+    # TODO: 상대가 나를 차단했어도 안보이게(놔두도록 한다. 상대방의 행동이 나에게 오지만 않으면 될것).
     async def fetch_user_profile_view(self, page: int, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
