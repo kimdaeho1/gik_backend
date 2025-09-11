@@ -1800,4 +1800,30 @@ class UserService:
                     }
                     for row in rows
                 ]
+
+                # push_list에서 profile태그가 붙은 푸시들은 전부 읽음처리 되게 한다
+                await cur.execute(
+                    """
+                    SELECT user_no
+                    FROM users
+                    WHERE id = %s
+                    """,
+                    (user_id,),
+                )
+                user_row = await cur.fetchone()
+                if user_row:
+                    user_no = user_row[0]
+                    await cur.execute(
+                        """
+                        UPDATE push_user_log
+                        SET delivery_state = 'OPENED', opened_at = CURRENT_TIMESTAMP
+                        WHERE user_no = %s
+                            AND push_type = 'profile'
+                            AND status = 'SUCCESS'
+                            AND delivery_state = 'DELIVERED'
+                        """,
+                        (user_no,),
+                    )
+
+                await conn.commit()
                 return view_list
