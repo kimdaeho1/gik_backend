@@ -1751,19 +1751,39 @@ class UserService:
                     )
                 await conn.commit()
 
+    # TODO : profile중에 안읽은게 있는지 확인하는거, 그거랑 마케팅/공지 같은 것들도 따로 관리하도록.
+    # TODO: 상대가 나를 차단했어도 안보이게(놔두도록 한다. 상대방의 행동이 나에게 오지만 않으면 될것).
     async def fetch_user_profile_view(self, page: int, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 offset = (page - 1) * 20
                 await cur.execute(
                     """
-                    SELECT upv.viewer_id, upv.updated_at, upv.view_count
+                    SELECT upv.viewer_id, 
+                            upv.updated_at, 
+                            upv.view_count,
+                            CASE
+                                WHEN pul.delivery_state = 'OPENED' THEN TRUE
+                                ELSE FALSE
+                            END AS opened
                     FROM users_profile_view upv
                     JOIN users u
                         ON upv.viewer_id = u.id
                     LEFT JOIN user_block_list ubl
                         ON upv.user_id = ubl.block_user_id
                         AND upv.viewer_id = ubl.blocked_user_id
+                    LEFT JOIN users target
+                        ON upv.user_id = target.id
+                    LEFT JOIN push_user_log pul
+                        ON pul.id = (
+                            SELECT id
+                            FROM push_user_log
+                            WHERE user_no = target.user_no
+                                AND push_type = 'profile'
+                                AND delivery_state IN ('DELIVERED', 'OPENED')
+                            ORDER BY delivered_at DESC
+                            LIMIT 1
+                        )
                     WHERE upv.user_id = %s
                         AND upv.updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
                         AND u.leaved = FALSE
@@ -1780,6 +1800,7 @@ class UserService:
                         "id": row[0],
                         "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
                         "viewCount": row[2],
+                        "opened": bool(row[3]),
                     }
                     for row in rows
                 ]
