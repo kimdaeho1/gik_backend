@@ -67,6 +67,7 @@ async def create_user_endpoint(
     marketing_agree: bool = Form(...),
     night_agree: bool = Form(...),
     leave: bool = Form(...),
+    test: Optional[str] = Form(default=""),
 ):
     """
     유저 회원가입
@@ -102,6 +103,7 @@ async def create_user_endpoint(
         marketing_agree=marketing_agree,
         night_agree=night_agree,
         leave=leave,
+        test=test,
     )
 
     if not result:
