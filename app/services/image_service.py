@@ -67,6 +67,11 @@ class ImageService:
                         )
                         image_url_list.append(image_url)
 
+                    await cur.execute(
+                        "UPDATE users SET secret_yn = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                        (user_id,),
+                    )
+
                     await conn.commit()
                     return image_url_list
 
@@ -164,9 +169,11 @@ class ImageService:
                 rows = await cur.fetchall()
                 image_url_list = [row[0] for row in rows]
                 if not image_url_list:
-                    raise HTTPException(
-                        status_code=404, detail="No images found for user"
+                    await cur.execute(
+                        "UPDATE users SET secret_yn = FALSE WHERE id = %s", (user_id,)
                     )
+                    await conn.commit()
+                    return []
 
                 # updated_at 필드 업데이트
                 await cur.execute(
@@ -450,6 +457,93 @@ class ImageService:
                     ORDER BY `index`
                     """,
                     (user_id,),
+                )
+                rows = await cur.fetchall()
+                image_url_list = [r[0] for r in rows]
+                if not image_url_list:
+                    return None
+                return image_url_list
+
+    async def cancel_accept_my_secret_request(
+        self,
+        user_id: str,
+        target_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않은 유저입니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
+                    """,
+                    (user_id, target_user_id),
+                )
+                existing_request = await cur.fetchone()
+                if not existing_request:
+                    raise HTTPException(
+                        status_code=400, detail="요청이 존재하지 않습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    UPDATE user_secret_requests
+                    SET approve_status = 'CANCEL'
+                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
+                    """,
+                    (user_id, target_user_id),
+                )
+                await conn.commit()
+
+    async def fetch_accepted_secret_images(
+        self,
+        user_id: str,
+        target_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않은 유저입니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
+                    """,
+                    (target_user_id, user_id),
+                )
+                existing_request = await cur.fetchone()
+                if not existing_request:
+                    raise HTTPException(
+                        status_code=400, detail="요청이 승인되지 않았습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT url 
+                    FROM user_secret_images
+                    WHERE user_id = %s AND use_yn = TRUE
+                    ORDER BY `index`
+                    """,
+                    (target_user_id,),
                 )
                 rows = await cur.fetchall()
                 image_url_list = [r[0] for r in rows]
