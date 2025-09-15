@@ -394,7 +394,7 @@ async def fetch_user_profile_with_push(
     viewer_id = await get_user_id_from_token(token.credentials)
 
     # 1-2. api 작업 - 조회할 상대방의 프로필 정보 가져오기
-    target_profile = await user_service.fetch_user_profile(user_id, viewer_id)
+    target_profile = await user_service.fetch_user_profile(user_id)
 
     # 2-1. push 작업 - fcm 토큰 가져오기
     target_token = await user_service.fetch_user_fcm(user_id)

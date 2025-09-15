@@ -831,7 +831,8 @@ class UserService:
                 return result is not None
 
     async def fetch_user_profile(
-        self, user_id: str, viewer_id: str
+        self,
+        user_id: str,
     ) -> UserDetailResponse | None:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -902,18 +903,8 @@ class UserService:
                 images = await cur.fetchall()
                 profile_images = [row[1] for row in images]
 
-                # 나를 기준으로 상대방의 시크릿 앨범의 수락/요청/거절 여부 확인
-                secret_user_query = """
-                SELECT approve_status 
-                FROM user_secret_requests 
-                WHERE request_id = %s AND user_id = %s
-                ORDER BY created_at DESC LIMIT 1
-                """
-                await cur.execute(secret_user_query, (viewer_id, user_id))
-                secret_status = await cur.fetchone()
-
                 secret_images = []
-                if secret_status and secret_status[0] == "APPROVE" and secret_yn:
+                if secret_yn:
                     secret_image_query = """
                     SELECT url
                     FROM user_secret_images 
@@ -939,7 +930,6 @@ class UserService:
                     bdsmType=bdsm_type,
                     talkStyle=talk_style,
                     secretYn=secret_yn,
-                    secretStatus=secret_status[0] if secret_status else "NONE",
                     secretImages=secret_images,
                     profileImages=profile_images,
                     leaved=leaved,

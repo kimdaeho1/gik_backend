@@ -95,7 +95,6 @@ class UserDetailResponse(BaseModel):
     bdsmType: Optional[str]
     talkStyle: Optional[str]
     secretYn: bool
-    secretStatus: str
     secretImages: Optional[List[str]]
     leaved: bool
     blockUserList: Optional[List[str]]
