@@ -1,13 +1,7 @@
 from fastapi import UploadFile, HTTPException
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
-from app.db.user import (
-    User,
-    Hashtags,
-    UserProfileResponse,
-    UserDetailResponse,
-    UserListResponse,
-)
+from app.db.user import User, Hashtags, UserProfileResponse, UserDetailResponse
 from app.db.db_connection import db
 from sqlalchemy import text
 from typing import List, Optional
@@ -58,7 +52,6 @@ class UserService:
         hashtags: Hashtags,
         self_introduction: Optional[str],
         bdsm_type: Optional[str],
-        secret_images: Optional[List[UploadFile]],
         personal_chat_alarm: bool,
         group_chat_alarm: bool,
         post_comment_alarm: bool,
@@ -157,34 +150,6 @@ class UserService:
                         )
 
                     image_urls = ",".join(image_urls)
-
-                    if secret_images:
-                        for idx, file in enumerate(secret_images):
-                            now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
-                            extension = file.filename.split(".")[-1] or "jpg"
-                            filename = f"{now}.{extension}"
-                            s3_key = f"user_secret_profile/{id}/"
-
-                            file.file.seek(0)
-                            if not upload_file_to_s3(file.file, s3_key, filename):
-                                raise Exception(f"S3 업로드 실패: {file.filename}")
-
-                            secret_image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
-                            await cur.execute(
-                                """
-                                INSERT INTO user_secret_images (user_id, `index`, url, use_yn)
-                                VALUES (%s, %s, %s, %s)
-                                """,
-                                (id, idx, secret_image_url, True),
-                            )
-
-                        secret_query = """
-                            UPDATE users
-                            SET secret_yn = %s
-                            WHERE id = %s
-                            """
-                        await cur.execute(secret_query, (True, id))
-
                     insert_history = """
                         INSERT INTO users_history (
                             user_no, id, fcm, sns, name, phone, provider, email, nickname,
@@ -324,25 +289,6 @@ class UserService:
                     await cur.execute(profile_images_query, (user_id,))
                     profile_images = [row[0] for row in await cur.fetchall()]
 
-                    secret_images_query = """
-                    SELECT url
-                    FROM user_secret_images 
-                    WHERE user_id = %s AND use_yn = TRUE
-                    """
-                    await cur.execute(secret_images_query, (user_id,))
-                    secret_images = [row[0] for row in await cur.fetchall()]
-
-                    secret_request_query = """
-                    SELECT 1
-                    FROM user_secret_requests
-                    WHERE user_id = %s AND approve_status = 'PENDING'
-                    """
-                    await cur.execute(secret_request_query, (user_id,))
-                    secret_requests_row = [row[0] for row in await cur.fetchall()]
-                    secret_requests = bool(
-                        secret_requests_row[0] if secret_requests_row else False
-                    )
-
                     block_user_query = """
                         SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
                     """
@@ -401,8 +347,6 @@ class UserService:
                         bdsmType=bdsm_type,
                         talkStyle=talk_style,
                         profileImages=profile_images,
-                        secretImages=secret_images,
-                        secretRequests=secret_requests,
                         marketingAlarm=marketing_agree,
                         nightAlarm=night_agree,
                         personalChatAlarm=personal_chat_alarm,
@@ -833,16 +777,14 @@ class UserService:
                 result = await cur.fetchone()
                 return result is not None
 
-    async def fetch_user_profile(
-        self, user_id: str, viewer_id: str
-    ) -> UserDetailResponse | None:
+    async def fetch_user_profile(self, user_id: str) -> UserDetailResponse | None:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 user_query = """
                 SELECT
                         id, fcm, nickname, birthday, relation, position,
                         country, age, height, weight, hashtags, self_introduction,
-                        bdsm_type, talk_style, leaved, secret_yn,
+                        bdsm_type, talk_style, leaved,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
                         last_connected_at,
@@ -872,7 +814,6 @@ class UserService:
                     bdsm_type,
                     talk_style,
                     leaved,
-                    secret_yn,
                     personal_chat_alarm,
                     group_chat_alarm,
                     post_comment_alarm,
@@ -905,27 +846,6 @@ class UserService:
                 images = await cur.fetchall()
                 profile_images = [row[1] for row in images]
 
-                # 나를 기준으로 상대방의 시크릿 앨범의 수락/요청/거절 여부 확인
-                secret_user_query = """
-                SELECT approve_status 
-                FROM user_secret_requests 
-                WHERE request_id = %s AND user_id = %s
-                ORDER BY created_at DESC LIMIT 1
-                """
-                await cur.execute(secret_user_query, (viewer_id, user_id))
-                secret_status = await cur.fetchone()
-
-                secret_images = []
-                if secret_status and secret_status[0] == "APPROVE" and secret_yn:
-                    secret_image_query = """
-                    SELECT url
-                    FROM user_secret_images 
-                    WHERE user_id = %s AND use_yn = TRUE
-                    ORDER BY `index`
-                    """
-                    await cur.execute(secret_image_query, (user_id,))
-                    secret_images = [row[0] for row in await cur.fetchall()]
-
                 return UserDetailResponse(
                     id=id,
                     fcm=fcm,
@@ -941,9 +861,6 @@ class UserService:
                     selfIntroduction=self_introduction,
                     bdsmType=bdsm_type,
                     talkStyle=talk_style,
-                    secretYn=secret_yn,
-                    secretStatus=secret_status[0] if secret_status else "NONE",
-                    secretImages=secret_images,
                     profileImages=profile_images,
                     leaved=leaved,
                     personalChatAlarm=personal_chat_alarm,
@@ -1046,7 +963,7 @@ class UserService:
                     SELECT 
                         id, fcm, nickname, birthday, age, height, weight, 
                         relation, position, country, hashtags, self_introduction, 
-                        bdsm_type, leaved, talk_style, secret_yn,
+                        bdsm_type, leaved, talk_style,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
                         last_connected_at,
@@ -1075,7 +992,6 @@ class UserService:
                         bdsm_type,
                         leaved,
                         talk_style,
-                        secret_yn,
                         personal_chat_alarm,
                         group_chat_alarm,
                         post_comment_alarm,
@@ -1108,7 +1024,7 @@ class UserService:
                     profile_images = [row[1] for row in images]
 
                     user_profiles.append(
-                        UserListResponse(
+                        UserDetailResponse(
                             id=id,
                             fcm=fcm,
                             nickname=nickname,
@@ -1123,7 +1039,6 @@ class UserService:
                             selfIntroduction=self_introduction,
                             bdsmType=bdsm_type,
                             talkStyle=talk_style,
-                            secretYn=secret_yn,
                             profileImages=profile_images,
                             leaved=leaved,
                             personalChatAlarm=personal_chat_alarm,
