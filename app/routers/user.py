@@ -58,6 +58,7 @@ async def create_user_endpoint(
     hashtags: str = Form(...),
     self_introduction: Optional[str] = Form(default=None),
     bdsm_type: Optional[str] = Form(default=None),
+    secret_images: Optional[List[UploadFile]] = File(default=[]),
     personal_chat_alarm: bool = Form(...),
     group_chat_alarm: bool = Form(...),
     post_comment_alarm: bool = Form(...),
@@ -94,6 +95,7 @@ async def create_user_endpoint(
         hashtags=hashtags_obj,
         self_introduction=self_introduction,
         bdsm_type=bdsm_type,
+        secret_images=secret_images,
         personal_chat_alarm=personal_chat_alarm,
         group_chat_alarm=group_chat_alarm,
         post_comment_alarm=post_comment_alarm,
@@ -390,16 +392,16 @@ async def fetch_user_profile_with_push(
     background_tasks: 백그라운드 task에 넣어 push 작업의 안정성 향상
     """
 
-    # 1. api 작업 - 조회할 상대방의 프로필 정보 가져오기
-    target_profile = await user_service.fetch_user_profile(user_id)
-
-    # 2-1. push 작업 토큰을 사용해 api를 호출한 사용자의 id 가져오기
+    # 1. push 작업 토큰을 사용해 api를 호출한 사용자의 id 가져오기
     viewer_id = await get_user_id_from_token(token.credentials)
 
-    # 2-2. push 작업 - fcm 토큰 가져오기
+    # 1-2. api 작업 - 조회할 상대방의 프로필 정보 가져오기
+    target_profile = await user_service.fetch_user_profile(user_id, viewer_id)
+
+    # 2-1. push 작업 - fcm 토큰 가져오기
     target_token = await user_service.fetch_user_fcm(user_id)
 
-    # 2-3. push 작업 - api를 호출한 사용자의 닉네임 가져오기
+    # 2-2. push 작업 - api를 호출한 사용자의 닉네임 가져오기
     nickname = await user_service.fetch_user_nickname(viewer_id)
 
     # 3. push_logging 작업 - 로그를 남기기 위한 유저 no 가져오기
