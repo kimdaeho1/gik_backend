@@ -362,8 +362,8 @@ async def cancel_my_secret_request(
 @router.get("/v1/gik-backend/secret/images/requests", status_code=status.HTTP_200_OK)
 async def fetch_my_secret_request(token: str = Depends(oauth2_scheme)):
     """
-    유저 시크릿 요청
-    user_id: token에서 추출, 시크릿 앨범 요청 목록 조회 주체
+    내가 상대에게 요청한 시크릿 앨범 요청건 조회
+    user_id: token에서 추출, 유저가 상대에게 요청한 시크릿 앨범건 주체
     """
     user_id = await get_user_id_from_token(token.credentials)
     requests = await image_service.fetch_my_secret_requests(user_id)
@@ -374,12 +374,12 @@ async def fetch_my_secret_request(token: str = Depends(oauth2_scheme)):
     }
 
 
-# [시크릿] 나에게 온 시크릿 열람 요청건 조회
+# [시크릿] 나에게 온 시크릿 앨범 요청건 조회
 @router.get("/v1/gik-backend/secret/images/accepts", status_code=status.HTTP_200_OK)
-async def fetch_my_secret_accepts(token: str = Depends(oauth2_scheme)):
+async def fetch_opponent_secret_request(token: str = Depends(oauth2_scheme)):
     """
-    유저 시크릿 앨범 열람 승인건 조회
-    user_id: token에서 추출, 시크릿 앨범 열람 승인건 조회 주체
+    나에게 온 상대의 시크릿 앨범 요청건 조회
+    user_id: token에서 추출, 유저에게 온 상대방들의 시크릿 앨범 요청건 주체
     """
     user_id = await get_user_id_from_token(token.credentials)
     accepts = await image_service.fetch_my_secret_accepts(user_id)

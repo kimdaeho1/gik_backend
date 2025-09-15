@@ -361,7 +361,7 @@ class ImageService:
                 ]
                 return requests
 
-    async def fetch_my_secret_accepts(
+    async def fetch_opponent_secret_requests(
         self,
         user_id: str,
     ):
