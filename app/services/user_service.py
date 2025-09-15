@@ -329,6 +329,17 @@ class UserService:
                     await cur.execute(secret_images_query, (user_id,))
                     secret_images = [row[0] for row in await cur.fetchall()]
 
+                    secret_request_query = """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE user_id = %s AND approve_status = 'PENDING'
+                    """
+                    await cur.execute(secret_request_query, (user_id,))
+                    secret_requests_row = [row[0] for row in await cur.fetchall()]
+                    secret_requests = bool(
+                        secret_requests_row[0] if secret_requests_row else False
+                    )
+
                     block_user_query = """
                         SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
                     """
@@ -388,6 +399,7 @@ class UserService:
                         talkStyle=talk_style,
                         profileImages=profile_images,
                         secretImages=secret_images,
+                        secretRequests=secret_requests,
                         marketingAlarm=marketing_agree,
                         nightAlarm=night_agree,
                         personalChatAlarm=personal_chat_alarm,
@@ -900,6 +912,17 @@ class UserService:
                 await cur.execute(secret_user_query, (viewer_id, user_id))
                 secret_status = await cur.fetchone()
 
+                secret_images = []
+                if secret_status and secret_status[0] == "APPROVE" and secret_yn:
+                    secret_image_query = """
+                    SELECT url
+                    FROM user_secret_images 
+                    WHERE user_id = %s AND use_yn = TRUE
+                    ORDER BY `index`
+                    """
+                    await cur.execute(secret_image_query, (user_id,))
+                    secret_images = [row[0] for row in await cur.fetchall()]
+
                 return UserDetailResponse(
                     id=id,
                     fcm=fcm,
@@ -917,6 +940,7 @@ class UserService:
                     talkStyle=talk_style,
                     secretYn=secret_yn,
                     secretStatus=secret_status[0] if secret_status else "NONE",
+                    secretImages=secret_images,
                     profileImages=profile_images,
                     leaved=leaved,
                     personalChatAlarm=personal_chat_alarm,

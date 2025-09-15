@@ -3,7 +3,7 @@ from typing import List, Optional, Dict
 from datetime import datetime
 
 
-class UserSecretRequest(BaseModel):
+class UserSecretResponse(BaseModel):
     userId: str
     requestId: str
     approveStatus: str

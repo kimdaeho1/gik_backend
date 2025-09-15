@@ -342,38 +342,6 @@ async def reject_user_secret_images(
     return {"success": True, "message": "시크릿 앨범 열람 거절 성공"}
 
 
-# [시크릿] 내 시크릿 앨범 요청 조회
-@router.get("/v1/gik-backend/secret/images/requests", status_code=status.HTTP_200_OK)
-async def fetch_my_secret_request(token: str = Depends(oauth2_scheme)):
-    """
-    유저 시크릿 요청
-    user_id: token에서 추출, 시크릿 앨범 요청 목록 조회 주체
-    """
-    user_id = await get_user_id_from_token(token.credentials)
-    requests = await image_service.fetch_my_secret_requests(user_id)
-    return {
-        "success": True,
-        "message": "시크릿 앨범 요청 조회 성공",
-        "requests": requests,
-    }
-
-
-# [시크릿] 내 시크릿 앨범 열람 승인건 조회
-@router.get("/v1/gik-backend/secret/images/accepts", status_code=status.HTTP_200_OK)
-async def fetch_my_secret_accepts(token: str = Depends(oauth2_scheme)):
-    """
-    유저 시크릿 앨범 열람 승인건 조회
-    user_id: token에서 추출, 시크릿 앨범 열람 승인건 조회 주체
-    """
-    user_id = await get_user_id_from_token(token.credentials)
-    accepts = await image_service.fetch_my_secret_accepts(user_id)
-    return {
-        "success": True,
-        "message": "시크릿 앨범 열람 승인건 조회 성공",
-        "accepts": accepts,
-    }
-
-
 # [시크릿] 내 시크릿 앨범 요청 취소
 @router.patch("/v1/gik-backend/secret/images/cancel", status_code=status.HTTP_200_OK)
 async def cancel_my_secret_request(
@@ -388,6 +356,38 @@ async def cancel_my_secret_request(
     user_id = await get_user_id_from_token(token.credentials)
     await image_service.cancel_my_secret_request(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 요청 취소 성공"}
+
+
+# [시크릿] 내가 요청한 시크릿 앨범 열람건 조회
+@router.get("/v1/gik-backend/secret/images/requests", status_code=status.HTTP_200_OK)
+async def fetch_my_secret_request(token: str = Depends(oauth2_scheme)):
+    """
+    유저 시크릿 요청
+    user_id: token에서 추출, 시크릿 앨범 요청 목록 조회 주체
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    requests = await image_service.fetch_my_secret_requests(user_id)
+    return {
+        "success": True,
+        "message": "내가 요청한 시크릿 앨범건 조회 성공",
+        "requests": requests,
+    }
+
+
+# [시크릿] 나에게 온 시크릿 열람 요청건 조회
+@router.get("/v1/gik-backend/secret/images/accepts", status_code=status.HTTP_200_OK)
+async def fetch_my_secret_accepts(token: str = Depends(oauth2_scheme)):
+    """
+    유저 시크릿 앨범 열람 승인건 조회
+    user_id: token에서 추출, 시크릿 앨범 열람 승인건 조회 주체
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    accepts = await image_service.fetch_my_secret_accepts(user_id)
+    return {
+        "success": True,
+        "message": "나에게 온 시크릿 앨범 열람 요청건 조회 성공",
+        "accepts": accepts,
+    }
 
 
 # [시크릿] 내 시크릿 앨범 허용 취소

@@ -58,6 +58,7 @@ class UserProfileResponse(BaseModel):
     talkStyle: Optional[str]
     profileImages: List[str]
     secretImages: List[str]
+    secretRequests: bool
     marketingAlarm: bool
     nightAlarm: bool
     personalChatAlarm: bool
@@ -95,6 +96,7 @@ class UserDetailResponse(BaseModel):
     talkStyle: Optional[str]
     secretYn: bool
     secretStatus: str
+    secretImages: Optional[List[str]]
     leaved: bool
     blockUserList: Optional[List[str]]
     personalChatAlarm: bool
