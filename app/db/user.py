@@ -57,8 +57,6 @@ class UserProfileResponse(BaseModel):
     bdsmType: Optional[str]
     talkStyle: Optional[str]
     profileImages: List[str]
-    secretImages: List[str]
-    secretRequests: bool
     marketingAlarm: bool
     nightAlarm: bool
     personalChatAlarm: bool
@@ -94,37 +92,6 @@ class UserDetailResponse(BaseModel):
     selfIntroduction: Optional[str]
     bdsmType: Optional[str]
     talkStyle: Optional[str]
-    secretYn: bool
-    secretStatus: str
-    secretImages: Optional[List[str]]
-    leaved: bool
-    blockUserList: Optional[List[str]]
-    personalChatAlarm: bool
-    groupChatAlarm: bool
-    postCommentAlarm: bool
-    postLikeAlarm: bool
-    lastConnectedAt: datetime
-    latitude: Optional[float]
-    longitude: Optional[float]
-
-
-class UserListResponse(BaseModel):
-    id: str
-    fcm: str
-    nickname: str
-    birthday: str
-    profileImages: List[str]
-    relation: str
-    position: str
-    country: str
-    age: int
-    height: int
-    weight: int
-    hashtags: Hashtags
-    selfIntroduction: Optional[str]
-    bdsmType: Optional[str]
-    talkStyle: Optional[str]
-    secretYn: bool
     leaved: bool
     blockUserList: Optional[List[str]]
     personalChatAlarm: bool
