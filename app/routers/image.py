@@ -5,7 +5,6 @@ from fastapi import (
     File,
     status,
     Form,
-    BackgroundTasks,
     Depends,
 )
 from typing import List
@@ -19,7 +18,6 @@ from app.services.image_service import ImageService
 from app.services.user_service import UserService
 from app.utils.token import get_user_id_from_token
 from typing import Optional
-import uuid
 
 user_service = UserService()
 image_service = ImageService()

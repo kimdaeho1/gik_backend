@@ -66,6 +66,7 @@ class UserService:
         marketing_agree: bool,
         night_agree: bool,
         leave: bool,
+        test: str,
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -85,7 +86,7 @@ class UserService:
                             marketing_agree, service_agree, personal_agree,
                             personal_chat_alarm_agree, group_chat_alarm_agree,
                             post_comment_alarm_agree, post_like_alarm_agree,
-                            night_agree, leaved
+                            night_agree, leaved, test_yn
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s, %s, %s, %s,
@@ -93,7 +94,7 @@ class UserService:
                             %s, %s, %s,
                             %s, %s,
                             %s, %s,
-                            %s, %s
+                            %s, %s, %s
                         )
                     """
                     await cur.execute(
@@ -126,6 +127,7 @@ class UserService:
                             post_like_alarm,
                             night_agree,
                             leave,
+                            test,
                         ),
                     )
 
@@ -189,7 +191,7 @@ class UserService:
                             marketing_agree, service_agree, personal_agree,
                             personal_chat_alarm_agree, group_chat_alarm_agree,
                             post_comment_alarm_agree, post_like_alarm_agree,
-                            night_agree, leaved, image_list
+                            night_agree, leaved, image_list, test_yn
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s, %s, %s, %s,
@@ -197,7 +199,7 @@ class UserService:
                             %s, %s, %s,
                             %s, %s,
                             %s, %s,
-                            %s, %s, %s
+                            %s, %s, %s, %s
                         )
                     """
                     await cur.execute(
@@ -232,6 +234,7 @@ class UserService:
                             night_agree,
                             leave,
                             image_urls,
+                            test,
                         ),
                     )
 
