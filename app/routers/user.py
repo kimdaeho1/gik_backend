@@ -696,7 +696,7 @@ async def fetch_user_profile_view(
 
 
 # [시크릿] 상대 유저의 시크릿 앨범 열람 푸시 전송
-@router.get("/v1/gik-backend/secret/push", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/secret/push", status_code=status.HTTP_200_OK)
 async def fetch_user_secret_images(
     background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
