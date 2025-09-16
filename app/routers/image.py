@@ -1,17 +1,35 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, status, Form
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    UploadFile,
+    File,
+    status,
+    Form,
+    Depends,
+)
 from typing import List
 from app.utils.s3_upload import upload_file_to_s3
 from PIL import Image
 import io
 from datetime import datetime
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.services.push_service import PushService
+from app.services.image_service import ImageService
+from app.services.user_service import UserService
+from app.utils.token import get_user_id_from_token
+from typing import Optional
 
-
+user_service = UserService()
+image_service = ImageService()
+push_service = PushService()
+oauth2_scheme = HTTPBearer()
 router = APIRouter()
+
 
 def generate_filename(filename: str) -> str:
     now = datetime.now()
     timestamp = now.strftime("%Y%m%d_%H%M%S%f")[:-3]
-    extension = filename.split('.')[-1] or "jpg"
+    extension = filename.split(".")[-1] or "jpg"
     return f"{timestamp}.{extension}"
 
 
@@ -53,14 +71,14 @@ async def upload_images(
     # 이미지 업로드후 리턴할 이미지 URL (원본이미지 3장인 image_url_list, 섬네일 이미지 thumbnail_url)
     image_url_list = []
     thumbnail_url = None
-    try: 
+    try:
         for idx, file in enumerate(images):
-            s3_key=f"community/{board_id}/"
+            s3_key = f"community/{board_id}/"
             str_filename = generate_filename(file.filename)
-            
+
             file.file.seek(0)
             image_files = file.file.read()
-            origin_file=io.BytesIO(image_files)
+            origin_file = io.BytesIO(image_files)
             if not upload_file_to_s3(origin_file, s3_key, str_filename):
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -71,7 +89,7 @@ async def upload_images(
 
             # 첫 번재 이미지는 다운사이징 해서 섬네일로 저장하기.
             if idx == 0:
-                image=Image.open(io.BytesIO(image_files))
+                image = Image.open(io.BytesIO(image_files))
                 image.thumbnail((200, 200))
                 thumb_io = io.BytesIO()
                 image_format = image.format if image.format else "JPG"
@@ -80,7 +98,9 @@ async def upload_images(
 
                 thumbnail_s3_key = f"community/{board_id}/thumbnail/"
                 thumbnail_filename = f"{board_id}_thumbnail.jpg"
-                if not upload_file_to_s3(thumb_io, thumbnail_s3_key, thumbnail_filename):
+                if not upload_file_to_s3(
+                    thumb_io, thumbnail_s3_key, thumbnail_filename
+                ):
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         detail=f"Failed to upload thumbnail for {file.filename} to S3 ",
@@ -88,7 +108,11 @@ async def upload_images(
                 # 섬네일 이미지 URL
                 thumbnail_url = thumbnail_s3_key + thumbnail_filename
 
-        return {"message": "이미지 업로드 성공", "image_urls": image_url_list, "thumbnail_url": thumbnail_url}
+        return {
+            "message": "이미지 업로드 성공",
+            "image_urls": image_url_list,
+            "thumbnail_url": thumbnail_url,
+        }
     except Exception as e:
         print(e)
         raise HTTPException(
@@ -116,7 +140,7 @@ async def upload_gik_images(
 
 
 @router.post("/v1/gik-backend/chat/images", status_code=status.HTTP_200_OK)
-async def upload_chat_images(   
+async def upload_chat_images(
     chat_id: str = Form(...),
     image_label: str = Form(...),
     images: List[UploadFile] = File(default=None),
@@ -131,6 +155,7 @@ async def upload_chat_images(
 
     s3_key = f"{image_label}/{chat_id}/"
     image_urls = image_url_list(s3_key, images)
+
     return {"message": "이미지 업로드 성공", "image_urls": image_urls}
 
 
