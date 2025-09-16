@@ -4,9 +4,9 @@ from app.db.credit import CreditHistory
 
 
 class CreditManager:
-    def __init__(self, user_id: int):
+    def __init__(self, user_id: str):
         self.db = db
-        self.user_no = user_id
+        self.user_id = user_id
 
     async def get_credit_balance(self, cur: Cursor = None):
         """사용자의 현재 크레딧 잔액을 조회"""
@@ -21,9 +21,9 @@ class CreditManager:
         query = """
             SELECT credit 
             FROM users 
-            WHERE user_no = %s
+            WHERE user_id = %s
         """
-        await cur.execute(query, (self.user_no,))
+        await cur.execute(query, (self.user_id,))
         result = await cur.fetchone()
         return result[0] if result else 0
 
@@ -51,11 +51,11 @@ class CreditManager:
                 , reg_dt
             FROM credit_history 
             WHERE 
-                user_no = %s
+                user_id = %s
                 and use_yn = 'Y'
             ORDER BY reg_dt DESC
         """
-        await cur.execute(query, (self.user_no,))
+        await cur.execute(query, (self.user_id,))
         result = await cur.fetchall()
         return result
 
@@ -87,9 +87,9 @@ class CreditManager:
         query = f"""
         UPDATE users
         SET credit = credit {credit_op} %s
-        WHERE user_no = %s
+        WHERE user_id = %s
         """
-        await cur.execute(query, (amount, self.user_no))
+        await cur.execute(query, (amount, self.user_id))
 
         # 크레딧 히스토리 기록
         await self._insert_credit_history(amount, increase, description, cur)
@@ -101,7 +101,7 @@ class CreditManager:
             amount = -amount
 
         query = """
-        INSERT INTO credit_history(user_no, amount, description)
+        INSERT INTO credit_history(user_id, amount, description)
         VALUES(%s, %s, %s)
         """
-        await cur.execute(query, (self.user_no, amount, description))
+        await cur.execute(query, (self.user_id, amount, description))

@@ -1,6 +1,5 @@
 from fastapi import FastAPI, status
-from app.routers import image
-from app.routers import user, community, token
+from app.routers import image, user, community, token, credit, payment
 from app.db.db_connection import db
 
 
@@ -9,10 +8,14 @@ app.include_router(image.router)
 app.include_router(user.router)
 app.include_router(community.router)
 app.include_router(token.router)
+app.include_router(credit.router)
+app.include_router(payment.router)
+
 
 @app.get("/")
 async def root():
     return {"message": "gik_backend is running"}
+
 
 @app.get("/v1/gik/health", status_code=status.HTTP_200_OK)
 async def health():

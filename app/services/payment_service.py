@@ -1,13 +1,13 @@
 from app.services.credit_service import CreditManager
 from app.db.db_connection import db
-from app.db.payments import SaleProduct, Receipt
+from app.db.payment import SaleProduct, Receipt
 
 
 class PaymentsService:
     def __init__(self):
         self.db = db
 
-    async def purchase(self, user_no: int, receipt: Receipt) -> bool:
+    async def purchase(self, user_id: str, receipt: Receipt) -> bool:
         """해당 유저가 설정한 선호 조건 가져오기"""
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -24,12 +24,13 @@ class PaymentsService:
                     await cur.execute(duplicate_check_query, (receipt.order_id,))
                     is_duplicate = await cur.fetchone()
                     if is_duplicate[0]:
+                        # logger.warning(f"중복 구매 시도: order_id={receipt.order_id}, user_no={user_no}")
                         return False
 
                     # 구매 정보 저장
                     insert_query = """
                     INSERT INTO payments (
-                        user_no, payment_source, product_id, package_name, purchase_token, 
+                        user_id, payment_source, product_id, package_name, purchase_token, 
                         order_id, purchase_state, acknowledgement_state, 
                         consumption_state, purchase_dt, region_code, price, currency, quantity
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -37,7 +38,7 @@ class PaymentsService:
                     await cur.execute(
                         insert_query,
                         (
-                            user_no,
+                            user_id,
                             receipt.payment_source,
                             receipt.product_id,
                             receipt.package_name,
@@ -54,7 +55,7 @@ class PaymentsService:
                         ),
                     )
 
-                    credit_manager = CreditManager(user_no)
+                    credit_manager = CreditManager(user_id)
                     credit_amount = getattr(SaleProduct, receipt.product_id, 0)
                     if credit_amount == 0:
                         raise ValueError(f"잘못된 product_id: {receipt.product_id}")
@@ -70,9 +71,10 @@ class PaymentsService:
                     return True
                 except Exception as e:
                     await conn.rollback()
+                    # logger.error(f"구매 처리 중 오류 발생: {e}")
                     return False
 
-    async def refund(self, user_no: int, receipt: Receipt) -> bool:
+    async def refund(self, user_id: str, receipt: Receipt) -> bool:
         """환불 처리 로직"""
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -91,10 +93,11 @@ class PaymentsService:
                     await cur.execute(purchase_check_query, (receipt.order_id,))
                     is_purchase_exists = await cur.fetchone()
                     if not is_purchase_exists[0]:
+                        # logger.warning(f"환불 요청 시 구매 이력 없음: order_id={receipt.order_id}, user_no={user_no}")
                         return False
 
                     # 다이아 회수
-                    credit_manager = CreditManager(user_no)
+                    credit_manager = CreditManager(user_id)
                     diamond_amount = getattr(SaleProduct, receipt.product_id, 0)
                     if diamond_amount == 0:
                         raise ValueError(f"잘못된 product_id: {receipt.product_id}")
@@ -118,4 +121,5 @@ class PaymentsService:
                     return True
                 except Exception as e:
                     await conn.rollback()
+                    # logger.error(f"환불 처리 중 오류 발생: {e}")
                     return False
