@@ -1892,7 +1892,7 @@ class UserService:
                 await conn.commit()
                 return view_list
 
-    async def request_user_secret_images(self, user_id: str, target_user_id: str):
+    async def fetch_user_secret_images(self, user_id: str, target_user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
