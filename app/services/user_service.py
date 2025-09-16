@@ -2,7 +2,6 @@ from fastapi import UploadFile, HTTPException
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
 from app.db.user import (
-    User,
     Hashtags,
     UserProfileResponse,
     UserDetailResponse,
@@ -10,9 +9,7 @@ from app.db.user import (
 )
 from app.db.image import UserSecretResponse
 from app.db.db_connection import db
-from sqlalchemy import text
 from typing import List, Optional
-import json
 
 
 class UserService:

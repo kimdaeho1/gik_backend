@@ -7,7 +7,6 @@ from fastapi import (
     Form,
     BackgroundTasks,
     Depends,
-    Query,
 )
 from typing import List
 from app.utils.s3_upload import upload_file_to_s3
