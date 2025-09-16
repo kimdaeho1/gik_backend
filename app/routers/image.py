@@ -147,3 +147,51 @@ async def upload_group_profile_images(
     s3_key = f"group_chat/{chat_id}/group_chat_profile/"
     image_urls = image_url_list(s3_key, images)
     return {"message": "그룹 채팅 프로필 사진 업로드 성공", "image_urls": image_urls}
+
+
+# [시크릿] 시크릿 앨범 업로드
+@router.post("/v1/gik-backend/secret/images", status_code=status.HTTP_200_OK)
+async def upload_secret_images(
+    token: str = Depends(oauth2_scheme),
+    images: List[UploadFile] = File(default=None),
+):
+    """
+    유저 시크릿 앨범 업로드
+    user_id: token에서 추출, 시크릿 앨범 업로드 주체
+    image: 이미지
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    image_urls = await image_service.upload_user_secret_images(
+        user_id=user_id, image=images
+    )
+    return {
+        "success": True,
+        "message": "시크릿 앨범 사진 업로드 성공",
+        "image_urls": image_urls,
+    }
+
+
+# [시크릿] 시크릿 앨범 사진 수정
+@router.patch("/v1/gik-backend/secret/images/update", status_code=status.HTTP_200_OK)
+async def update_secret_images(
+    token: str = Depends(oauth2_scheme),
+    image_index: Optional[List[str]] = Form(default=None),
+    images: List[UploadFile] = File(default=None),
+):
+    """
+    유저 시크릿 앨범 사진 수정
+    user_id: token에서 추출, 시크릿 앨범 업로드 주체
+    image_index: 수정할 이미지 인덱스 리스트
+    image_lable: 이미지 사용처
+        - user_secret_profile: 유저 시크릿 앨범 사진
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    image_url_list = await image_service.update_secret_images(
+        user_id=user_id, image_index=image_index, image=images
+    )
+
+    return {
+        "success": True,
+        "message": "시크릿 앨범 사진 수정 성공",
+        "image_urls": image_url_list,
+    }

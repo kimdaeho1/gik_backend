@@ -57,8 +57,8 @@ class UserProfileResponse(BaseModel):
     bdsmType: Optional[str]
     talkStyle: Optional[str]
     profileImages: List[str]
+    secretYn: bool
     secretImages: List[str]
-    secretRequests: bool
     marketingAlarm: bool
     nightAlarm: bool
     personalChatAlarm: bool

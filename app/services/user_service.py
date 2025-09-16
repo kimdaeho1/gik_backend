@@ -8,6 +8,7 @@ from app.db.user import (
     UserDetailResponse,
     UserListResponse,
 )
+from app.db.image import UserSecretResponse
 from app.db.db_connection import db
 from sqlalchemy import text
 from typing import List, Optional
@@ -268,7 +269,7 @@ class UserService:
                     SELECT
                         id, nickname, birthday, age, height, weight, sns, 
                         relation, position, country, hashtags, 
-                        self_introduction, bdsm_type, talk_style,
+                        self_introduction, bdsm_type, talk_style, secret_yn,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree, profile_alarm_agree,
@@ -298,6 +299,7 @@ class UserService:
                         self_introduction,
                         bdsm_type,
                         talk_style,
+                        secret_yn,
                         provider,
                         marketing_agree,
                         night_agree,
@@ -331,17 +333,6 @@ class UserService:
                     """
                     await cur.execute(secret_images_query, (user_id,))
                     secret_images = [row[0] for row in await cur.fetchall()]
-
-                    secret_request_query = """
-                    SELECT 1
-                    FROM user_secret_requests
-                    WHERE user_id = %s AND approve_status = 'PENDING'
-                    """
-                    await cur.execute(secret_request_query, (user_id,))
-                    secret_requests_row = [row[0] for row in await cur.fetchall()]
-                    secret_requests = bool(
-                        secret_requests_row[0] if secret_requests_row else False
-                    )
 
                     block_user_query = """
                         SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
@@ -401,8 +392,8 @@ class UserService:
                         bdsmType=bdsm_type,
                         talkStyle=talk_style,
                         profileImages=profile_images,
+                        secretYn=secret_yn,
                         secretImages=secret_images,
-                        secretRequests=secret_requests,
                         marketingAlarm=marketing_agree,
                         nightAlarm=night_agree,
                         personalChatAlarm=personal_chat_alarm,
@@ -1022,9 +1013,7 @@ class UserService:
                 return True
 
     # TODO : 쿼리문 IN구문 별로 좋다고 하지 않으셨는데, 쿼리문 나중에 짤때 최적화 잘해야함.
-    async def fetch_user_list(
-        self, user_id_list: List[str]
-    ) -> List[UserDetailResponse]:
+    async def fetch_user_list(self, user_id_list: List[str]) -> List[UserListResponse]:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 if not user_id_list:
@@ -1905,3 +1894,370 @@ class UserService:
 
                 await conn.commit()
                 return view_list
+
+    async def request_user_secret_images(self, user_id: str, target_user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않은 유저입니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_images
+                    WHERE user_id = %s AND use_yn = TRUE
+                    """,
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="시크릿 앨범이 존재하지 않습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_images
+                    WHERE user_id = %s AND use_yn = TRUE
+                    """,
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="본인의 시크릿 앨범이 존재하지 않습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE user_id = %s AND request_id = %s AND approve_status = 'PENDING'
+                    """,
+                    (target_user_id, user_id),
+                )
+                existing_request = await cur.fetchone()
+                if existing_request:
+                    raise HTTPException(
+                        status_code=400, detail="이미 요청한 상태입니다"
+                    )
+
+                if not existing_request:
+                    await cur.execute(
+                        """
+                        INSERT INTO user_secret_requests (user_id, request_id, approve_status)
+                        VALUES (%s, %s, 'PENDING')
+                        """,
+                        (target_user_id, user_id),
+                    )
+                    await conn.commit()
+
+    async def accept_user_secret_images(self, user_id: str, target_user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않은 유저입니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
+                    """,
+                    (target_user_id, user_id),
+                )
+                existing_request = await cur.fetchone()
+                if not existing_request:
+                    raise HTTPException(
+                        status_code=400, detail="요청이 존재하지 않습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    UPDATE user_secret_requests
+                    SET approve_status = 'APPROVE'
+                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
+                    """,
+                    (target_user_id, user_id),
+                )
+                await conn.commit()
+
+    async def reject_user_secret_images(
+        self,
+        user_id: str,
+        target_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않은 유저입니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
+                    """,
+                    (target_user_id, user_id),
+                )
+                existing_request = await cur.fetchone()
+                if not existing_request:
+                    raise HTTPException(
+                        status_code=400, detail="요청이 존재하지 않습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    UPDATE user_secret_requests
+                    SET approve_status = 'REJECT'
+                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
+                    """,
+                    (target_user_id, user_id),
+                )
+                await conn.commit()
+
+    async def fetch_my_secret_requests(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                await cur.execute(
+                    """
+                    SELECT user_id, request_id, approve_status, created_at
+                    FROM user_secret_requests
+                    WHERE request_id = %s
+                    ORDER BY created_at DESC
+                    """,
+                    (user_id,),
+                )
+                row = await cur.fetchall()
+                requests = [
+                    UserSecretResponse(
+                        userId=r[0],
+                        requestId=r[1],
+                        approveStatus=r[2],
+                        createdAt=r[3],
+                    )
+                    for r in row
+                ]
+                return requests
+
+    async def fetch_opponent_secret_requests(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                await cur.execute(
+                    """
+                    SELECT user_id, request_id, approve_status, created_at
+                    FROM user_secret_requests
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC
+                    """,
+                    (user_id,),
+                )
+                rows = await cur.fetchall()
+                accepts = [
+                    UserSecretResponse(
+                        userId=r[0],
+                        requestId=r[1],
+                        approveStatus=r[2],
+                        createdAt=r[3],
+                    )
+                    for r in rows
+                ]
+                return accepts
+
+    async def cancel_my_secret_request(
+        self,
+        user_id: str,
+        target_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않은 유저입니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
+                    """,
+                    (user_id, target_user_id),
+                )
+                existing_request = await cur.fetchone()
+                if not existing_request:
+                    raise HTTPException(
+                        status_code=400, detail="요청이 존재하지 않습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    UPDATE user_secret_requests
+                    SET approve_status = 'CANCEL'
+                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
+                    """,
+                    (user_id, target_user_id),
+                )
+                await conn.commit()
+
+    async def fetch_my_secret_images(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                await cur.execute(
+                    """
+                    SELECT url 
+                    FROM user_secret_images
+                    WHERE user_id = %s AND use_yn = TRUE
+                    ORDER BY `index`
+                    """,
+                    (user_id,),
+                )
+                rows = await cur.fetchall()
+                image_url_list = [r[0] for r in rows]
+                if not image_url_list:
+                    return None
+                return image_url_list
+
+    async def cancel_accept_my_secret_request(
+        self,
+        user_id: str,
+        target_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않은 유저입니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
+                    """,
+                    (user_id, target_user_id),
+                )
+                existing_request = await cur.fetchone()
+                if not existing_request:
+                    raise HTTPException(
+                        status_code=400, detail="요청이 존재하지 않습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    UPDATE user_secret_requests
+                    SET approve_status = 'CANCEL'
+                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
+                    """,
+                    (user_id, target_user_id),
+                )
+                await conn.commit()
+
+    async def fetch_accepted_secret_images(
+        self,
+        user_id: str,
+        target_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않은 유저입니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM user_secret_requests
+                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
+                    """,
+                    (target_user_id, user_id),
+                )
+                existing_request = await cur.fetchone()
+                if not existing_request:
+                    raise HTTPException(
+                        status_code=400, detail="요청이 승인되지 않았습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT url 
+                    FROM user_secret_images
+                    WHERE user_id = %s AND use_yn = TRUE
+                    ORDER BY `index`
+                    """,
+                    (target_user_id,),
+                )
+                rows = await cur.fetchall()
+                image_url_list = [r[0] for r in rows]
+                if not image_url_list:
+                    return None
+                return image_url_list
