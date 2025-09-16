@@ -695,15 +695,15 @@ async def fetch_user_profile_view(
     }
 
 
-# [시크릿] 상대 유저에게 시크릿 앨범 열람 요청
-@router.post("/v1/gik-backend/secret/images/request", status_code=status.HTTP_200_OK)
-async def request_user_secret_images(
+# [시크릿] 상대 유저의 시크릿 앨범 열람 푸시 전송
+@router.get("/v1/gik-backend/secret/push", status_code=status.HTTP_200_OK)
+async def fetch_user_secret_images(
     background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
 ):
     """
-    유저 시크릿 앨범 열람 요청
+    유저 시크릿 앨범 열람시 푸시
     user_id: token에서 추출, 시크릿 앨범 열람 요청 주체
     target_user_id: 시크릿 앨범 열람 요청 대상 유저 ID
     """
@@ -712,9 +712,6 @@ async def request_user_secret_images(
 
     # fcm 토큰 가져오기
     target_token = await user_service.fetch_user_fcm(target_user_id)
-
-    # api를 호출한 사용자의 닉네임 가져오기
-    user_nickname = await user_service.fetch_user_nickname(user_id)
 
     # 푸시 로깅 작업 - 로그를 남기기 위한 유저의 no 가져오기
     target_user_no = await user_service.fetch_user_no(target_user_id)
@@ -734,8 +731,8 @@ async def request_user_secret_images(
         background_tasks.add_task(
             push_service.push_task,
             target_token,
-            title="시크릿 앨범 열람 요청",
-            body=f"{user_nickname}님이 회원님의 시크릿 앨범 열람을 요청했습니다.",
+            title="시크릿 앨범 열람",
+            body=f"누군가 내 시크릿 앨범💋을 보고 갔어요. 👀",
             data={"type": "secret", "requestId": user_id, "pushId": push_id},
             ttl_seconds=3600,
             collapse_key=f"secret-view-{user_id}",
@@ -744,7 +741,6 @@ async def request_user_secret_images(
             content_available=True,
             user_no=target_user_no,
         )
-        await user_service.request_user_secret_images(user_id, target_user_id)
 
     return {"success": True, "message": "시크릿 앨범 열람 요청 성공"}
 
