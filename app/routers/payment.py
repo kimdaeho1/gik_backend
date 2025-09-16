@@ -14,10 +14,9 @@ from jose import jwt
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, timedelta
 
-from app.db.payments.payments import PaymentsService
-from app.schemas.payments import VerifyPaymentsAndroid, VerifyPaymentsIOS, Receipt
-from app.utils.auth import get_user_no_from_token
-from app.utils.logging_config import get_logger
+from app.services.payment_service import PaymentsService
+from app.db.payment import VerifyPaymentsAndroid, VerifyPaymentsIOS, Receipt
+from app.utils.token import get_user_id_from_token
 from app.utils.config import (
     IOS_BUNDLE_ID,
     IOS_ISSUER_ID,
@@ -75,7 +74,7 @@ def get_product_price(product_id, package_name):
 async def android_verify_purchase_endpoint(
     payments_info: VerifyPaymentsAndroid, token: str = Depends(oauth2_scheme)
 ):
-    user_no = await get_user_no_from_token(token)
+    user_id = await get_user_id_from_token(token)
 
     try:
         # 구매 세부정보 가져오기

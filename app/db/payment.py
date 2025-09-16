@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 
 class SaleProduct:
-    cm_whale_1 = 1
     cm_whale_10 = 10
     cm_whale_50 = 50
     cm_whale_100 = 100
