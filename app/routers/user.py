@@ -742,7 +742,7 @@ async def fetch_user_secret_images(
             user_no=target_user_no,
         )
 
-    return {"success": True, "message": "시크릿 앨범 열람 요청 성공"}
+    return {"success": True, "message": "시크릿 앨범 열람 성공"}
 
 
 # [시크릿] 상대 유저에게 시크릿 앨범 열람 수락
