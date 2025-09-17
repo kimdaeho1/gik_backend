@@ -7,7 +7,7 @@ from functools import lru_cache
 import requests
 from cryptography.x509 import load_pem_x509_certificate
 from fastapi import APIRouter, HTTPException, status, Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer
 from googleapiclient.discovery import build
 from httplib2 import Http
 from jose import jwt
@@ -27,7 +27,7 @@ from app.utils.config import (
 
 router = APIRouter()
 # logger = get_logger(__name__)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = HTTPBearer()
 
 CREDENTIAL_FILE_PATH = os.getenv("GOOGLE_API_KEY_LOCAL_PATH", "/tmp/credential.json")
 
@@ -70,11 +70,11 @@ def get_product_price(product_id, package_name):
         return None, None
 
 
-@router.post("/v1/match/purchase/verify-android", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/purchase/verify-android", status_code=status.HTTP_200_OK)
 async def android_verify_purchase_endpoint(
     payments_info: VerifyPaymentsAndroid, token: str = Depends(oauth2_scheme)
 ):
-    user_id = await get_user_id_from_token(token)
+    user_id = await get_user_id_from_token(token.credentials)
 
     try:
         # 구매 세부정보 가져오기
@@ -174,11 +174,11 @@ async def android_verify_purchase_endpoint(
         raise HTTPException(status_code=500, detail="영수증 검증 중 오류 발생")
 
 
-@router.post("/v1/match/purchase/verify-ios", status_code=status.HTTP_200_OK)
+@router.post("/v1/gik-backend/purchase/verify-ios", status_code=status.HTTP_200_OK)
 async def ios_verify_purchase_endpoint(
     payments_info: VerifyPaymentsIOS, token: str = Depends(oauth2_scheme)
 ):
-    user_id = await get_user_id_from_token(token)
+    user_id = await get_user_id_from_token(token.credentials)
 
     issue_time = round(time.time())
     expiration_time = issue_time + 60 * 60  # 1 hour expiration
@@ -301,3 +301,43 @@ async def ios_verify_purchase_endpoint(
     except Exception as e:
         # logger.error(f"영수증 검증 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail="영수증 검증 중 오류 발생")
+
+
+# app/routers/payment.py 상단에 테스트용 코드만 잠깐 추가
+# USE_MOCK = True
+
+# def get_purchase_details(product_id, package_name, purchase_token):
+#     if USE_MOCK:
+#         return {
+#             "orderId": f"ORDER-{purchase_token}",
+#             "purchaseState": 0,  # 0=구매 완료, 1=취소
+#             "acknowledgementState": 1,
+#             "consumptionState": 1,
+#             "purchaseTimeMillis": "1694823412000",
+#             "regionCode": "KR",
+#         }
+#     # 원래 구글 API 호출
+#     client = get_android_publisher()
+#     return (
+#         client.purchases()
+#         .products()
+#         .get(productId=product_id, packageName=package_name, token=purchase_token)
+#         .execute()
+#     )
+
+
+# def get_product_price(product_id, package_name):
+#     if USE_MOCK:
+#         return 550000 / 100, "KRW"  # 120.00 KRW 라고 가정
+#     # 원래 구글 API 호출
+#     client = get_android_publisher()
+#     product_info = (
+#         client.inappproducts().get(packageName=package_name, sku=product_id).execute()
+#     )
+#     default_price = product_info.get("defaultPrice", {})
+#     price_micros = int(default_price.get("priceMicros", 0))
+#     currency_code = default_price.get("currency", "KRW")
+#     if price_micros > 0:
+#         return price_micros / 1_000_000, currency_code
+#     else:
+#         return None, None

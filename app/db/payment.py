@@ -4,10 +4,12 @@ from pydantic import BaseModel
 
 class SaleProduct:
     cm_whale_10 = 10
-    cm_whale_50 = 50
-    cm_whale_100 = 100
-    cm_whale_300 = 300
-    cm_whale_500 = 500
+    cm_whale_30 = 30
+    cm_whale_55 = 55
+    cm_whale_120 = 120
+    cm_whale_250 = 250
+    cm_whale_700 = 700
+    cm_whale_1500 = 1500
 
 
 class VerifyPaymentsAndroid(BaseModel):

@@ -62,7 +62,7 @@ class PaymentsService:
 
                     await credit_manager.change_credit(
                         amount=int(credit_amount * receipt.quantity),
-                        description="다이아 구입",
+                        description="고래 구입",
                         increase=True,
                         cur=cur,
                     )
@@ -80,11 +80,12 @@ class PaymentsService:
             async with conn.cursor() as cur:
                 await conn.begin()
                 try:
-                    # 구매 이력이 있는지 확인
+                    # 구매 이력이 있는지 확인 From user_purchases -> payments.
+                    # user_purchases 테이블이 없음. payments가 맞는듯.
                     purchase_check_query = """
                     SELECT EXISTS (
                         SELECT 1
-                        FROM user_purchases
+                        FROM payments
                         WHERE 
                             order_id = %s 
                             AND purchase_state = 0
@@ -104,7 +105,7 @@ class PaymentsService:
 
                     await credit_manager.change_credit(
                         amount=diamond_amount,
-                        description="다이아 환불",
+                        description="고래 환불",
                         increase=False,
                         cur=cur,
                     )

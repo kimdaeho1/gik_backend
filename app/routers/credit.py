@@ -10,8 +10,11 @@ router = APIRouter()
 
 @router.get("/v1/gik-backend/credit", status_code=status.HTTP_200_OK)
 async def get_credit_end_point(token: str = Depends(oauth2_scheme)) -> dict:
-    """현재 보유 중인 크레딧을 조회하는 api endpoint"""
-    user_id = await get_user_id_from_token(token)
+    """
+    현재 보유 중인 크레딧을 조회
+    user_id: 토큰에서 추출한 user_id
+    """
+    user_id = await get_user_id_from_token(token.credentials)
 
     credit_manager = CreditManager(user_id)
     credit_balance = await credit_manager.get_credit_balance()
@@ -21,8 +24,11 @@ async def get_credit_end_point(token: str = Depends(oauth2_scheme)) -> dict:
 
 @router.get("/v1/gik-backend/credit-history", status_code=status.HTTP_200_OK)
 async def get_credit_history_end_point(token: str = Depends(oauth2_scheme)) -> dict:
-    """크레딧 증차감 히스토리를 조회하는 api endpoint"""
-    user_id = await get_user_id_from_token(token)
+    """
+    현재 크레딧 내역을 조회
+    user_id: 토큰에서 추출한 user_id
+    """
+    user_id = await get_user_id_from_token(token.credentials)
 
     credit_manager = CreditManager(user_id)
     credit_history = await credit_manager.get_credit_history()

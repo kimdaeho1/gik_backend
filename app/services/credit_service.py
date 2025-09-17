@@ -9,7 +9,9 @@ class CreditManager:
         self.user_id = user_id
 
     async def get_credit_balance(self, cur: Cursor = None):
-        """사용자의 현재 크레딧 잔액을 조회"""
+        """
+        사용자의 현재 크레딧 잔액을 조회
+        """
         if cur is None:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
@@ -21,14 +23,16 @@ class CreditManager:
         query = """
             SELECT credit 
             FROM users 
-            WHERE user_id = %s
+            WHERE id = %s
         """
         await cur.execute(query, (self.user_id,))
         result = await cur.fetchone()
         return result[0] if result else 0
 
     async def get_credit_history(self, cur: Cursor = None):
-        """사용자의 크레딧 히스토리 조회"""
+        """
+        사용자의 크레딧 히스토리 조회
+        """
         if cur is None:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
@@ -48,12 +52,12 @@ class CreditManager:
             SELECT 
                 amount
                 , description
-                , reg_dt
+                , created_at
             FROM credit_history 
             WHERE 
                 user_id = %s
-                and use_yn = 'Y'
-            ORDER BY reg_dt DESC
+                and use_yn = TRUE
+            ORDER BY created_at DESC
         """
         await cur.execute(query, (self.user_id,))
         result = await cur.fetchall()
@@ -87,7 +91,7 @@ class CreditManager:
         query = f"""
         UPDATE users
         SET credit = credit {credit_op} %s
-        WHERE user_id = %s
+        WHERE id = %s
         """
         await cur.execute(query, (amount, self.user_id))
 

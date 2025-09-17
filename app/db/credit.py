@@ -1,6 +1,5 @@
-from datetime import date
-
-from pydantic import BaseModel, field_validator
+from datetime import datetime
+from pydantic import BaseModel
 
 
 class CreditValues:
@@ -10,15 +9,17 @@ class CreditValues:
     LIKE_SENT = 20  # 상대방에게 호감 발송
     LIKE_CONFIRM = 100  # 상대방 호감 수락
 
+    WHOIS_VIEW = 1  # 누가 나를 봤는지
+
 
 class CreditHistory(BaseModel):
     amount: int
     description: str
-    reg_dt: str
+    created_at: datetime
 
     # reg_dt를 ISO 포맷으로 변환
-    @field_validator("reg_dt", mode="before")
-    def date_to_str(cls, v):
-        if isinstance(v, date):
-            return v.strftime("%Y-%m-%d %H:%M:%S")
-        return v
+    # @field_validator("created_at", mode="before")
+    # def date_to_str(cls, v):
+    #     if isinstance(v, date):
+    #         return v.strftime("%Y-%m-%d %H:%M:%S")
+    #     return v
