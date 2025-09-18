@@ -266,7 +266,7 @@ class UserService:
                     SELECT
                         id, nickname, birthday, age, height, weight, sns, 
                         relation, position, country, hashtags, 
-                        self_introduction, bdsm_type, talk_style, secret_yn,
+                        self_introduction, bdsm_type, talk_style, secret_yn, credit,
                         provider, marketing_agree, night_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree, profile_alarm_agree,
@@ -297,6 +297,7 @@ class UserService:
                         bdsm_type,
                         talk_style,
                         secret_yn,
+                        credit,
                         provider,
                         marketing_agree,
                         night_agree,
@@ -390,6 +391,7 @@ class UserService:
                         talkStyle=talk_style,
                         profileImages=profile_images,
                         secretYn=secret_yn,
+                        credit=credit,
                         secretImages=secret_images,
                         marketingAlarm=marketing_agree,
                         nightAlarm=night_agree,
@@ -2258,3 +2260,77 @@ class UserService:
                 if not image_url_list:
                     return None
                 return image_url_list
+
+    async def give_user_credit(
+        self,
+        user_id: str,
+        credit: int,
+        reason: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET credit = credit + %s
+                    WHERE id = %s
+                    """,
+                    (credit, user_id),
+                )
+
+                await cur.execute(
+                    """
+                    INSERT INTO credit_history (user_id, amount, description, created_at)
+                    VALUES(%s, %s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (user_id, credit, reason),
+                )
+                await conn.commit()
+                return True
+
+    async def consume_user_credit(
+        self,
+        user_id: str,
+        credit: int,
+        reason: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT credit FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                current_credit = result[0]
+                if current_credit < credit:
+                    raise HTTPException(status_code=400, detail="크레딧이 부족합니다")
+
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET credit = credit - %s
+                    WHERE id = %s
+                    """,
+                    (credit, user_id),
+                )
+
+                await cur.execute(
+                    """
+                    INSERT INTO credit_history (user_id, amount, description, created_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (user_id, -credit, reason),
+                )
+
+                await conn.commit()
+                return True

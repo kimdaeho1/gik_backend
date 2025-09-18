@@ -110,6 +110,30 @@ jobs:
                   {
                     "name": "FIREBASE_ADMIN_CLIENT_X509_CERT_URL",
                     "value": "${{ secrets.FIREBASE_ADMIN_CLIENT_X509_CERT_URL }}"
+                  },
+                  {
+                    "name": "GOOGLE_API_KEY_PATH",
+                    "value": "${{ secrets.GOOGLE_API_KEY_PATH }}"
+                  },
+                  {
+                    "name": "GOOGLE_API_KEY_LOCAL_PATH",
+                    "value": "${{ secrets.GOOGLE_API_KEY_LOCAL_PATH }}"
+                  },
+                  {
+                    "name": "IOS_BUNDLE_ID",
+                    "value": "${{ secrets.IOS_BUNDLE_ID }}"
+                  },
+                  {
+                    "name": "IOS_ISSUER_ID",
+                    "value": "${{ secrets.IOS_ISSUER_ID }}"
+                  },
+                  {
+                    "name": "IOS_KEY_ID",
+                    "value": "${{ secrets.IOS_KEY_ID }}"
+                  },
+                  {
+                    "name": "IOS_API_PRIVATE_KEY",
+                    "value": "${{ secrets.IOS_API_PRIVATE_KEY }}"
                   }
                 ],
                 "logConfiguration": {
