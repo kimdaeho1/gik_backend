@@ -2387,11 +2387,6 @@ class UserService:
                     "SELECT 1 FROM user_credit_profile_view WHERE user_id = %s AND viewed_id = %s",
                     (viewer_id, viewed_id),
                 )
-                if_exists = await cur.fetchone()
-                if if_exists:
-                    raise HTTPException(
-                        status_code=400, detail="이미 결제해서 등록된 사용자입니다."
-                    )
 
                 await cur.execute(
                     """
@@ -2421,9 +2416,10 @@ class UserService:
 
                 await cur.execute(
                     """
-                    SELECT user_id, viewed_id, created_at
+                    SELECT viewed_id, MAX(created_at) AS created_at
                     FROM user_credit_profile_view
                     WHERE user_id = %s
+                    GROUP BY viewed_id
                     ORDER BY created_at DESC
                     LIMIT 20 OFFSET %s 
                     """,
@@ -2432,8 +2428,8 @@ class UserService:
                 rows = await cur.fetchall()
                 view_list = [
                     {
-                        "viewerId": row[1],
-                        "viewedAt": row[2].strftime("%Y-%m-%d %H:%M:%S"),
+                        "viewerId": row[0],
+                        "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
                     }
                     for row in rows
                 ]
