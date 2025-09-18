@@ -19,6 +19,7 @@ class VerifyPaymentsAndroid(BaseModel):
 
 
 class VerifyPaymentsIOS(BaseModel):
+    is_dev: bool
     transaction_id: str
 
 

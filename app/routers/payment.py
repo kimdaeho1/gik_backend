@@ -32,6 +32,17 @@ oauth2_scheme = HTTPBearer()
 CREDENTIAL_FILE_PATH = os.getenv("GOOGLE_API_KEY_LOCAL_PATH", "/tmp/credential.json")
 
 
+coin_map = {
+    "gik_coin_10": 10,
+    "gik_coin_30": 30,
+    "gik_coin_55": 55,
+    "gik_coin_120": 120,
+    "gik_coin_250": 250,
+    "gik_coin_700": 700,
+    "gik_coin_1500": 1500,
+}
+
+
 @lru_cache()
 def get_android_publisher():
     """Google API 클라이언트를 반환합니다."""
@@ -145,7 +156,11 @@ async def android_verify_purchase_endpoint(
             # logger.info(
             #     f"구매 검증 완료: user_no={user_no}, order_id={receipt.order_id}"
             # )
-            return {"is_success": True, "detail": "구매가 완료되었습니다."}
+            return {
+                "is_success": True,
+                "detail": "구매가 완료되었습니다.",
+                "coin": coin_map.get(receipt.product_id, 0),
+            }
 
         elif receipt.purchase_state == 1:
             is_success = await payments_service.refund(user_id, receipt)
@@ -213,8 +228,12 @@ async def ios_verify_purchase_endpoint(
 
     try:
         try:
+            if payments_info.is_dev:
+                url = "https://api.storekit-sandbox.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}"
+            else:
+                url = "https://api.storekit.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}"
             response = requests.get(
-                url=f"https://api.storekit.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}",
+                url=url,
                 headers={"Authorization": f"Bearer {jwt_token}"},
             )
 
@@ -284,7 +303,11 @@ async def ios_verify_purchase_endpoint(
                     # logger.info(
                     #     f"IOS 구매 검증 완료: user_no={user_no}, transaction_id={payments_info.transaction_id}"
                     # )
-                    return {"is_success": True, "detail": "구매가 완료되었습니다."}
+                    return {
+                        "is_success": True,
+                        "detail": "구매가 완료되었습니다.",
+                        "coin": coin_map.get(receipt.product_id, 0),
+                    }
                 else:
                     # logger.warning(
                     #     f"예외적인 구매 상태: purchase_state={purchase_state}, user_no={user_no}"
