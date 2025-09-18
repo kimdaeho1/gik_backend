@@ -57,6 +57,7 @@ class UserProfileResponse(BaseModel):
     talkStyle: Optional[str]
     profileImages: List[str]
     secretYn: bool
+    credit: int
     secretImages: List[str]
     marketingAlarm: bool
     nightAlarm: bool
@@ -216,3 +217,8 @@ class UserTalkStyleRequest(BaseModel):
 class UserHealthCheckRequest(BaseModel):
     userLatitude: Optional[float] = None
     userLongitude: Optional[float] = None
+
+
+class UserCreditRequest(BaseModel):
+    credit: int
+    reason: str

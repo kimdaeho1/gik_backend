@@ -23,6 +23,7 @@ from app.db.user import (
     UserHealthCheckRequest,
     UserIntroductionRequest,
     UserBdsmRequest,
+    UserCreditRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -902,3 +903,49 @@ async def fetch_accepted_secret_images(
         "message": "시크릿 앨범 조회 성공",
         "image_urls": image_urls,
     }
+
+
+@router.post("/v1/gik-backend/user/credit/give", status_code=status.HTTP_200_OK)
+async def give_user_credit(
+    user_credit: UserCreditRequest, token: str = Depends(oauth2_scheme)
+):
+    """
+    사용자에게 재화 리워드 제공
+    user_id: token에서 추출, 크레딧 지급 주체
+    user_credit:
+        - credit: 지급할 크레딧 양
+        - reason: 지급 사유
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.give_user_credit(
+        user_id, user_credit.credit, user_credit.reason
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="광고 시청 크레딧 지급 실패.",
+        )
+
+    return {"success": result, "message": "크레딧 지급 성공."}
+
+
+@router.post("/v1/gik-backend/user/credit/consume", status_code=status.HTTP_200_OK)
+async def consume_user_credit(
+    user_credit: UserCreditRequest, token: str = Depends(oauth2_scheme)
+):
+    """
+    사용자의 재화 소모
+    user_id: token에서 추출, 크레딧 소모 주체
+    user_credit:
+        - credit: 소모할 크레딧 양
+        - reason: 소모 사유
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.consume_user_credit(
+        user_id, user_credit.credit, user_credit.reason
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="크레딧 소모 실패."
+        )
+    return {"success": result, "message": "크레딧 소모 성공."}
