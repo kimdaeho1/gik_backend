@@ -229,9 +229,9 @@ async def ios_verify_purchase_endpoint(
     try:
         try:
             if payments_info.is_dev:
-                url = "https://api.storekit-sandbox.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}"
+                url = f"https://api.storekit-sandbox.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}"
             else:
-                url = "https://api.storekit.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}"
+                url = f"https://api.storekit.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}"
             response = requests.get(
                 url=url,
                 headers={"Authorization": f"Bearer {jwt_token}"},
