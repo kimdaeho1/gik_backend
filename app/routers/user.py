@@ -927,7 +927,11 @@ async def give_user_credit(
             detail="광고 시청 크레딧 지급 실패.",
         )
 
-    return {"success": True, "message": f"{result} 고래 코인 지급 성공."}
+    return {
+        "success": True,
+        "message": f"{result} 고래 코인 지급 성공.",
+        "amount": result,
+    }
 
 
 @router.post("/v1/gik-backend/user/credit/consume", status_code=status.HTTP_200_OK)
@@ -946,7 +950,11 @@ async def consume_user_credit(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="크레딧 소모 실패."
         )
-    return {"success": True, "message": f"{result} 고래 코인 소모 성공."}
+    return {
+        "success": True,
+        "message": f"{result} 고래 코인 소모 성공.",
+        "amount": result,
+    }
 
 
 @router.post("/v1/gik-backend/user/credit/{user_id}", status_code=status.HTTP_200_OK)
