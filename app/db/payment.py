@@ -3,13 +3,13 @@ from pydantic import BaseModel
 
 
 class SaleProduct:
-    cm_whale_10 = 10
-    cm_whale_30 = 30
-    cm_whale_55 = 55
-    cm_whale_120 = 120
-    cm_whale_250 = 250
-    cm_whale_700 = 700
-    cm_whale_1500 = 1500
+    gik_coin_10 = 10
+    gik_coin_30 = 30
+    gik_coin_55 = 55
+    gik_coin_120 = 120
+    gik_coin_250 = 250
+    gik_coin_700 = 700
+    gik_coin_1500 = 1500
 
 
 class VerifyPaymentsAndroid(BaseModel):
