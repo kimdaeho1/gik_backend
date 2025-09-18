@@ -214,7 +214,8 @@ async def ios_verify_purchase_endpoint(
     try:
         try:
             response = requests.get(
-                url=f"https://api.storekit.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}",
+                # url=f"https://api.storekit.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}",
+                url=f"https://api.storekit-sandbox.itunes.apple.com/inApps/v1/transactions/{payments_info.transaction_id}",
                 headers={"Authorization": f"Bearer {jwt_token}"},
             )
 
