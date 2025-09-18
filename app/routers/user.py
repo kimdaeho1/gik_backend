@@ -907,45 +907,78 @@ async def fetch_accepted_secret_images(
 
 @router.post("/v1/gik-backend/user/credit/give", status_code=status.HTTP_200_OK)
 async def give_user_credit(
-    user_credit: UserCreditRequest, token: str = Depends(oauth2_scheme)
+    user_credit_type: UserCreditRequest, token: str = Depends(oauth2_scheme)
 ):
     """
     사용자에게 재화 리워드 제공
     user_id: token에서 추출, 크레딧 지급 주체
-    user_credit:
-        - credit: 지급할 크레딧 양
-        - reason: 지급 사유
+    user_credit_type:
+        - type: 크레딧 지급 사유, history_reward (프로필 조회 시 광고 시청 리워드)
     """
     user_id = await get_user_id_from_token(token.credentials)
-    result = await user_service.give_user_credit(
-        user_id, user_credit.credit, user_credit.reason
-    )
+    result = await user_service.give_user_credit(user_id, user_credit_type.type)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="광고 시청 크레딧 지급 실패.",
         )
 
-    return {"success": result, "message": "크레딧 지급 성공."}
+    return {"success": True, "message": f"{result} 고래 코인 지급 성공."}
 
 
 @router.post("/v1/gik-backend/user/credit/consume", status_code=status.HTTP_200_OK)
 async def consume_user_credit(
-    user_credit: UserCreditRequest, token: str = Depends(oauth2_scheme)
+    user_credit_type: UserCreditRequest, token: str = Depends(oauth2_scheme)
 ):
     """
     사용자의 재화 소모
     user_id: token에서 추출, 크레딧 소모 주체
     user_credit:
-        - credit: 소모할 크레딧 양
-        - reason: 소모 사유
+        - type: 크레딧 지급 사유, history_view (프로필 조회 시 크레딧 소모)
     """
     user_id = await get_user_id_from_token(token.credentials)
-    result = await user_service.consume_user_credit(
-        user_id, user_credit.credit, user_credit.reason
-    )
+    result = await user_service.consume_user_credit(user_id, user_credit_type.type)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="크레딧 소모 실패."
         )
-    return {"success": result, "message": "크레딧 소모 성공."}
+    return {"success": True, "message": f"{result} 고래 코인 소모 성공."}
+
+
+@router.post("/v1/gik-backend/user/credit/{user_id}", status_code=status.HTTP_200_OK)
+async def add_user_credit_profile_view(
+    user_id: str,
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    내가 결제해서 본 사용자 추가
+    viewer_id: token에서 추출, 크레딧 소모해서 조회하는 사용자
+    user_id: 조회한 사용자 ID
+    """
+    viewer_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.add_user_credit_profile_view(
+        viewer_id=viewer_id,
+        viewed_id=user_id,
+    )
+    return {
+        "success": result,
+        "message": "내가 결제해서 본 사용자 리스트 업데이트 성공.",
+    }
+
+
+@router.get("/v1/gik-backend/user/credit/profile", status_code=status.HTTP_200_OK)
+async def fetch_user_credit_profile_view(
+    page: int = Query(...), token: str = Depends(oauth2_scheme)
+):
+    """
+    내가 결제해서 본 사용자 리스트
+    user_id: token에서 추출, 크레딧 소모 주체
+    page: 페이지 번호 (1부터 시작)
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.fetch_user_credit_profile_view(user_id, page)
+    return {
+        "success": True,
+        "message": "내가 결제해서 본 사용자 리스트 조회 성공",
+        "viewList": result,
+    }

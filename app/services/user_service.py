@@ -2264,8 +2264,7 @@ class UserService:
     async def give_user_credit(
         self,
         user_id: str,
-        credit: int,
-        reason: str,
+        type: str,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -2274,8 +2273,21 @@ class UserService:
                 )
                 result = await cur.fetchone()
                 if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+                    raise HTTPException(
+                        status_code=404, detail="사용자를 찾을 수 없습니다."
+                    )
 
+                # type은 추후 추가 예정
+                type_map = {
+                    "history_reward": (2, "광고 시청 보상"),
+                }
+
+                if type not in type_map:
+                    raise HTTPException(
+                        status_code=400, detail="고래 코인 타입이 올바르지 않습니다."
+                    )
+
+                credit, reason = type_map[type]
                 await cur.execute(
                     """
                     UPDATE users
@@ -2284,22 +2296,20 @@ class UserService:
                     """,
                     (credit, user_id),
                 )
-
                 await cur.execute(
                     """
                     INSERT INTO credit_history (user_id, amount, description, created_at)
-                    VALUES(%s, %s, %s, CURRENT_TIMESTAMP)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
                     """,
                     (user_id, credit, reason),
                 )
                 await conn.commit()
-                return True
+                return credit
 
     async def consume_user_credit(
         self,
         user_id: str,
-        credit: int,
-        reason: str,
+        type: str,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -2309,11 +2319,22 @@ class UserService:
                 )
                 result = await cur.fetchone()
                 if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-
+                    raise HTTPException(
+                        status_code=404, detail="사용자를 찾을 수 없습니다."
+                    )
                 current_credit = result[0]
+                type_map = {
+                    "history_view": (1, "프로필 조회"),
+                }
+                if not type in type_map:
+                    raise HTTPException(
+                        status_code=400, detail="고래 코인 타입이 올바르지 않습니다"
+                    )
+                credit, reason = type_map[type]
                 if current_credit < credit:
-                    raise HTTPException(status_code=400, detail="크레딧이 부족합니다")
+                    raise HTTPException(
+                        status_code=400, detail="고래 코인이 부족합니다"
+                    )
 
                 await cur.execute(
                     """
@@ -2333,4 +2354,87 @@ class UserService:
                 )
 
                 await conn.commit()
+                return credit
+
+    async def add_user_credit_profile_view(
+        self,
+        viewer_id: str,
+        viewed_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (viewer_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않는 사용자입니다."
+                    )
+
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (viewed_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="상대방을 찾을 수 없습니다."
+                    )
+
+                await cur.execute(
+                    "SELECT 1 FROM user_credit_profile_view WHERE user_id = %s AND viewed_id = %s",
+                    (viewer_id, viewed_id),
+                )
+                if_exists = await cur.fetchone()
+                if if_exists:
+                    raise HTTPException(
+                        status_code=400, detail="이미 결제해서 등록된 사용자입니다."
+                    )
+
+                await cur.execute(
+                    """
+                    INSERT INTO user_credit_profile_view (user_id, viewed_id, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (viewer_id, viewed_id),
+                )
+                await conn.commit()
                 return True
+
+    async def fetch_user_credit_profile_view(
+        self,
+        user_id: str,
+        page: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+                offset = (page - 1) * 20
+
+                await cur.execute(
+                    """
+                    SELECT user_id, viewed_id, created_at
+                    FROM user_credit_profile_view
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT 20 OFFSET %s 
+                    """,
+                    (user_id, offset),
+                )
+                rows = await cur.fetchall()
+                view_list = [
+                    {
+                        "viewerId": row[1],
+                        "viewedAt": row[2].strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                    for row in rows
+                ]
+                return view_list
