@@ -220,5 +220,4 @@ class UserHealthCheckRequest(BaseModel):
 
 
 class UserCreditRequest(BaseModel):
-    credit: int
-    reason: str
+    type: str
