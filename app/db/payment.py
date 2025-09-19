@@ -1,5 +1,6 @@
 from datetime import date
 from pydantic import BaseModel
+from typing import Optional
 
 
 class SaleProduct:
@@ -19,7 +20,7 @@ class VerifyPaymentsAndroid(BaseModel):
 
 
 class VerifyPaymentsIOS(BaseModel):
-    is_dev: bool
+    is_dev: Optional[bool] = False
     transaction_id: str
 
 
