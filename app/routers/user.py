@@ -352,12 +352,14 @@ async def update_user_bdsm_type(user_bdsm_type: UserBdsmRequest):
 
 # [유저] 상대 유저 상세정보 조회
 @router.get("/v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
-async def fetch_user_profile(user_id: str):
+async def fetch_user_profile(user_id: str, token: str = Depends(oauth2_scheme)):
     """
     상대 유저 프로필 조회
     user_id: 조회할 상대 유저 ID
+    viewer_id: 조회한 주체
     """
-    user = await user_service.fetch_user_profile(user_id)
+    viewer_id = await get_user_id_from_token(token.credentials)
+    user = await user_service.fetch_user_profile(user_id, viewer_id)
 
     return {"success": True, "message": "유저 정보 조회 성공", "user": user}
 
@@ -389,7 +391,7 @@ async def fetch_user_profile_with_push(
     """
     상대 유저 프로필 조회
     user_id: 조회할 상대 유저 ID
-    token: 본인 엑세스 토큰
+    viewer_id: 본인 엑세스 토큰
     background_tasks: 백그라운드 task에 넣어 push 작업의 안정성 향상
     """
 
@@ -397,7 +399,7 @@ async def fetch_user_profile_with_push(
     viewer_id = await get_user_id_from_token(token.credentials)
 
     # 1-2. api 작업 - 조회할 상대방의 프로필 정보 가져오기
-    target_profile = await user_service.fetch_user_profile(user_id)
+    target_profile = await user_service.fetch_user_profile(user_id, viewer_id)
 
     # 2-1. push 작업 - fcm 토큰 가져오기
     target_token = await user_service.fetch_user_fcm(user_id)
@@ -433,7 +435,6 @@ async def fetch_user_profile_with_push(
         "success": True,
         "message": "유저 정보 조회 성공",
         "user": target_profile,
-        "isBlocked": is_blocked,
     }
 
 

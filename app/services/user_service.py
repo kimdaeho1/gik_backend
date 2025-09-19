@@ -826,6 +826,7 @@ class UserService:
     async def fetch_user_profile(
         self,
         user_id: str,
+        viewer_id: str,
     ) -> UserDetailResponse | None:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -882,6 +883,8 @@ class UserService:
                 await cur.execute(block_user_query, (user_id,))
                 block_user_list = [row[0] for row in await cur.fetchall()]
 
+                is_blocked = await self.fetch_user_blocked(user_id, viewer_id)
+
                 # 프로필 이미지 조회
                 image_query = """
                     SELECT
@@ -934,6 +937,7 @@ class UserService:
                     lastConnectedAt=last_connected_at,
                     latitude=latitude,
                     longitude=longitude,
+                    isBlocked=is_blocked,
                 )
 
     async def block_user(self, id: str, user_id: str) -> bool:
