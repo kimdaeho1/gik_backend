@@ -429,7 +429,12 @@ async def fetch_user_profile_with_push(
             user_no=target_user_no,
         )
         await user_service.insert_user_profile_view(user_id, viewer_id)
-    return {"success": True, "message": "유저 정보 조회 성공", "user": target_profile}
+    return {
+        "success": True,
+        "message": "유저 정보 조회 성공",
+        "user": target_profile,
+        "isBlocked": is_blocked,
+    }
 
 
 # [유저] 상대 유저 차단
