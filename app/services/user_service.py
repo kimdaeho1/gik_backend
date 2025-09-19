@@ -2443,11 +2443,16 @@ class UserService:
                     SELECT viewed_id, MAX(created_at) AS created_at
                     FROM user_credit_profile_view
                     WHERE user_id = %s
+                        AND viewed_id NOT IN(
+                            SELECT blocked_user_id
+                            FROM user_block_list
+                            WHERE block_user_id = %s
+                        )
                     GROUP BY viewed_id
                     ORDER BY created_at DESC
                     LIMIT 20 OFFSET %s 
                     """,
-                    (user_id, offset),
+                    (user_id, user_id, offset),
                 )
                 rows = await cur.fetchall()
                 view_list = [
