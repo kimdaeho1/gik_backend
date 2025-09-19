@@ -352,13 +352,13 @@ async def update_user_bdsm_type(user_bdsm_type: UserBdsmRequest):
 
 # [유저] 상대 유저 상세정보 조회
 @router.get("/v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
-async def fetch_user_profile(user_id: str, token: str = Depends(oauth2_scheme)):
+async def fetch_user_profile(user_id: str):
     """
     상대 유저 프로필 조회
     user_id: 조회할 상대 유저 ID
     viewer_id: 조회한 주체
     """
-    viewer_id = await get_user_id_from_token(token.credentials)
+    viewer_id = None
     user = await user_service.fetch_user_profile(user_id, viewer_id)
 
     return {"success": True, "message": "유저 정보 조회 성공", "user": user}
