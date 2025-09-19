@@ -824,9 +824,7 @@ class UserService:
                 return result is not None
 
     async def fetch_user_profile(
-        self,
-        user_id: str,
-        viewer_id: str,
+        self, user_id: str, viewer_id: Optional[str]
     ) -> UserDetailResponse | None:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -883,7 +881,10 @@ class UserService:
                 await cur.execute(block_user_query, (user_id,))
                 block_user_list = [row[0] for row in await cur.fetchall()]
 
-                is_blocked = await self.fetch_user_blocked(user_id, viewer_id)
+                if viewer_id is None:
+                    is_blocked = False
+                else:
+                    is_blocked = await self.fetch_user_blocked(user_id, viewer_id)
 
                 # 프로필 이미지 조회
                 image_query = """
