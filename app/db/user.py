@@ -105,6 +105,7 @@ class UserDetailResponse(BaseModel):
     lastConnectedAt: datetime
     latitude: Optional[float]
     longitude: Optional[float]
+    isBlocked: bool
 
 
 class UserListResponse(BaseModel):
