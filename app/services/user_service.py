@@ -1185,7 +1185,15 @@ class UserService:
 
                 # age가 제대로 들어온다면, between 필터링
                 if len(age) == 2:
-                    filters.append("age BETWEEN %s AND %s")
+                    filters.append(
+                        """
+                        TIMESTAMPDIFF(
+                            YEAR,
+                            STR_TO_DATE(birthday, '%%Y%%m%%d'),
+                            CURDATE()
+                        ) BETWEEN %s AND %s
+                        """
+                    )
                     arguments.extend(age)
 
                 # 전부 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
@@ -1303,7 +1311,15 @@ class UserService:
                     filters.append(f"({' OR '.join(bdsm_type_filter)})")
 
                 if len(age) == 2:
-                    filters.append("age BETWEEN %s AND %s")
+                    filters.append(
+                        """
+                        TIMESTAMPDIFF(
+                            YEAR,
+                            STR_TO_DATE(birthday, '%%Y%%m%%d'),
+                            CURDATE()
+                        ) BETWEEN %s AND %s
+                        """
+                    )
                     arguments.extend(age)
 
                 if filters:
@@ -1364,7 +1380,15 @@ class UserService:
 
                 if age:
                     if len(age) == 2:
-                        null_filters.append("age BETWEEN %s AND %s")
+                        null_filters.append(
+                            """
+                            TIMESTAMPDIFF(
+                                YEAR,
+                                STR_TO_DATE(birthday, '%%Y%%m%%d'),
+                                CURDATE()
+                            ) BETWEEN %s AND %s
+                            """
+                        )
                         null_arguments.extend(age)
 
                 if null_filters:
