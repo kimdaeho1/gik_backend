@@ -5,6 +5,11 @@ from app.db.db_connection import db
 import os
 import boto3
 from botocore.exceptions import ClientError
+from app.utils.logging_config import setup_logging
+from app.utils.logging_config import get_logger
+
+setup_logging()
+logger = get_logger(__name__)
 
 
 app = FastAPI()
@@ -69,9 +74,13 @@ async def health():
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info("Starting up and connecting to the database.")
     await db.connect()
+    logger.info("Connected to the database.")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    logger.info("Shutting down and disconnecting from the database.")
     await db.close()
+    logger.info("Disconnected from the database.")
