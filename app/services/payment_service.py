@@ -1,6 +1,9 @@
 from app.services.credit_service import CreditManager
 from app.db.db_connection import db
 from app.db.payment import SaleProduct, Receipt
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class PaymentsService:
@@ -26,7 +29,9 @@ class PaymentsService:
                     await cur.execute(duplicate_check_query, (receipt.order_id,))
                     is_duplicate = await cur.fetchone()
                     if is_duplicate[0]:
-                        # logger.warning(f"중복 구매 시도: order_id={receipt.order_id}, user_no={user_no}")
+                        logger.warning(
+                            f"중복 구매 시도: order_id={receipt.order_id}, user_id={user_id}"
+                        )
                         return False
 
                     # 구매 정보 저장
@@ -60,6 +65,7 @@ class PaymentsService:
                     credit_manager = CreditManager(user_id)
                     credit_amount = getattr(SaleProduct, receipt.product_id, 0)
                     if credit_amount == 0:
+                        logger.error(f"잘못된 product_id: {receipt.product_id}")
                         raise ValueError(f"잘못된 product_id: {receipt.product_id}")
 
                     await credit_manager.change_credit(
@@ -73,7 +79,7 @@ class PaymentsService:
                     return True
                 except Exception as e:
                     await conn.rollback()
-                    # logger.error(f"구매 처리 중 오류 발생: {e}")
+                    logger.error(f"구매 처리 중 오류 발생: {e}")
                     return False
 
     async def refund(self, user_id: str, receipt: Receipt) -> bool:
@@ -98,7 +104,9 @@ class PaymentsService:
                     await cur.execute(purchase_check_query, (receipt.order_id,))
                     is_purchase_exists = await cur.fetchone()
                     if not is_purchase_exists[0]:
-                        # logger.warning(f"환불 요청 시 구매 이력 없음: order_id={receipt.order_id}, user_no={user_no}")
+                        logger.warning(
+                            f"환불 요청 시 구매 이력 없음: order_id={receipt.order_id}, user_id={user_id}"
+                        )
                         return False
 
                     # 다이아 회수
@@ -126,5 +134,5 @@ class PaymentsService:
                     return True
                 except Exception as e:
                     await conn.rollback()
-                    # logger.error(f"환불 처리 중 오류 발생: {e}")
+                    logger.error(f"환불 처리 중 오류 발생: {e}")
                     return False
