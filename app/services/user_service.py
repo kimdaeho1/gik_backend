@@ -10,6 +10,9 @@ from app.db.user import (
 from app.db.image import UserSecretResponse
 from app.db.db_connection import db
 from typing import List, Optional
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class UserService:
@@ -1124,7 +1127,13 @@ class UserService:
     # TODO : 쿼리문 걸리는 WHERE절에 index를 거는게 좋아보인다고함. 나중에라도 걸어보세요.
     # TODO : python 툴 찾아보기
     async def fetch_user_id_list(
-        self, position: str, relation: str, bdsm_type: str, talk_style: str, age: str
+        self,
+        position: str,
+        relation: str,
+        bdsm_type: str,
+        talk_style: str,
+        age: str,
+        secret: bool,
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1200,6 +1209,14 @@ class UserService:
                         """
                     )
                     arguments.extend(age)
+
+                # 시크릿 앨범이 존재하면
+                if secret is not None:
+                    secret_filter = []
+                    for s in secret:
+                        secret_filter.append("secret_yn = %s")
+                        arguments.append(s)
+                    filters.append(f"({' OR '.join(secret_filter)})")
 
                 # 전부 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
                 if filters:

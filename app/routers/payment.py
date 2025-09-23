@@ -23,10 +23,11 @@ from app.utils.config import (
     IOS_KEY_ID,
     IOS_API_PRIVATE_KEY,
 )
+from app.utils.logging_config import get_logger
 
 
 router = APIRouter()
-# logger = get_logger(__name__)
+logger = get_logger(__name__)
 oauth2_scheme = HTTPBearer()
 
 CREDENTIAL_FILE_PATH = os.getenv("GOOGLE_API_KEY_LOCAL_PATH", "/tmp/credential.json")
@@ -96,7 +97,7 @@ async def android_verify_purchase_endpoint(
                 payments_info.purchase_token,
             )
         except Exception as e:
-            # logger.error(f"구매 세부정보를 가져오는 중 오류 발생: {e}")
+            logger.error(f"구매 세부정보를 가져오는 중 오류 발생: {e}")
             raise HTTPException(
                 status_code=500, detail="구매 세부정보를 확인할 수 없습니다."
             )
@@ -107,13 +108,13 @@ async def android_verify_purchase_endpoint(
                 payments_info.product_id, payments_info.package_name
             )
         except Exception as e:
-            # logger.error(f"상품 가격 정보를 가져오는 중 오류 발생: {e}")
+            logger.error(f"상품 가격 정보를 가져오는 중 오류 발생: {e}")
             raise HTTPException(
                 status_code=500, detail="상품 가격 정보를 확인할 수 없습니다."
             )
 
         if not price or not currency:
-            # logger.warning(f"가격 정보 누락: product_id={payments_info.product_id}")
+            logger.warning(f"가격 정보 누락: product_id={payments_info.product_id}")
             raise HTTPException(status_code=404, detail="가격 정보를 찾을 수 없습니다.")
 
         # Unix timestamp 변환
@@ -147,15 +148,15 @@ async def android_verify_purchase_endpoint(
         if receipt.purchase_state == 0:
             is_success = await payments_service.purchase(user_id, receipt)
             if not is_success:
-                # logger.error(
-                #     f"구매 처리 실패: user_no={user_no}, order_id={receipt.order_id}"
-                # )
+                logger.error(
+                    f"구매 처리 실패: user_id={user_id}, order_id={receipt.order_id}"
+                )
                 raise HTTPException(
                     status_code=500, detail="구매 처리 중 오류가 발생했습니다."
                 )
-            # logger.info(
-            #     f"구매 검증 완료: user_no={user_no}, order_id={receipt.order_id}"
-            # )
+            logger.info(
+                f"구매 검증 완료: user_id={user_id}, order_id={receipt.order_id}"
+            )
             return {
                 "is_success": True,
                 "detail": "구매가 완료되었습니다.",
@@ -165,27 +166,27 @@ async def android_verify_purchase_endpoint(
         elif receipt.purchase_state == 1:
             is_success = await payments_service.refund(user_id, receipt)
             if not is_success:
-                # logger.error(
-                #     f"환불 처리 실패: user_no={user_no}, order_id={receipt.order_id}"
-                # )
+                logger.error(
+                    f"환불 처리 실패: user_id={user_id}, order_id={receipt.order_id}"
+                )
                 raise HTTPException(
                     status_code=500, detail="환불 처리 중 오류가 발생했습니다."
                 )
-            # logger.info(
-            #     f"환불 처리 완료: user_no={user_no}, order_id={receipt.order_id}"
-            # )
+            logger.info(
+                f"환불 처리 완료: user_id={user_id}, order_id={receipt.order_id}"
+            )
             return {"is_success": True, "detail": "환불이 완료되었습니다."}
         else:
-            # logger.warning(
-            #     f"예외적인 구매 상태: purchase_state={receipt.purchase_state}, user_no={user_no}"
-            # )
+            logger.warning(
+                f"예외적인 구매 상태: purchase_state={receipt.purchase_state}, user_id={user_id}"
+            )
             return {
                 "is_success": False,
                 "detail": f"구매 상태가 유효하지 않습니다: {receipt.purchase_state}",
             }
 
     except Exception as e:
-        # logger.error(f"영수증 검증 중 오류 발생: {e}")
+        logger.error(f"영수증 검증 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail="영수증 검증 중 오류 발생")
 
 
@@ -242,7 +243,7 @@ async def ios_verify_purchase_endpoint(
                 signed_transaction_info = response_data.get("signedTransactionInfo")
 
                 if not signed_transaction_info:
-                    # logger.error("signedTransactionInfo를 확인할 수 없습니다.")
+                    logger.error("signedTransactionInfo를 확인할 수 없습니다.")
                     raise HTTPException(
                         status_code=500,
                         detail="signedTransactionInfo를 확인할 수 없습니다.",
@@ -293,34 +294,34 @@ async def ios_verify_purchase_endpoint(
                     is_success = await payments_service.purchase(user_id, receipt)
 
                     if not is_success:
-                        # logger.error(
-                        #     f"구매 처리 실패: user_no={user_no}, transaction_id={payments_info.transaction_id}"
-                        # )
+                        logger.error(
+                            f"구매 처리 실패: user_id={user_id}, transaction_id={payments_info.transaction_id}"
+                        )
                         raise HTTPException(
                             status_code=500, detail="구매 처리 중 오류가 발생했습니다."
                         )
 
-                    # logger.info(
-                    #     f"IOS 구매 검증 완료: user_no={user_no}, transaction_id={payments_info.transaction_id}"
-                    # )
+                    logger.info(
+                        f"IOS 구매 검증 완료: user_id={user_id}, transaction_id={payments_info.transaction_id}"
+                    )
                     return {
                         "is_success": True,
                         "detail": "구매가 완료되었습니다.",
                         "coin": coin_map.get(receipt.product_id, 0),
                     }
                 else:
-                    # logger.warning(
-                    #     f"예외적인 구매 상태: purchase_state={purchase_state}, user_no={user_no}"
-                    # )
+                    logger.warning(
+                        f"예외적인 구매 상태: purchase_state={purchase_state}, user_id={user_id}"
+                    )
                     return {
                         "is_success": False,
                         "detail": f"구매 상태가 유효하지 않습니다: {purchase_state}",
                     }
         except Exception as e:
-            # logger.error(f"구매 세부정보를 가져오는 중 오류 발생: {e}")
+            logger.error(f"구매 세부정보를 가져오는 중 오류 발생: {e}")
             raise HTTPException(
                 status_code=500, detail="구매 세부정보를 확인할 수 없습니다."
             )
     except Exception as e:
-        # logger.error(f"영수증 검증 중 오류 발생: {e}")
+        logger.error(f"영수증 검증 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail="영수증 검증 중 오류 발생")

@@ -501,6 +501,7 @@ async def fetch_user_id_list(
     bdsmType: str = None,
     talkStyle: str = None,
     age: str = None,
+    secret: bool = None,
 ):
     """
     유저 ID 목록 조회
@@ -511,6 +512,7 @@ async def fetch_user_id_list(
         bdsm_type=bdsmType,
         talk_style=talkStyle,
         age=age,
+        secret=secret,
     )
     return {"success": True, "message": "유저 ID 목록 조회 성공", "userIds": user_ids}
 
