@@ -24,6 +24,7 @@ from app.db.user import (
     UserIntroductionRequest,
     UserBdsmRequest,
     UserCreditRequest,
+    UserUnblockRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -526,6 +527,7 @@ async def fetch_near_user_id_list(
     relation: str = None,
     bdsmType: str = None,
     talkStyle: str = None,
+    secret: bool = None,
 ):
     """
     유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
@@ -540,6 +542,7 @@ async def fetch_near_user_id_list(
         relation=relation,
         bdsm_type=bdsmType,
         talk_style=talkStyle,
+        secret=secret,
     )
     return {
         "success": True,
@@ -997,4 +1000,39 @@ async def fetch_user_credit_profile_view(
         "success": True,
         "message": "내가 결제해서 본 사용자 리스트 조회 성공",
         "viewList": result,
+    }
+
+
+# TODO: RESTful하게.
+@router.get("/v1/gik-backend/users/block", status_code=status.HTTP_200_OK)
+async def fetch_user_block_list(
+    page: int = Query(...), token: str = Depends(oauth2_scheme)
+):
+    """
+    내가 차단한 유저 리스트
+    user_id: token에서 추출, 차단한 유저 리스트 조회 주체
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.fetch_user_block_list(page=page, user_id=user_id)
+    return {
+        "success": True,
+        "message": "내가 차단한 유저 리스트 조회 성공",
+        "blockList": result,
+    }
+
+
+@router.patch("/v1/gik-backend/users/block", status_code=status.HTTP_200_OK)
+async def unblock_user(
+    user_block: UserUnblockRequest, token: str = Depends(oauth2_scheme)
+):
+    """
+    상대 유저 차단 해제
+    user_id: token에서 추출, 차단 해제 주체
+    opponent_id: 차단 해제할 상대 유저 ID
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.unblock_user(user_id, user_block.userId)
+    return {
+        "success": result,
+        "message": "유저 차단 해제 성공.",
     }

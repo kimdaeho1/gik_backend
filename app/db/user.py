@@ -198,6 +198,10 @@ class UserBlockRequest(BaseModel):
     userId: str
 
 
+class UserUnblockRequest(BaseModel):
+    userId: str
+
+
 class UserReportRequest(BaseModel):
     chatId: Optional[str] = None
     reportUserId: str

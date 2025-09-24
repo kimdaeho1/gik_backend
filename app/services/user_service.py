@@ -1212,11 +1212,8 @@ class UserService:
 
                 # 시크릿 앨범이 존재하면
                 if secret is not None:
-                    secret_filter = []
-                    for s in secret:
-                        secret_filter.append("secret_yn = %s")
-                        arguments.append(s)
-                    filters.append(f"({' OR '.join(secret_filter)})")
+                    filters.append("secret_yn = %s")
+                    arguments.append(secret)
 
                 # 전부 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
                 if filters:
@@ -1235,6 +1232,7 @@ class UserService:
         relation: str,
         bdsm_type: str,
         talk_style: str,
+        secret: bool,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1344,6 +1342,10 @@ class UserService:
                     )
                     arguments.extend(age)
 
+                if secret is not None:
+                    filters.append("secret_yn = %s")
+                    arguments.append(secret)
+
                 if filters:
                     query += " AND " + " AND ".join(filters)
                 # 거리를 기준으로 오름차순 정렬
@@ -1412,6 +1414,10 @@ class UserService:
                             """
                         )
                         null_arguments.extend(age)
+
+                if secret is not None:
+                    null_filters.append("secret_yn = %s")
+                    null_arguments.append(secret)
 
                 if null_filters:
                     null_query += " AND " + " AND ".join(null_filters)
@@ -2485,3 +2491,77 @@ class UserService:
                     for row in rows
                 ]
                 return view_list
+
+    async def fetch_user_block_list(
+        self,
+        user_id: str,
+        page: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    logger.error(f"유저를 찾을 수 없습니다: {user_id}")
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                offset = (page - 1) * 20
+                await cur.execute(
+                    """
+                    SELECT ubl.blocked_user_id, ubl.created_at
+                    FROM user_block_list ubl
+                    JOIN users u
+                        ON ubl.blocked_user_id = u.id
+                    WHERE ubl.block_user_id = %s
+                        AND u.leaved = FALSE
+                    ORDER BY ubl.created_at DESC
+                    LIMIT 20 OFFSET %s
+                    """,
+                    (user_id, offset),
+                )
+                rows = await cur.fetchall()
+                block_list = [row[0] for row in rows]
+
+                return block_list
+
+    async def unblock_user(
+        self,
+        user_id: str,
+        opponent_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    logger.error(f"유저를 찾을 수 없습니다: {user_id}")
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (opponent_id,),
+                )
+                opponent_result = await cur.fetchone()
+                if not opponent_result:
+                    logger.error(
+                        f"차단 해제할 상대방을 찾을 수 없습니다: {opponent_id}"
+                    )
+                    raise HTTPException(
+                        status_code=404, detail="상대방을 찾을 수 없습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    DELETE FROM user_block_list
+                    WHERE block_user_id = %s AND blocked_user_id = %s
+                    """,
+                    (user_id, opponent_id),
+                )
+                await conn.commit()
+                return True
