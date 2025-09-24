@@ -986,19 +986,6 @@ class CommunityService:
 
                     _, post_user_id = post_row
 
-                    # 이미 신고한 게시글인지 확인
-                    check_report = """
-                        SELECT * FROM post_reports
-                        WHERE reported_post_id = %s AND report_user_id = %s
-                    """
-                    await cur.execute(check_report, (report_post_id, report_user_id))
-                    check_report = await cur.fetchone()
-                    if check_report:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="이미 신고한 게시글입니다.",
-                        )
-
                     # 신고 등록
                     insert_query = """
                         INSERT INTO post_reports (
@@ -1591,20 +1578,6 @@ class CommunityService:
                         )
 
                     _, comment_user_id = comment_row
-
-                    # 이미 신고한 댓글인지 확인
-                    check_report = """
-                        SELECT * 
-                        FROM post_comment_reports
-                        WHERE reported_comment_id = %s AND report_user_id = %s
-                    """
-                    await cur.execute(check_report, (report_comment_id, report_user_id))
-                    check_report = await cur.fetchone()
-                    if check_report:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="이미 신고한 댓글입니다.",
-                        )
 
                     # 신고 등록
                     insert_query = """

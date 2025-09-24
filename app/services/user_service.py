@@ -1859,6 +1859,8 @@ class UserService:
     async def insert_user_profile_view(self, user_id: str, viewer_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+
+                # 1. users_profile_view에 이미 존재하는지, 존재한다면 count만, 존재하지 않으면 insert
                 await cur.execute(
                     """
                     SELECT viewer_id
@@ -1889,6 +1891,16 @@ class UserService:
                         """,
                         (user_id, viewer_id),
                     )
+
+                # 2. users_profile_view_log에 로그 남기기
+                await cur.execute(
+                    """
+                    INSERT INTO users_profile_view_log (user_id, viewer_id, created_at)
+                    VALUES( %s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (user_id, viewer_id),
+                )
+
                 await conn.commit()
 
     # TODO : profile중에 안읽은게 있는지 확인하는거, 그거랑 마케팅/공지 같은 것들도 따로 관리하도록.
@@ -1899,13 +1911,22 @@ class UserService:
                 offset = (page - 1) * 20
                 await cur.execute(
                     """
-                    SELECT upv.viewer_id, upv.updated_at, upv.view_count
+                    SELECT upv.viewer_id, upv.updated_at, upv.view_count, COALESCE(today_views.today_count, 0) AS today_view_count
                     FROM users_profile_view upv
                     JOIN users u
                         ON upv.viewer_id = u.id
                     LEFT JOIN user_block_list ubl
                         ON upv.user_id = ubl.block_user_id
                         AND upv.viewer_id = ubl.blocked_user_id
+                    LEFT JOIN (
+                        SELECT user_id, viewer_id, COUNT(*) AS today_count
+                        FROM users_profile_view_log
+                        WHERE created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                        GROUP BY user_id, viewer_id
+                    ) today_views
+                        ON upv.user_id = today_views.user_id
+                        AND upv.viewer_id = today_views.viewer_id
                     WHERE upv.user_id = %s
                         AND upv.updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
                         AND u.leaved = FALSE
@@ -1922,6 +1943,7 @@ class UserService:
                         "id": row[0],
                         "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
                         "viewCount": row[2],
+                        "todayViewCount": row[3],
                     }
                     for row in rows
                 ]
