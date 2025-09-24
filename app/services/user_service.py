@@ -386,7 +386,7 @@ class UserService:
                     """
                     await cur.execute(today_ads_query, (user_id,))
                     today_ads_row = await cur.fetchone()
-                    todayAds = today_ads_row[0] if today_ads_row else 0
+                    todayAdCount = today_ads_row[0] if today_ads_row else 0
 
                     return UserProfileResponse(
                         id=user_id,
@@ -407,7 +407,7 @@ class UserService:
                         profileImages=profile_images,
                         secretYn=secret_yn,
                         credit=credit,
-                        todayAds=todayAds,
+                        todayAdCount=todayAdCount,
                         secretImages=secret_images,
                         marketingAlarm=marketing_agree,
                         nightAlarm=night_agree,

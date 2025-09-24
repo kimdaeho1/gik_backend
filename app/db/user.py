@@ -58,7 +58,7 @@ class UserProfileResponse(BaseModel):
     profileImages: List[str]
     secretYn: bool
     credit: int
-    todayAds: int
+    todayAdCount: int
     secretImages: List[str]
     marketingAlarm: bool
     nightAlarm: bool
