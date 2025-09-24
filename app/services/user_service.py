@@ -1093,6 +1093,18 @@ class UserService:
                     images = await cur.fetchall()
                     profile_images = [row[1] for row in images]
 
+                    secret_image_query = """
+                        SELECT
+                            `index`, url
+                        FROM user_secret_images
+                        WHERE
+                            user_id = %s and use_yn = TRUE
+                        ORDER BY `index`
+                    """
+                    await cur.execute(secret_image_query, (id,))
+                    secret_image = await cur.fetchall()
+                    secret_images = [row[1] for row in secret_image]
+
                     user_profiles.append(
                         UserListResponse(
                             id=id,
@@ -1110,6 +1122,7 @@ class UserService:
                             bdsmType=bdsm_type,
                             talkStyle=talk_style,
                             secretYn=secret_yn,
+                            secretImages=secret_images,
                             profileImages=profile_images,
                             leaved=leaved,
                             personalChatAlarm=personal_chat_alarm,
