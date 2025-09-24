@@ -125,6 +125,7 @@ class UserListResponse(BaseModel):
     bdsmType: Optional[str]
     talkStyle: Optional[str]
     secretYn: bool
+    secretImages: List[str]
     leaved: bool
     blockUserList: Optional[List[str]]
     personalChatAlarm: bool
