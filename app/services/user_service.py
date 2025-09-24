@@ -376,6 +376,18 @@ class UserService:
                         profile_read_row[0] if profile_read_row else False
                     )
 
+                    today_ads_query = """
+                        SELECT COUNT(*)
+                        FROM credit_history
+                        WHERE user_id = %s
+                            AND description = '광고 시청 보상'
+                            AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                    """
+                    await cur.execute(today_ads_query, (user_id,))
+                    today_ads_row = await cur.fetchone()
+                    todayAdCount = today_ads_row[0] if today_ads_row else 0
+
                     return UserProfileResponse(
                         id=user_id,
                         nickname=nickname,
@@ -395,6 +407,7 @@ class UserService:
                         profileImages=profile_images,
                         secretYn=secret_yn,
                         credit=credit,
+                        todayAdCount=todayAdCount,
                         secretImages=secret_images,
                         marketingAlarm=marketing_agree,
                         nightAlarm=night_agree,
