@@ -224,3 +224,7 @@ class UserHealthCheckRequest(BaseModel):
 
 class UserCreditRequest(BaseModel):
     type: str
+
+
+class UserUnblockRequest(BaseModel):
+    userId: str
