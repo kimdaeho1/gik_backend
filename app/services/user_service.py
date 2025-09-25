@@ -2678,7 +2678,7 @@ class UserService:
                 rows = await cur.fetchall()
                 view_list = [
                     {
-                        "userId": row[0],
+                        "viewerId": row[0],
                         "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
                         "viewCount": row[2],
                         "todayViewCount": row[3],
