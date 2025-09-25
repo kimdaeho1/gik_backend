@@ -2055,16 +2055,26 @@ class UserService:
 
                 await cur.execute(
                     """
-                    SELECT usv.viewer_id, usv.updated_at, usv.view_count
+                    SELECT usv.viewer_id, usv.updated_at, usv.view_count, COALESCE(today_views.today_count, 0) AS today_view_count
                     FROM users_secret_view usv
                     JOIN users u
                         ON usv.viewer_id = u.id
                     LEFT JOIN user_block_list ubl
                         ON usv.user_id = ubl.block_user_id
                         AND usv.viewer_id = ubl.blocked_user_id
+                    LEFT JOIN (
+                        SELECT user_id, viewer_id, COUNT(*) AS today_count
+                        FROM users_secret_view_log
+                        WHERE created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                        GROUP BY user_id, viewer_id
+                    ) today_views
+                        ON usv.user_id = today_views.user_id
+                        AND usv.viewer_id = today_views.viewer_id
                     WHERE usv.user_id = %s
-                    AND u.leaved = FALSE
-                    AND ubl.id IS NULL
+                        AND usv.updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
+                        AND u.leaved = FALSE
+                        AND ubl.id IS NULL
                     ORDER BY usv.updated_at DESC
                     LIMIT 20 OFFSET %s
                     """,
@@ -2077,9 +2087,35 @@ class UserService:
                         "viewerId": row[0],
                         "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
                         "viewCount": row[2],
+                        "todayViewCount": row[3],
                     }
                     for row in rows
                 ]
+
+                # push_list에서 secret태그가 붙은 푸시들은 전부 읽음처리 되게 한다
+                await cur.execute(
+                    """
+                    SELECT user_no
+                    FROM users
+                    WHERE id = %s
+                    """,
+                    (user_id,),
+                )
+                user_row = await cur.fetchone()
+                if user_row:
+                    user_no = user_row[0]
+                    await cur.execute(
+                        """
+                        UPDATE push_user_log
+                        SET delivery_state = 'OPENED', opened_at = CURRENT_TIMESTAMP
+                        WHERE user_no = %s
+                            AND push_type = 'secret'
+                            AND status = 'SUCCESS'
+                            AND delivery_state = 'DELIVERED'
+                        """,
+                        (user_no,),
+                    )
+
                 return secret_list
 
     async def fetch_user_secret_images(self, user_id: str, target_user_id: str):
