@@ -981,6 +981,12 @@ class UserService:
                     (id, user_id),
                 )
 
+                # user_block_list_log에 기록
+                await cur.execute(
+                    "INSERT INTO user_block_list_log (block_user_id, blocked_user_id, block_type) VALUES (%s, %s, 'BLOCK')",
+                    (id, user_id),
+                )
+
                 # updated_at 필드 업데이트
                 await cur.execute(
                     "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
@@ -1988,6 +1994,94 @@ class UserService:
                 await conn.commit()
                 return view_list
 
+    async def insert_user_secret_images_view(self, user_id: str, target_user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT viewer_id
+                    FROM users_secret_view
+                    WHERE user_id = %s AND viewer_id = %s
+                    """,
+                    (target_user_id, user_id),
+                )
+
+                is_viewed = await cur.fetchone()
+
+                if is_viewed:
+                    await cur.execute(
+                        """
+                        UPDATE users_secret_view
+                        SET updated_at = CURRENT_TIMESTAMP,
+                            view_count = view_count + 1
+                        WHERE user_id = %s AND viewer_id = %s
+                        """,
+                        (target_user_id, user_id),
+                    )
+                else:
+                    await cur.execute(
+                        """
+                        INSERT INTO users_secret_view (user_id, viewer_id, type, created_at, view_count)
+                        VALUES (%s, %s, 'view', CURRENT_TIMESTAMP, 1)
+                        """,
+                        (target_user_id, user_id),
+                    )
+
+                await cur.execute(
+                    """
+                    INSERT INTO users_secret_view_log (user_id, viewer_id, created_at)
+                    VALUES( %s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (target_user_id, user_id),
+                )
+                await conn.commit()
+
+    async def fetch_user_secret_list(
+        self,
+        user_id: str,
+        page: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                offset = (page - 1) * 20
+
+                await cur.execute(
+                    """
+                    SELECT usv.viewer_id, usv.updated_at, usv.view_count
+                    FROM users_secret_view usv
+                    JOIN users u
+                        ON usv.viewer_id = u.id
+                    LEFT JOIN user_block_list ubl
+                        ON usv.user_id = ubl.block_user_id
+                        AND usv.viewer_id = ubl.blocked_user_id
+                    WHERE usv.user_id = %s
+                    AND u.leaved = FALSE
+                    AND ubl.id IS NULL
+                    ORDER BY usv.updated_at DESC
+                    LIMIT 20 OFFSET %s
+                    """,
+                    (user_id, offset),
+                )
+
+                rows = await cur.fetchall()
+                secret_list = [
+                    {
+                        "viewerId": row[0],
+                        "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
+                        "viewCount": row[2],
+                    }
+                    for row in rows
+                ]
+                return secret_list
+
     async def fetch_user_secret_images(self, user_id: str, target_user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -2533,3 +2627,198 @@ class UserService:
                     for row in rows
                 ]
                 return view_list
+
+    async def fetch_user_block_list(
+        self,
+        user_id: str,
+        page: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    logger.error(f"유저를 찾을 수 없습니다: {user_id}")
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                offset = (page - 1) * 20
+                await cur.execute(
+                    """
+                    SELECT ubl.blocked_user_id, ubl.created_at
+                    FROM user_block_list ubl
+                    JOIN users u
+                        ON ubl.blocked_user_id = u.id
+                    WHERE ubl.block_user_id = %s
+                        AND u.leaved = FALSE
+                    ORDER BY ubl.created_at DESC
+                    LIMIT 20 OFFSET %s
+                    """,
+                    (user_id, offset),
+                )
+                rows = await cur.fetchall()
+                block_list = [row[0] for row in rows]
+
+                return block_list
+
+    async def unblock_user(
+        self,
+        user_id: str,
+        opponent_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    logger.error(f"유저를 찾을 수 없습니다: {user_id}")
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (opponent_id,),
+                )
+                opponent_result = await cur.fetchone()
+                if not opponent_result:
+                    logger.error(
+                        f"차단 해제할 상대방을 찾을 수 없습니다: {opponent_id}"
+                    )
+                    raise HTTPException(
+                        status_code=404, detail="상대방을 찾을 수 없습니다"
+                    )
+
+                await cur.execute(
+                    """
+                    DELETE FROM user_block_list
+                    WHERE block_user_id = %s AND blocked_user_id = %s
+                    """,
+                    (user_id, opponent_id),
+                )
+
+                # user_block_list_log에 기록
+                await cur.execute(
+                    "INSERT INTO user_block_list_log (block_user_id, blocked_user_id, block_type) VALUES (%s, %s, 'UNBLOCK')",
+                    (user_id, opponent_id),
+                )
+
+                await conn.commit()
+                return True
+
+    async def poke_user(
+        self,
+        user_id: str,
+        target_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않는 사용자입니다."
+                    )
+
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (target_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않는 상대방입니다."
+                    )
+
+                await cur.execute(
+                    """
+                    SELECT pocker_id
+                    FROM users_poke_list
+                    WHERE pocker_id = %s AND user_id = %s
+                    """,
+                    (user_id, target_user_id),
+                )
+
+                is_pocked = await cur.fetchone()
+                if is_pocked:
+                    await cur.execute(
+                        """
+                        UPDATE users_poke_list
+                        SET updated_at = CURRENT_TIMESTAMP,
+                            poke_count = poke_count + 1
+                        WHERE pocker_id = %s AND user_id = %s
+                        """,
+                        (user_id, target_user_id),
+                    )
+                else:
+                    await cur.execute(
+                        """
+                        INSERT INTO users_poke_list (user_id, pocker_id, type, created_at, poke_count)
+                        VALUES (%s, %s, 'poke', CURRENT_TIMESTAMP, 1)
+                        """,
+                        (target_user_id, user_id),
+                    )
+                    # 2. users_profile_view_log에 로그 남기기
+
+                await cur.execute(
+                    """
+                    INSERT INTO users_poke_list_log (user_id, pocker_id, created_at)
+                    VALUES( %s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (user_id, target_user_id),
+                )
+
+                await conn.commit()
+                return True
+
+    # TODO: 내가 읽지 않은 찌르기 목록 fetch_my_profile에 넣어두기.
+    # TODO: push 목록을 볼때 필터링 어떻게 할지 상의하기.
+    # TODO: 즐겨찾기는 fetch_my_profile에 즐겨찾기한 목록 오면 되는지?
+    async def fetch_my_poke_list(
+        self,
+        user_id: str,
+        page: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+                offset = (page - 1) * 20
+                await cur.execute(
+                    """
+                    SELECT up.pocker_id, up.updated_at, up.poke_count
+                    FROM users_poke_list up
+                    JOIN users u
+                        ON up.pocker_id = u.id
+                    LEFT JOIN user_block_list ubl
+                        ON up.user_id = ubl.block_user_id
+                        AND up.pocker_id = ubl.blocked_user_id
+                    WHERE up.user_id = %s
+                        AND u.leaved = FALSE
+                        AND ubl.id IS NULL
+                    ORDER BY up.updated_at DESC
+                    LIMIT 20 OFFSET %s
+                    """,
+                    (user_id, offset),
+                )
+                rows = await cur.fetchall()
+                poke_list = [
+                    {
+                        "pockerId": row[0],
+                        "pokedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
+                        "pokeCount": row[2],
+                    }
+                    for row in rows
+                ]
+                return poke_list

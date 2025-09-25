@@ -24,6 +24,7 @@ from app.db.user import (
     UserIntroductionRequest,
     UserBdsmRequest,
     UserCreditRequest,
+    UserUnblockRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -752,8 +753,26 @@ async def fetch_user_secret_images(
             content_available=True,
             user_no=target_user_no,
         )
-
+        # TODO : 시크릿 앨범 열람 기록 DB에 저장
+        await user_service.insert_user_secret_images_view(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 열람 성공"}
+
+
+@router.get("/v1/gik-backend/secret-list", status_code=status.HTTP_200_OK)
+async def fetch_user_secret_list(
+    page: int = Query(...), token: str = Depends(oauth2_scheme)
+):
+    """
+    내 시크릿 앨범을 조회한 사람들 조회
+    user_id: token에서 추출
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    secret_list = await user_service.fetch_user_secret_list(page=page, user_id=user_id)
+    return {
+        "success": True,
+        "message": "내 시크릿 앨범을 조회한 사람들 조회 성공",
+        "secretList": secret_list,
+    }
 
 
 # [시크릿] 상대 유저에게 시크릿 앨범 열람 수락
@@ -998,3 +1017,147 @@ async def fetch_user_credit_profile_view(
         "message": "내가 결제해서 본 사용자 리스트 조회 성공",
         "viewList": result,
     }
+
+
+@router.get("/v1/gik-backend/users/block", status_code=status.HTTP_200_OK)
+async def fetch_user_block_list(
+    page: int = Query(...), token: str = Depends(oauth2_scheme)
+):
+    """
+    내가 차단한 유저 리스트
+    user_id: token에서 추출, 차단한 유저 리스트 조회 주체
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.fetch_user_block_list(page=page, user_id=user_id)
+    return {
+        "success": True,
+        "message": "내가 차단한 유저 리스트 조회 성공",
+        "blockList": result,
+    }
+
+
+@router.patch("/v1/gik-backend/users/block", status_code=status.HTTP_200_OK)
+async def unblock_user(
+    user_block: UserUnblockRequest, token: str = Depends(oauth2_scheme)
+):
+    """
+    상대 유저 차단 해제
+    user_id: token에서 추출, 차단 해제 주체
+    opponent_id: 차단 해제할 상대 유저 ID
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.unblock_user(user_id, user_block.userId)
+    return {
+        "success": result,
+        "message": "유저 차단 해제 성공.",
+    }
+
+
+@router.post(
+    "/v1/gik-backend/users/poke/{target_user_id}", status_code=status.HTTP_200_OK
+)
+async def poke_user(
+    target_user_id: str,
+    background_tasks: BackgroundTasks,
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    유저 찔러보기
+    pocker_id: token에서 추출, 찔러보기 주체
+    target_user_id: 찔러볼 대상 유저 ID
+    """
+    pocker_id = await get_user_id_from_token(token.credentials)
+
+    # fcm 토큰 가져오기
+    target_token = await user_service.fetch_user_fcm(target_user_id)
+
+    # api를 호출한 사용자의 닉네임 가져오기
+    user_nickname = await user_service.fetch_user_nickname(pocker_id)
+
+    # 푸시 로깅 작업 - 로그를 남기기 위한 유저의 no 가져오기
+    target_user_no = await user_service.fetch_user_no(target_user_id)
+
+    # 상대방이 나를 차단했다면
+    is_blocked = await user_service.fetch_user_blocked(target_user_id, pocker_id)
+
+    if not is_blocked:
+        # 푸시 전송
+        push_id = str(uuid.uuid4())
+
+        background_tasks.add_task(
+            push_service.push_task,
+            target_token,
+            title="누군가가 회원님을 찔렀어요! 👀",
+            body=f"{user_nickname}님이 회원님을 찔렀어요! 지금 접속해서 확인해 보세요!",
+            data={"type": "poke", "requestId": pocker_id, "pushId": push_id},
+            ttl_seconds=3600,
+            collapse_key=f"poke-{pocker_id}",
+            android_priority="high",
+            mutable_content=True,
+            content_available=True,
+            user_no=target_user_no,
+        )
+        await user_service.poke_user(pocker_id, target_user_id)
+    return {"success": True, "message": "유저 찔러보기 성공"}
+
+
+@router.get("/v1/gik-backend/users/poke-list", status_code=status.HTTP_200_OK)
+async def fetch_my_poke_list(
+    page: int = Query(...), token: str = Depends(oauth2_scheme)
+):
+    """
+    나를 찔러본 유저 리스트
+    user_id: token에서 추출, 찔러본 유저 리스트 조회 주체
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.fetch_my_poke_list(page=page, user_id=user_id)
+    return {
+        "success": True,
+        "message": "나를 찔러본 유저 리스트 조회 성공",
+        "pokeList": result,
+    }
+
+
+@router.post(
+    "/v1/gik-backend/users/favorite/{target_user_id}", status_code=status.HTTP_200_OK
+)
+async def favorite_user(
+    target_user_id: str,
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    유저 즐겨찾기 추가
+    user_id: token에서 추출, 즐겨찾기 주체
+    target_user_id: 즐겨찾기할 대상 유저 ID
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.favorite_user(user_id, target_user_id)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 즐겨찾기 실패.",
+        )
+    return {
+        "success": result,
+        "message": "유저 즐겨찾기 성공.",
+    }
+
+
+@router.get("/v1/gik-backend/users/favorite", status_code=status.HTTP_200_OK)
+async def fetch_my_favorite_list(
+    page: int = Query(...), token: str = Depends(oauth2_scheme)
+):
+    """
+    내가 즐겨찾기한 유저 리스트
+    user_id: token에서 추출, 즐겨찾기한 유저 리스트 조회 주체
+    """
+    user_id = await get_user_id_from_token(token.credentials)
+    result = await user_service.fetch_my_favorite_list(page=page, user_id=user_id)
+    return {
+        "success": True,
+        "message": "내가 즐겨찾기한 유저 리스트 조회 성공",
+        "favoriteList": result,
+    }
+
+
+# 즐겨찾기 취소는 어떻게 할지?
