@@ -2629,7 +2629,7 @@ class UserService:
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                # 유저 존재 확인
+
                 await cur.execute(
                     "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
                     (user_id,),
