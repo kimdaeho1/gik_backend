@@ -2629,6 +2629,7 @@ class UserService:
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+
                 await cur.execute(
                     "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
                     (user_id,),
@@ -2636,29 +2637,51 @@ class UserService:
                 result = await cur.fetchone()
                 if not result:
                     raise HTTPException(status_code=404, detail="User not found")
+
                 offset = (page - 1) * 20
 
                 await cur.execute(
                     """
-                    SELECT viewed_id, MAX(created_at) AS created_at
-                    FROM user_credit_profile_view
-                    WHERE user_id = %s
-                        AND viewed_id NOT IN(
-                            SELECT blocked_user_id
-                            FROM user_block_list
-                            WHERE block_user_id = %s
-                        )
-                    GROUP BY viewed_id
+                    SELECT 
+                        ucpv.viewed_id,
+                        MAX(ucpv.created_at) AS created_at,
+                        COALESCE(upv.view_count, 0) AS view_count,
+                        COALESCE(today_views.today_count, 0) AS today_count
+                    FROM user_credit_profile_view ucpv
+                    JOIN users u
+                        ON ucpv.viewed_id = u.id
+                    LEFT JOIN user_block_list ubl
+                        ON ucpv.user_id = ubl.block_user_id
+                        AND ucpv.viewed_id = ubl.blocked_user_id
+                    LEFT JOIN users_profile_view upv
+                        ON upv.user_id = %s
+                        AND upv.viewer_id = ucpv.viewed_id
+                    LEFT JOIN (
+                        SELECT user_id, viewer_id, COUNT(*) AS today_count
+                        FROM users_profile_view_log
+                        WHERE user_id = %s
+                            AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                            AND created_at <  CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                        GROUP BY user_id, viewer_id
+                    ) today_views
+                        ON today_views.user_id = %s
+                        AND today_views.viewer_id = ucpv.viewed_id
+                    WHERE ucpv.user_id = %s
+                        AND u.leaved = FALSE
+                        AND ubl.id IS NULL
+                    GROUP BY ucpv.viewed_id, upv.view_count, today_views.today_count
                     ORDER BY created_at DESC
-                    LIMIT 20 OFFSET %s 
+                    LIMIT 20 OFFSET %s
                     """,
-                    (user_id, user_id, offset),
+                    (user_id, user_id, user_id, user_id, offset),
                 )
                 rows = await cur.fetchall()
                 view_list = [
                     {
                         "viewerId": row[0],
                         "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
+                        "viewCount": row[2],
+                        "todayViewCount": row[3],
                     }
                     for row in rows
                 ]
