@@ -898,8 +898,33 @@ class UserService:
 
                 if viewer_id is None:
                     is_blocked = False
+                    today_view_count = 0
+                    total_view_count = 0
                 else:
                     is_blocked = await self.fetch_user_blocked(user_id, viewer_id)
+                    today_query = """
+                        SELECT COUNT(*)
+                        FROM users_profile_view_log
+                        WHERE user_id = %s AND viewer_id = %s
+                            AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                    """
+                    await cur.execute(today_query, (user_id, viewer_id))
+                    today_view_count_row = await cur.fetchone()
+                    today_view_count = (
+                        today_view_count_row[0] if today_view_count_row else 0
+                    )
+
+                    total_query = """
+                        SELECT view_count
+                        FROM users_profile_view
+                        WHERE user_id = %s AND viewer_id = %s
+                    """
+                    await cur.execute(total_query, (user_id, viewer_id))
+                    total_view_count_row = await cur.fetchone()
+                    total_view_count = (
+                        total_view_count_row[0] if total_view_count_row else 0
+                    )
 
                 # 프로필 이미지 조회
                 image_query = """
@@ -954,6 +979,8 @@ class UserService:
                     latitude=latitude,
                     longitude=longitude,
                     isBlocked=is_blocked,
+                    todayViewCount=today_view_count,
+                    totalViewCount=total_view_count,
                 )
 
     async def block_user(self, id: str, user_id: str) -> bool:
