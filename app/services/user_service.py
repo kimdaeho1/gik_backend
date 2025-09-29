@@ -388,6 +388,14 @@ class UserService:
                     today_ads_row = await cur.fetchone()
                     todayAdCount = today_ads_row[0] if today_ads_row else 0
 
+                    favorite_query = """
+                        SELECT favorite_user_id
+                        FROM users_favorite_list
+                        WHERE user_id = %s
+                    """
+                    await cur.execute(favorite_query, (user_id,))
+                    favorite_list = [row[0] for row in await cur.fetchall()]
+
                     return UserProfileResponse(
                         id=user_id,
                         nickname=nickname,
@@ -424,6 +432,7 @@ class UserService:
                         blockUserList=block_user_list,
                         blockPostList=block_post_list,
                         blockCommentList=block_comment_list,
+                        favoriteUserList=favorite_list,
                         lastConnectedAt=last_connected_at,
                         latitude=latitude,
                         longitude=longitude,
@@ -983,7 +992,7 @@ class UserService:
                     longitude=longitude,
                     isBlocked=is_blocked,
                     todayViewCount=today_view_count,
-                    totalViewCount=total_view_count,
+                    ViewCount=total_view_count,
                 )
 
     async def block_user(self, id: str, user_id: str) -> bool:
@@ -2815,6 +2824,7 @@ class UserService:
                 await conn.commit()
                 return True
 
+    # TOBE: 아직 구체화가 더 필요.
     async def poke_user(
         self,
         user_id: str,
@@ -2883,6 +2893,7 @@ class UserService:
                 await conn.commit()
                 return True
 
+    # TOBE: 아직 구체화가 더 필요.
     # TODO: 내가 읽지 않은 찌르기 목록 fetch_my_profile에 넣어두기.
     # TODO: push 목록을 볼때 필터링 어떻게 할지 상의하기.
     # TODO: 즐겨찾기는 fetch_my_profile에 즐겨찾기한 목록 오면 되는지?
@@ -2929,7 +2940,6 @@ class UserService:
                 ]
                 return poke_list
 
-    # TODO : 내 즐겨찾기 목록 fetch_my_profile에 있어야함.
     async def favorite_user(
         self,
         user_id,
@@ -2946,6 +2956,22 @@ class UserService:
                     raise HTTPException(
                         status_code=404, detail="존재하지 않는 사용자입니다."
                     )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM users_favorite_list
+                    WHERE user_id = %s AND favorite_user_id = %s
+                    """,
+                    (user_id, target_user_id),
+                )
+                is_favorited = await cur.fetchone()
+                if is_favorited:
+                    logger.warning(
+                        f"이미 즐겨찾기한 사용자입니다: {user_id} -> {target_user_id}"
+                    )
+                    return False
+
                 await cur.execute(
                     """
                     INSERT INTO users_favorite_list (user_id, favorite_user_id, created_at)
@@ -2954,9 +2980,8 @@ class UserService:
                     (user_id, target_user_id),
                 )
 
-                # user_favorite_list_log에 기록
                 await cur.execute(
-                    "INSERT INTO user_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'FAVORITE')",
+                    "INSERT INTO users_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'FAVORITE')",
                     (user_id, target_user_id),
                 )
 
@@ -2979,6 +3004,22 @@ class UserService:
                     raise HTTPException(
                         status_code=404, detail="존재하지 않는 사용자입니다."
                     )
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM users_favorite_list
+                    WHERE user_id = %s AND favorite_user_id = %s
+                    """,
+                    (user_id, target_user_id),
+                )
+                is_favorited = await cur.fetchone()
+                if not is_favorited:
+                    logger.warning(
+                        f"즐겨찾기 해제할 대상이 즐겨찾기 목록에 없습니다: {user_id} -> {target_user_id}"
+                    )
+                    return False
+
                 await cur.execute(
                     """
                     DELETE FROM users_favorite_list
@@ -2987,51 +3028,10 @@ class UserService:
                     (user_id, target_user_id),
                 )
 
-                # user_favorite_list_log에 기록
                 await cur.execute(
-                    "INSERT INTO user_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'UNFAVORITE')",
+                    "INSERT INTO users_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'UNFAVORITE')",
                     (user_id, target_user_id),
                 )
 
                 await conn.commit()
                 return True
-
-    async def fetch_my_favorite_list(
-        self,
-        user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-
-                await cur.execute(
-                    """
-                    SELECT ufl.favorite_user_id, ufl.created_at
-                    FROM users_favorite_list ufl
-                    JOIN users u
-                        ON ufl.favorite_user_id = u.id
-                    LEFT JOIN user_block_list ubl
-                        ON ufl.user_id = ubl.block_user_id
-                        AND ufl.favorite_user_id = ubl.blocked_user_id
-                    WHERE ufl.user_id = %s
-                        AND u.leaved = FALSE
-                        AND ubl.id IS NULL
-                    ORDER BY ufl.created_at DESC
-                    """,
-                    (user_id,),
-                )
-                rows = await cur.fetchall()
-                favorite_list = [
-                    {
-                        "favoriteId": row[0],
-                        "favoritedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
-                    }
-                    for row in rows
-                ]
-                return favorite_list

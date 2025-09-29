@@ -1057,6 +1057,7 @@ async def unblock_user(
     }
 
 
+# TOBE: 아직 구체화가 더 필요.
 @router.post(
     "/v1/gik-backend/users/poke/{target_user_id}", status_code=status.HTTP_200_OK
 )
@@ -1105,6 +1106,7 @@ async def poke_user(
     return {"success": True, "message": "유저 찔러보기 성공"}
 
 
+# TOBE: 아직 구체화가 더 필요.
 @router.get("/v1/gik-backend/users/poke-list", status_code=status.HTTP_200_OK)
 async def fetch_my_poke_list(
     page: int = Query(...), token: str = Depends(oauth2_scheme)
@@ -1136,11 +1138,11 @@ async def favorite_user(
     """
     user_id = await get_user_id_from_token(token)
     result = await user_service.favorite_user(user_id, target_user_id)
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유저 즐겨찾기 실패.",
-        )
+    if result is False:
+        return {
+            "success": False,
+            "message": "이미 즐겨찾기한 유저입니다.",
+        }
     return {
         "success": result,
         "message": "유저 즐겨찾기 성공.",
@@ -1161,29 +1163,12 @@ async def unfavorite_user(
     """
     user_id = await get_user_id_from_token(token)
     result = await user_service.unfavorite_user(user_id, target_user_id)
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유저 즐겨찾기 취소 실패.",
-        )
+    if result is False:
+        return {
+            "success": False,
+            "message": "즐겨찾기하지 않은 유저입니다.",
+        }
     return {
         "success": result,
         "message": "유저 즐겨찾기 취소 성공.",
-    }
-
-
-@router.get("/v1/gik-backend/users/favorite-list", status_code=status.HTTP_200_OK)
-async def fetch_my_favorite_list(
-    page: int = Query(...), token: str = Depends(oauth2_scheme)
-):
-    """
-    내가 즐겨찾기한 유저 리스트
-    user_id: token에서 추출, 즐겨찾기한 유저 리스트 조회 주체
-    """
-    user_id = await get_user_id_from_token(token)
-    result = await user_service.fetch_my_favorite_list(page=page, user_id=user_id)
-    return {
-        "success": True,
-        "message": "내가 즐겨찾기한 유저 리스트 조회 성공",
-        "favoriteList": result,
     }
