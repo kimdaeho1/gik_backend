@@ -992,7 +992,7 @@ class UserService:
                     longitude=longitude,
                     isBlocked=is_blocked,
                     todayViewCount=today_view_count,
-                    ViewCount=total_view_count,
+                    viewCount=total_view_count,
                 )
 
     async def block_user(self, id: str, user_id: str) -> bool:

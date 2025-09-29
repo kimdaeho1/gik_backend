@@ -110,7 +110,7 @@ class UserDetailResponse(BaseModel):
     longitude: Optional[float]
     isBlocked: bool
     todayViewCount: int
-    ViewCount: int
+    viewCount: int
 
 
 class UserListResponse(BaseModel):
