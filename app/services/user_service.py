@@ -909,7 +909,7 @@ class UserService:
                             AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
                             AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
                     """
-                    await cur.execute(today_query, (user_id, viewer_id))
+                    await cur.execute(today_query, (viewer_id, user_id))
                     today_view_count_row = await cur.fetchone()
                     today_view_count = (
                         today_view_count_row[0] if today_view_count_row else 0
@@ -920,7 +920,7 @@ class UserService:
                         FROM users_profile_view
                         WHERE user_id = %s AND viewer_id = %s
                     """
-                    await cur.execute(total_query, (user_id, viewer_id))
+                    await cur.execute(total_query, (viewer_id, user_id))
                     total_view_count_row = await cur.fetchone()
                     total_view_count = (
                         total_view_count_row[0] if total_view_count_row else 0
