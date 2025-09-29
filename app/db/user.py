@@ -67,6 +67,7 @@ class UserProfileResponse(BaseModel):
     postCommentAlarm: bool
     postLikeAlarm: bool
     profileAlarm: bool
+    secretAlarm: bool
     pushRead: bool
     profileRead: bool
     banned: bool
