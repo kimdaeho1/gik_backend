@@ -299,7 +299,7 @@ async def update_user_alarm(user_alarm: UserAlarmRequest, type: str):
     """
     유저 알람 설정 수정
     id: 유저 ID
-    type: 알람 종류 (markeing_agree, personal_chat, group_chat, post_comment, post_like, night_agree, profile_agree)
+    type: 알람 종류 (markeing_agree, personal_chat, group_chat, post_comment, post_like, night_agree, profile_agree, secret_alarm_agree)
     value: 변경된 알람 설정 값 (True/False)
     """
     result: bool = await user_service.update_user_alarm(
@@ -529,6 +529,7 @@ async def fetch_near_user_id_list(
     relation: str = None,
     bdsmType: str = None,
     talkStyle: str = None,
+    secret: bool = None,
 ):
     """
     유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
@@ -543,6 +544,7 @@ async def fetch_near_user_id_list(
         relation=relation,
         bdsm_type=bdsmType,
         talk_style=talkStyle,
+        secret=secret,
     )
     return {
         "success": True,

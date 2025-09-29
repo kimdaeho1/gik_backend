@@ -717,6 +717,7 @@ class UserService:
                     "post_like": "post_like_alarm_agree",
                     "night_agree": "night_agree",
                     "profile_agree": "profile_alarm_agree",
+                    "secret_agree": "secret_alarm_agree",
                 }
 
                 if type not in column_map:
@@ -1278,9 +1279,8 @@ class UserService:
                 # 시크릿 앨범이 존재하면
                 if secret is not None:
                     secret_filter = []
-                    for s in secret:
-                        secret_filter.append("secret_yn = %s")
-                        arguments.append(s)
+                    secret_filter.append("secret_yn = %s")
+                    arguments.append(secret)
                     filters.append(f"({' OR '.join(secret_filter)})")
 
                 # 전부 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
@@ -1300,6 +1300,7 @@ class UserService:
         relation: str,
         bdsm_type: str,
         talk_style: str,
+        secret: bool,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1409,6 +1410,12 @@ class UserService:
                     )
                     arguments.extend(age)
 
+                if secret is not None:
+                    secret_filter = []
+                    secret_filter.append("secret_yn = %s")
+                    arguments.append(secret)
+                    filters.append(f"({' OR '.join(secret_filter)})")
+
                 if filters:
                     query += " AND " + " AND ".join(filters)
                 # 거리를 기준으로 오름차순 정렬
@@ -1476,6 +1483,12 @@ class UserService:
                             """
                         )
                         null_arguments.extend(age)
+
+                if secret is not None:
+                    null_secret_filter = []
+                    null_secret_filter.append("secret_yn = %s")
+                    null_arguments.append(secret)
+                    null_filters.append(f"({' OR '.join(null_secret_filter)})")
 
                 if null_filters:
                     null_query += " AND " + " AND ".join(null_filters)
