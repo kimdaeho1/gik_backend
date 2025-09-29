@@ -10,6 +10,38 @@ ACCESS_TOKEN_EXPIRE_DAYS = 1  # 액세스 토큰 유효 기간 (1일)
 REFRESH_TOKEN_EXPIRE_DAYS = 30  # 리프레시 토큰 유효 기간 (30일)
 
 
+class JWTBearer(HTTPBearer):
+    def __init__(self, auto_error: bool = False):
+        super(JWTBearer, self).__init__(auto_error=auto_error)
+
+    async def __call__(self, request: Request):
+        credentials: HTTPAuthorizationCredentials = await super(
+            JWTBearer, self
+        ).__call__(request)
+
+        if credentials:
+            if not credentials.scheme == "Bearer":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Invalid authentication scheme.",
+                )
+            if not verify_token(credentials.credentials):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Invalid or expired token.",
+                )
+            return credentials.credentials
+        else:
+            return None
+
+    def verify_jwt(self, jwt_token: str) -> bool:
+        try:
+            payload = verify_token(jwt_token)
+            return False if payload is None else True
+        except Exception as e:
+            return False
+
+
 def create_token(user_id: str, expires_delta: timedelta) -> str:
     expire_dt = datetime.utcnow() + expires_delta
     encoded_jwt = jwt.encode(
@@ -54,42 +86,7 @@ def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dic
 
 # raise에러가 나면 return None은 의미가 없고, 그렇기 때문에 str.
 async def get_user_id_from_token(token: str) -> str:
-    user_id = verify_token(token)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token."
-        )
+    if not token:
+        return None
 
-    return user_id
-
-
-# class JWTBearer(HTTPBearer):
-#     def __init__(self, auto_error: bool = False):
-#         super(JWTBearer, self).__init__(auto_error=auto_error)
-
-#     async def __call__(self, request: Request):
-#         credentials: HTTPAuthorizationCredentials = await super(
-#             JWTBearer, self
-#         ).__call__(request)
-
-#         if credentials:
-#             if not credentials.scheme == "Bearer":
-#                 raise HTTPException(
-#                     status_code=status.HTTP_403_FORBIDDEN,
-#                     detail="Invalid authentication scheme.",
-#                 )
-#             if not verify_token(credentials.credentials):
-#                 raise HTTPException(
-#                     status_code=status.HTTP_403_FORBIDDEN,
-#                     detail="Invalid or expired token.",
-#                 )
-#             return credentials.credentials
-#         else:
-#             return None
-
-#     def verify_jwt(self, jwt_token: str) -> bool:
-#         try:
-#             payload = verify_token(jwt_token)
-#             return False if payload is None else True
-#         except Exception as e:
-#             return False
+    return verify_token(token)

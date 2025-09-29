@@ -129,6 +129,7 @@ class UserListResponse(BaseModel):
     secretImages: List[str]
     leaved: bool
     blockUserList: Optional[List[str]]
+    isBlocked: bool
     personalChatAlarm: bool
     groupChatAlarm: bool
     postCommentAlarm: bool
