@@ -75,6 +75,7 @@ class UserProfileResponse(BaseModel):
     blockUserList: Optional[List[str]]
     blockPostList: Optional[List[str]]
     blockCommentList: Optional[List[str]]
+    favoriteUserList: Optional[List[str]]
     lastConnectedAt: datetime
     latitude: Optional[float]
     longitude: Optional[float]
@@ -109,7 +110,7 @@ class UserDetailResponse(BaseModel):
     longitude: Optional[float]
     isBlocked: bool
     todayViewCount: int
-    totalViewCount: int
+    ViewCount: int
 
 
 class UserListResponse(BaseModel):
