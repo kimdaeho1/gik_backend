@@ -37,7 +37,6 @@ class UserService:
                 else:
                     return False
 
-    # TODO : self_introduction 필드 추가.
     async def create_user(
         self,
         id: str,
@@ -899,8 +898,33 @@ class UserService:
 
                 if viewer_id is None:
                     is_blocked = False
+                    today_view_count = 0
+                    total_view_count = 0
                 else:
                     is_blocked = await self.fetch_user_blocked(user_id, viewer_id)
+                    today_query = """
+                        SELECT COUNT(*)
+                        FROM users_profile_view_log
+                        WHERE user_id = %s AND viewer_id = %s
+                            AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                    """
+                    await cur.execute(today_query, (viewer_id, user_id))
+                    today_view_count_row = await cur.fetchone()
+                    today_view_count = (
+                        today_view_count_row[0] if today_view_count_row else 0
+                    )
+
+                    total_query = """
+                        SELECT view_count
+                        FROM users_profile_view
+                        WHERE user_id = %s AND viewer_id = %s
+                    """
+                    await cur.execute(total_query, (viewer_id, user_id))
+                    total_view_count_row = await cur.fetchone()
+                    total_view_count = (
+                        total_view_count_row[0] if total_view_count_row else 0
+                    )
 
                 # 프로필 이미지 조회
                 image_query = """
@@ -955,6 +979,8 @@ class UserService:
                     latitude=latitude,
                     longitude=longitude,
                     isBlocked=is_blocked,
+                    todayViewCount=today_view_count,
+                    totalViewCount=total_view_count,
                 )
 
     async def block_user(self, id: str, user_id: str) -> bool:
@@ -1039,7 +1065,9 @@ class UserService:
                 return True
 
     # TODO : 쿼리문 IN구문 별로 좋다고 하지 않으셨는데, 쿼리문 나중에 짤때 최적화 잘해야함.
-    async def fetch_user_list(self, user_id_list: List[str]) -> List[UserListResponse]:
+    async def fetch_user_list(
+        self, user_id, user_id_list: List[str]
+    ) -> List[UserListResponse]:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 if not user_id_list:
@@ -1099,6 +1127,11 @@ class UserService:
                     await cur.execute(block_user_query, (id,))
                     block_user_list = [row[0] for row in await cur.fetchall()]
 
+                    if user_id:
+                        is_blocked = await self.fetch_user_blocked(id, user_id)
+                    else:
+                        is_blocked = False
+
                     # 프로필 이미지 조회
                     image_query = """
                         SELECT
@@ -1150,6 +1183,7 @@ class UserService:
                             postLikeAlarm=post_like_alarm,
                             blockUserList=block_user_list,
                             lastConnectedAt=last_connected_at,
+                            isBlocked=is_blocked,
                             latitude=latitude,
                             longitude=longitude,
                         )
@@ -1157,7 +1191,6 @@ class UserService:
                 return user_profiles
 
     # TODO : 쿼리문 걸리는 WHERE절에 index를 거는게 좋아보인다고함. 나중에라도 걸어보세요.
-    # TODO : python 툴 찾아보기
     async def fetch_user_id_list(
         self,
         position: str,
@@ -1387,7 +1420,6 @@ class UserService:
                 # response는 {"userId": user_id, "distance": distance, 소수점 7자리까지}
                 distance_user_list = [row[0] for row in rows]
 
-                # TODO: 위치정보가 없는 사람들도 그냥 필터링만 해서 보내주는지 논의 필요.
                 # 4. 위치 정보 없는 사용자를 추가한 list
 
                 # latitude와 longitude가 null인 사용자를 가져오는 쿼리문
@@ -1923,7 +1955,7 @@ class UserService:
                 await conn.commit()
 
     # TODO : profile중에 안읽은게 있는지 확인하는거, 그거랑 마케팅/공지 같은 것들도 따로 관리하도록.
-    # TODO: 상대가 나를 차단했어도 안보이게(놔두도록 한다. 상대방의 행동이 나에게 오지만 않으면 될것).
+    # 상대가 나를 차단했어도 안보이게(놔두도록 한다. 상대방의 행동이 나에게 오지만 않으면 될것).
     async def fetch_user_profile_view(self, page: int, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -2881,3 +2913,110 @@ class UserService:
                     for row in rows
                 ]
                 return poke_list
+
+    # TODO : 내 즐겨찾기 목록 fetch_my_profile에 있어야함.
+    async def favorite_user(
+        self,
+        user_id,
+        target_user_id,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않는 사용자입니다."
+                    )
+                await cur.execute(
+                    """
+                    INSERT INTO users_favorite_list (user_id, favorite_user_id, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (user_id, target_user_id),
+                )
+
+                # user_favorite_list_log에 기록
+                await cur.execute(
+                    "INSERT INTO user_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'FAVORITE')",
+                    (user_id, target_user_id),
+                )
+
+                await conn.commit()
+                return True
+
+    async def unfavorite_user(
+        self,
+        user_id,
+        target_user_id,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않는 사용자입니다."
+                    )
+                await cur.execute(
+                    """
+                    DELETE FROM users_favorite_list
+                    WHERE user_id = %s AND favorite_user_id = %s
+                    """,
+                    (user_id, target_user_id),
+                )
+
+                # user_favorite_list_log에 기록
+                await cur.execute(
+                    "INSERT INTO user_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'UNFAVORITE')",
+                    (user_id, target_user_id),
+                )
+
+                await conn.commit()
+                return True
+
+    async def fetch_my_favorite_list(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                await cur.execute(
+                    """
+                    SELECT ufl.favorite_user_id, ufl.created_at
+                    FROM users_favorite_list ufl
+                    JOIN users u
+                        ON ufl.favorite_user_id = u.id
+                    LEFT JOIN user_block_list ubl
+                        ON ufl.user_id = ubl.block_user_id
+                        AND ufl.favorite_user_id = ubl.blocked_user_id
+                    WHERE ufl.user_id = %s
+                        AND u.leaved = FALSE
+                        AND ubl.id IS NULL
+                    ORDER BY ufl.created_at DESC
+                    """,
+                    (user_id,),
+                )
+                rows = await cur.fetchall()
+                favorite_list = [
+                    {
+                        "favoriteId": row[0],
+                        "favoritedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                    for row in rows
+                ]
+                return favorite_list

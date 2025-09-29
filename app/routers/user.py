@@ -28,10 +28,10 @@ from app.db.user import (
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
-from app.utils.token import get_user_id_from_token
+from app.utils.token import get_user_id_from_token, JWTBearer
 import uuid
 
-oauth2_scheme = HTTPBearer()
+oauth2_scheme = JWTBearer(auto_error=False)
 router = APIRouter()
 user_service = UserService()
 push_service = PushService()
@@ -140,7 +140,7 @@ async def fetch_my_profile_by_token(token=Depends(oauth2_scheme)):
     유저 프로필 조회
     id: 유저 ID
     """
-    id = await get_user_id_from_token(token.credentials)
+    id = await get_user_id_from_token(token)
     user = await user_service.fetch_my_profile(user_id=id)
 
     return {"success": True, "message": "내 정보 조회 성공", "user": user}
@@ -373,7 +373,7 @@ async def check_user_block(opponent_id: str, token: str = Depends(oauth2_scheme)
     token: 본인 엑세스 토큰
     user_id: 상대 유저 ID
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.check_user_block(
         user_id=user_id, opponent_id=opponent_id
     )
@@ -397,7 +397,7 @@ async def fetch_user_profile_with_push(
     """
 
     # 1. push 작업 토큰을 사용해 api를 호출한 사용자의 id 가져오기
-    viewer_id = await get_user_id_from_token(token.credentials)
+    viewer_id = await get_user_id_from_token(token)
 
     # 1-2. api 작업 - 조회할 상대방의 프로필 정보 가져오기
     target_profile = await user_service.fetch_user_profile(user_id, viewer_id)
@@ -484,13 +484,15 @@ async def report_user(user_report: UserReportRequest):
 
 # [유저] 유저 목록으로 조회
 @router.post("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
-async def fetch_user_list(user_id_list: UserListRequest):
+async def fetch_user_list(
+    user_id_list: UserListRequest, token: str = Depends(oauth2_scheme)
+):
     """
     유저 목록으로 조회
     user_id: 조회할 유저 ID 목록
     """
-
-    users = await user_service.fetch_user_list(user_id_list.userIdList)
+    user_id = await get_user_id_from_token(token)
+    users = await user_service.fetch_user_list(user_id, user_id_list.userIdList)
     return {"success": True, "message": "유저 목록 조회 성공", "users": users}
 
 
@@ -533,7 +535,7 @@ async def fetch_near_user_id_list(
     """
     # get_user_id_from_token을 쓰는 이유는, verify_token이 Optional[str] 이기 때문에 사용할 수 없음.
     # get_user_id_from_token이 있는 이유는 str을 반환하기 때문.
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     user_ids = await user_service.fetch_near_user_id_list(
         user_id,
         age=age,
@@ -637,7 +639,7 @@ async def fetch_user_push_list(
     page: 페이지 번호 (1부터 시작)
     push_type: 푸시 타입(없으면 전체, userAction, announcement)
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     push_list = await user_service.fetch_user_push_list(
         push_type=push_type, page=page, user_id=user_id
     )
@@ -658,7 +660,7 @@ async def receive_user_push(
     push_id: 푸시 ID
     """
     # 토큰에서 유저 아이디 추출,
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.receive_user_push(push_id=push_id, user_id=user_id)
 
     if result is False:
@@ -676,7 +678,7 @@ async def receive_all_user_push(token: str = Depends(oauth2_scheme)):
     유저의 모든 푸시 수신, db의 delivery_state를 OPENED로 변경
     """
     # 토큰에서 유저 아이디 추출,
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.receive_all_user_push(user_id=user_id)
 
     if result is False:
@@ -697,7 +699,7 @@ async def fetch_user_profile_view(
     유저를 보고간 사람 조회
     """
 
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.fetch_user_profile_view(page=page, user_id=user_id)
 
     return {
@@ -720,7 +722,7 @@ async def fetch_user_secret_images(
     target_user_id: 시크릿 앨범 열람 요청 대상 유저 ID
     """
     # api를 호출한 사용자의 id
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
 
     # fcm 토큰 가져오기
     target_token = await user_service.fetch_user_fcm(target_user_id)
@@ -766,7 +768,7 @@ async def fetch_user_secret_list(
     내 시크릿 앨범을 조회한 사람들 조회
     user_id: token에서 추출
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     secret_list = await user_service.fetch_user_secret_list(page=page, user_id=user_id)
     return {
         "success": True,
@@ -787,7 +789,7 @@ async def accept_user_secret_images(
     user_id: token에서 추출, 시크릿 앨범 열람 수락 주체
     target_user_id: 시크릿 앨범 열람 수락 대상 유저 ID
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
 
     # fcm 토큰 가져오기
     target_token = await user_service.fetch_user_fcm(target_user_id)
@@ -833,7 +835,7 @@ async def reject_user_secret_images(
     user_id: token에서 추출, 시크릿 앨범 열람 거절 주체
     target_user_id: 시크릿 앨범 열람 거절 대상 유저 ID
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     await user_service.reject_user_secret_images(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 열람 거절 성공"}
 
@@ -849,7 +851,7 @@ async def cancel_my_secret_request(
     user_id: token에서 추출, 시크릿 앨범 요청 취소 주체
     target_user_id: 시크릿 앨범 요청 취소 대상 유저 ID
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     await user_service.cancel_my_secret_request(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 요청 취소 성공"}
 
@@ -861,7 +863,7 @@ async def fetch_my_secret_request(token: str = Depends(oauth2_scheme)):
     내가 상대에게 요청한 시크릿 앨범 요청건 조회
     user_id: token에서 추출, 유저가 상대에게 요청한 시크릿 앨범건 주체
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     requests = await user_service.fetch_my_secret_requests(user_id)
     return {
         "success": True,
@@ -877,7 +879,7 @@ async def fetch_opponent_secret_request(token: str = Depends(oauth2_scheme)):
     나에게 온 상대의 시크릿 앨범 요청건 조회
     user_id: token에서 추출, 유저에게 온 상대방들의 시크릿 앨범 요청건 주체
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     accepts = await user_service.fetch_opponent_secret_requests(user_id)
     return {
         "success": True,
@@ -899,7 +901,7 @@ async def cancel_accept_my_secret_request(
     user_id: token에서 추출, 시크릿 앨범 허용 취소 주체
     target_user_id: 시크릿 앨범 허용 취소 대상 유저 ID
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     await user_service.cancel_accept_my_secret_request(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 허용 취소 성공"}
 
@@ -915,7 +917,7 @@ async def fetch_accepted_secret_images(
     user_id: token에서 추출, 시크릿 앨범 조회 주체
     target_user_id: 시크릿 앨범 조회 대상 유저 ID
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     image_urls = await user_service.fetch_accepted_secret_images(
         user_id, target_user_id
     )
@@ -942,7 +944,7 @@ async def give_user_credit(
     user_credit_type:
         - type: 크레딧 지급 사유, history_reward (프로필 조회 시 광고 시청 리워드)
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.give_user_credit(user_id, user_credit_type.type)
     if not result:
         raise HTTPException(
@@ -967,7 +969,7 @@ async def consume_user_credit(
     user_credit:
         - type: 크레딧 지급 사유, history_view (프로필 조회 시 크레딧 소모)
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.consume_user_credit(user_id, user_credit_type.type)
     if not result:
         raise HTTPException(
@@ -990,7 +992,7 @@ async def add_user_credit_profile_view(
     viewer_id: token에서 추출, 크레딧 소모해서 조회하는 사용자
     user_id: 조회한 사용자 ID
     """
-    viewer_id = await get_user_id_from_token(token.credentials)
+    viewer_id = await get_user_id_from_token(token)
     result = await user_service.add_user_credit_profile_view(
         viewer_id=viewer_id,
         viewed_id=user_id,
@@ -1010,7 +1012,7 @@ async def fetch_user_credit_profile_view(
     user_id: token에서 추출, 크레딧 소모 주체
     page: 페이지 번호 (1부터 시작)
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.fetch_user_credit_profile_view(user_id, page)
     return {
         "success": True,
@@ -1027,7 +1029,7 @@ async def fetch_user_block_list(
     내가 차단한 유저 리스트
     user_id: token에서 추출, 차단한 유저 리스트 조회 주체
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.fetch_user_block_list(page=page, user_id=user_id)
     return {
         "success": True,
@@ -1045,7 +1047,7 @@ async def unblock_user(
     user_id: token에서 추출, 차단 해제 주체
     opponent_id: 차단 해제할 상대 유저 ID
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.unblock_user(user_id, user_block.userId)
     return {
         "success": result,
@@ -1066,7 +1068,7 @@ async def poke_user(
     pocker_id: token에서 추출, 찔러보기 주체
     target_user_id: 찔러볼 대상 유저 ID
     """
-    pocker_id = await get_user_id_from_token(token.credentials)
+    pocker_id = await get_user_id_from_token(token)
 
     # fcm 토큰 가져오기
     target_token = await user_service.fetch_user_fcm(target_user_id)
@@ -1109,7 +1111,7 @@ async def fetch_my_poke_list(
     나를 찔러본 유저 리스트
     user_id: token에서 추출, 찔러본 유저 리스트 조회 주체
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.fetch_my_poke_list(page=page, user_id=user_id)
     return {
         "success": True,
@@ -1130,7 +1132,7 @@ async def favorite_user(
     user_id: token에서 추출, 즐겨찾기 주체
     target_user_id: 즐겨찾기할 대상 유저 ID
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.favorite_user(user_id, target_user_id)
     if not result:
         raise HTTPException(
@@ -1143,7 +1145,32 @@ async def favorite_user(
     }
 
 
-@router.get("/v1/gik-backend/users/favorite", status_code=status.HTTP_200_OK)
+@router.patch(
+    "/v1/gik-backend/users/favorite/{target_user_id}", status_code=status.HTTP_200_OK
+)
+async def unfavorite_user(
+    target_user_id: str,
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    유저 즐겨찾기 취소
+    user_id: token에서 추출, 즐겨찾기 취소 주체
+    target_user_id: 즐겨찾기 취소할 대상 유저 ID
+    """
+    user_id = await get_user_id_from_token(token)
+    result = await user_service.unfavorite_user(user_id, target_user_id)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 즐겨찾기 취소 실패.",
+        )
+    return {
+        "success": result,
+        "message": "유저 즐겨찾기 취소 성공.",
+    }
+
+
+@router.get("/v1/gik-backend/users/favorite-list", status_code=status.HTTP_200_OK)
 async def fetch_my_favorite_list(
     page: int = Query(...), token: str = Depends(oauth2_scheme)
 ):
@@ -1151,13 +1178,10 @@ async def fetch_my_favorite_list(
     내가 즐겨찾기한 유저 리스트
     user_id: token에서 추출, 즐겨찾기한 유저 리스트 조회 주체
     """
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
     result = await user_service.fetch_my_favorite_list(page=page, user_id=user_id)
     return {
         "success": True,
         "message": "내가 즐겨찾기한 유저 리스트 조회 성공",
         "favoriteList": result,
     }
-
-
-# 즐겨찾기 취소는 어떻게 할지?

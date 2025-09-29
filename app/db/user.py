@@ -107,6 +107,8 @@ class UserDetailResponse(BaseModel):
     latitude: Optional[float]
     longitude: Optional[float]
     isBlocked: bool
+    todayViewCount: int
+    totalViewCount: int
 
 
 class UserListResponse(BaseModel):
@@ -129,6 +131,7 @@ class UserListResponse(BaseModel):
     secretImages: List[str]
     leaved: bool
     blockUserList: Optional[List[str]]
+    isBlocked: bool
     personalChatAlarm: bool
     groupChatAlarm: bool
     postCommentAlarm: bool
