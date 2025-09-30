@@ -757,8 +757,9 @@ async def fetch_user_secret_images(
             content_available=True,
             user_no=target_user_no,
         )
-        # TODO : 시크릿 앨범 열람 기록 DB에 저장
         await user_service.insert_user_secret_images_view(user_id, target_user_id)
+        # TODO : 내가 결제한 시크릿 앨범이 DB에 저장.
+
     return {"success": True, "message": "시크릿 앨범 열람 성공"}
 
 
@@ -777,6 +778,9 @@ async def fetch_user_secret_list(
         "message": "내 시크릿 앨범을 조회한 사람들 조회 성공",
         "secretList": secret_list,
     }
+
+
+# TODO: 내가 결제한 시크릿 앨범 목록 조회.
 
 
 # [시크릿] 상대 유저에게 시크릿 앨범 열람 수락
@@ -969,7 +973,7 @@ async def consume_user_credit(
     사용자의 재화 소모
     user_id: token에서 추출, 크레딧 소모 주체
     user_credit:
-        - type: 크레딧 지급 사유, history_view (프로필 조회 시 크레딧 소모)
+        - type: 크레딧 지급 사유, history_view (프로필 조회 시 크레딧 소모), secret_view(시크릿 앨범 열람시 크레딧 소모)
     """
     user_id = await get_user_id_from_token(token)
     result = await user_service.consume_user_credit(user_id, user_credit_type.type)
