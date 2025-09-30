@@ -1978,7 +1978,6 @@ class UserService:
 
                 await conn.commit()
 
-    # TODO : profile중에 안읽은게 있는지 확인하는거, 그거랑 마케팅/공지 같은 것들도 따로 관리하도록.
     # 상대가 나를 차단했어도 안보이게(놔두도록 한다. 상대방의 행동이 나에게 오지만 않으면 될것).
     async def fetch_user_profile_view(self, page: int, user_id: str):
         async with self.db.get_connection() as conn:
@@ -2242,6 +2241,69 @@ class UserService:
                         (target_user_id, user_id),
                     )
                     await conn.commit()
+
+    async def insert_user_credit_secret_list(
+        self,
+        user_id: str,
+        secret_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT secret_yn FROM users WHERE id = %s AND leaved = FALSE",
+                    (secret_user_id,),
+                )
+                result = await cur.fetchone()
+                if not result or result[0] == 0:
+                    logger.error(f"{user_id}님의 시크릿 앨범이 존재하지 않습니다.")
+                    return False
+
+                await cur.execute(
+                    """
+                    INSERT INTO user_credit_secret_view(user_id, viewed_id, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (user_id, secret_user_id),
+                )
+                await conn.commit()
+                return True
+
+    async def fetch_user_credit_secret_view(self, page: int, user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
+                )
+                result = await cur.fetchone()
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                offset = (page - 1) * 20
+                await cur.execute(
+                    """
+                    SELECT
+                        ucsv.viewed_id,
+                        MAX(ucsv.created_at) AS viewed_at
+                    FROM user_credit_secret_view ucsv
+                    JOIN users u
+                        ON ucsv.user_id = u.id
+                    WHERE ucsv.user_id = %s
+                        AND u.leaved = FALSE
+                    GROUP BY ucsv.viewed_id
+                    ORDER BY viewed_at DESC
+                    LIMIT 20 OFFSET %s
+                    """,
+                    (user_id, offset),
+                )
+                rows = await cur.fetchall()
+                credet_secret_list = [
+                    {
+                        "viewedId": row[0],
+                        "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                    for row in rows
+                ]
+                return credet_secret_list
 
     async def accept_user_secret_images(self, user_id: str, target_user_id: str):
         async with self.db.get_connection() as conn:

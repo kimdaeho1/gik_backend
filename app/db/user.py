@@ -233,3 +233,15 @@ class UserCreditRequest(BaseModel):
 
 class UserUnblockRequest(BaseModel):
     userId: str
+
+
+class UserCreditSecretRequest(BaseModel):
+    userId: str
+
+
+class UserFavoriteRequest(BaseModel):
+    userId: str
+
+
+class UserUnfavoriteRequest(BaseModel):
+    userId: str
