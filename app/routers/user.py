@@ -1181,35 +1181,13 @@ async def favorite_user(
     """
     user_id = await get_user_id_from_token(token)
     result = await user_service.favorite_user(user_id, target_user_id.userId)
-    if result is False:
+    if result:
         return {
-            "success": False,
-            "message": "이미 즐겨찾기한 유저입니다.",
+            "success": True,
+            "message": "유저 즐겨찾기 해제 성공.",
         }
-    return {
-        "success": result,
-        "message": "유저 즐겨찾기 성공.",
-    }
-
-
-@router.patch("/v1/gik-backend/users/favorite", status_code=status.HTTP_200_OK)
-async def unfavorite_user(
-    target_user_id: UserUnfavoriteRequest,
-    token: str = Depends(oauth2_scheme),
-):
-    """
-    유저 즐겨찾기 취소
-    user_id: token에서 추출, 즐겨찾기 취소 주체
-    target_user_id: 즐겨찾기 취소할 대상 유저 ID
-    """
-    user_id = await get_user_id_from_token(token)
-    result = await user_service.unfavorite_user(user_id, target_user_id.userId)
-    if result is False:
+    else:
         return {
-            "success": False,
-            "message": "즐겨찾기하지 않은 유저입니다.",
+            "success": True,
+            "message": "유저 즐겨찾기 성공.",
         }
-    return {
-        "success": result,
-        "message": "유저 즐겨찾기 취소 성공.",
-    }
