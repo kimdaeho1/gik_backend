@@ -3034,71 +3034,33 @@ class UserService:
                 )
                 is_favorited = await cur.fetchone()
                 if is_favorited:
-                    logger.warning(
-                        f"이미 즐겨찾기한 사용자입니다: {user_id} -> {target_user_id}"
+                    # 이미 즐겨찾기 되어있는 경우 즐겨찾기를 삭제
+                    await cur.execute(
+                        """
+                        DELETE FROM users_favorite_list
+                        WHERE user_id = %s AND favorite_user_id = %s
+                        """,
+                        (user_id, target_user_id),
                     )
-                    return False
 
-                await cur.execute(
-                    """
-                    INSERT INTO users_favorite_list (user_id, favorite_user_id, created_at)
-                    VALUES (%s, %s, CURRENT_TIMESTAMP)
-                    """,
-                    (user_id, target_user_id),
-                )
+                    await cur.execute(
+                        "INSERT INTO users_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'UNFAVORITE')",
+                        (user_id, target_user_id),
+                    )
+                else:
+                    # 즐겨찾기 목록에 없는 경우 즐겨찾기 추가.
+                    await cur.execute(
+                        """
+                        INSERT INTO users_favorite_list (user_id, favorite_user_id, created_at)
+                        VALUES (%s, %s, CURRENT_TIMESTAMP)
+                        """,
+                        (user_id, target_user_id),
+                    )
 
-                await cur.execute(
-                    "INSERT INTO users_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'FAVORITE')",
-                    (user_id, target_user_id),
-                )
+                    await cur.execute(
+                        "INSERT INTO users_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'FAVORITE')",
+                        (user_id, target_user_id),
+                    )
 
                 await conn.commit()
-                return True
-
-    async def unfavorite_user(
-        self,
-        user_id,
-        target_user_id,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않는 사용자입니다."
-                    )
-
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM users_favorite_list
-                    WHERE user_id = %s AND favorite_user_id = %s
-                    """,
-                    (user_id, target_user_id),
-                )
-                is_favorited = await cur.fetchone()
-                if not is_favorited:
-                    logger.warning(
-                        f"즐겨찾기 해제할 대상이 즐겨찾기 목록에 없습니다: {user_id} -> {target_user_id}"
-                    )
-                    return False
-
-                await cur.execute(
-                    """
-                    DELETE FROM users_favorite_list
-                    WHERE user_id = %s AND favorite_user_id = %s
-                    """,
-                    (user_id, target_user_id),
-                )
-
-                await cur.execute(
-                    "INSERT INTO users_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'UNFAVORITE')",
-                    (user_id, target_user_id),
-                )
-
-                await conn.commit()
-                return True
+                return is_favorited
