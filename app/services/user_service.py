@@ -992,7 +992,7 @@ class UserService:
                     longitude=longitude,
                     isBlocked=is_blocked,
                     todayViewCount=today_view_count,
-                    viewCount=total_view_count,
+                    totalViewCount=total_view_count,
                 )
 
     async def block_user(self, id: str, user_id: str) -> bool:
@@ -2092,6 +2092,7 @@ class UserService:
                 )
                 await conn.commit()
 
+    # TODO : 프로필 카운트로 선회.
     async def fetch_user_secret_list(
         self,
         user_id: str,
@@ -2111,16 +2112,19 @@ class UserService:
 
                 await cur.execute(
                     """
-                    SELECT usv.viewer_id, usv.updated_at, usv.view_count, COALESCE(today_views.today_count, 0) AS today_view_count
+                    SELECT usv.viewer_id, usv.updated_at, upv.view_count, COALESCE(today_views.today_count, 0) AS today_view_count
                     FROM users_secret_view usv
                     JOIN users u
                         ON usv.viewer_id = u.id
                     LEFT JOIN user_block_list ubl
                         ON usv.user_id = ubl.block_user_id
                         AND usv.viewer_id = ubl.blocked_user_id
+                    LEFT JOIN users_profile_view upv
+                        ON usv.user_id = upv.user_id
+                        AND usv.viewer_id = upv.viewer_id
                     LEFT JOIN (
                         SELECT user_id, viewer_id, COUNT(*) AS today_count
-                        FROM users_secret_view_log
+                        FROM users_profile_view_log
                         WHERE created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
                             AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
                         GROUP BY user_id, viewer_id
@@ -2605,6 +2609,7 @@ class UserService:
                 current_credit = result[0]
                 type_map = {
                     "history_view": (1, "프로필 조회"),
+                    "secret_view": (5, "시크릿 앨범 조회"),
                 }
                 if not type in type_map:
                     raise HTTPException(
