@@ -25,6 +25,9 @@ from app.db.user import (
     UserBdsmRequest,
     UserCreditRequest,
     UserUnblockRequest,
+    UserCreditSecretRequest,
+    UserFavoriteRequest,
+    UserUnfavoriteRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -37,7 +40,6 @@ user_service = UserService()
 push_service = PushService()
 
 
-# TODO: device_os 필요할듯, self_introduction 필드 추가. (default NULL),
 # [유저] 회원가입
 @router.post("/v1/gik-backend/user", status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
@@ -780,7 +782,46 @@ async def fetch_user_secret_list(
     }
 
 
+@router.post("/v1/gik-backend/secret/credit", status_code=status.HTTP_200_OK)
+async def insert_user_credit_secret_list(
+    credit_secret: UserCreditSecretRequest, token: str = Depends(oauth2_scheme)
+):
+    """
+    내가 결제한 시크릿 앨범 추가
+    user_id: token에서 추출
+    secret_user_id: 결제한 시크릿 앨범 유저 ID
+    """
+    user_id = await get_user_id_from_token(token)
+    result = await user_service.insert_user_credit_secret_list(
+        user_id=user_id, secret_user_id=credit_secret.userId
+    )
+    if result is False:
+        return {
+            "success": False,
+            "message": "유저의 시크릿 앨범이 존재하지 않습니다.",
+        }
+    return {"success": result, "message": "내가 결제한 시크릿 앨범 추가 성공"}
+
+
 # TODO: 내가 결제한 시크릿 앨범 목록 조회.
+@router.get("/v1/gik-backend/secret/credit-list", status_code=status.HTTP_200_OK)
+async def fetch_user_credit_secret_view(
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    내가 결제한 시크릿 앨범 목록 조회
+    user_id: token에서 추출
+    """
+    user_id = await get_user_id_from_token(token)
+    credit_secret_list = await user_service.fetch_user_credit_secret_view(
+        page=page, user_id=user_id
+    )
+    return {
+        "success": True,
+        "message": "내가 결제한 시크릿 앨범 목록 조회 성공",
+        "creditSecretList": credit_secret_list,
+    }
 
 
 # [시크릿] 상대 유저에게 시크릿 앨범 열람 수락
@@ -1128,11 +1169,9 @@ async def fetch_my_poke_list(
     }
 
 
-@router.post(
-    "/v1/gik-backend/users/favorite/{target_user_id}", status_code=status.HTTP_200_OK
-)
+@router.post("/v1/gik-backend/users/favorite", status_code=status.HTTP_200_OK)
 async def favorite_user(
-    target_user_id: str,
+    target_user_id: UserFavoriteRequest,
     token: str = Depends(oauth2_scheme),
 ):
     """
@@ -1141,7 +1180,7 @@ async def favorite_user(
     target_user_id: 즐겨찾기할 대상 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.favorite_user(user_id, target_user_id)
+    result = await user_service.favorite_user(user_id, target_user_id.userId)
     if result is False:
         return {
             "success": False,
@@ -1153,11 +1192,9 @@ async def favorite_user(
     }
 
 
-@router.patch(
-    "/v1/gik-backend/users/favorite/{target_user_id}", status_code=status.HTTP_200_OK
-)
+@router.patch("/v1/gik-backend/users/favorite", status_code=status.HTTP_200_OK)
 async def unfavorite_user(
-    target_user_id: str,
+    target_user_id: UserUnfavoriteRequest,
     token: str = Depends(oauth2_scheme),
 ):
     """
@@ -1166,7 +1203,7 @@ async def unfavorite_user(
     target_user_id: 즐겨찾기 취소할 대상 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.unfavorite_user(user_id, target_user_id)
+    result = await user_service.unfavorite_user(user_id, target_user_id.userId)
     if result is False:
         return {
             "success": False,
