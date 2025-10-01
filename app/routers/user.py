@@ -1,12 +1,9 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
 from fastapi import BackgroundTasks, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from app.db.user import (
     Hashtags,
-    UserProfileResponse,
-    UserDetailResponse,
     UserNicknameRequest,
     UserHashtagRequest,
     UserInfoRequest,
@@ -18,7 +15,6 @@ from app.db.user import (
     UserLeaveRequest,
     UserBlockRequest,
     UserReportRequest,
-    UserImageDeleteRequest,
     UserTalkStyleRequest,
     UserHealthCheckRequest,
     UserIntroductionRequest,
@@ -27,7 +23,6 @@ from app.db.user import (
     UserUnblockRequest,
     UserCreditSecretRequest,
     UserFavoriteRequest,
-    UserUnfavoriteRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -40,6 +35,7 @@ user_service = UserService()
 push_service = PushService()
 
 
+# user.py로 적어놓았으면 컨벤션을 user로 써야하지 않을까.
 # [유저] 회원가입
 @router.post("/v1/gik-backend/user", status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
