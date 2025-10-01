@@ -241,7 +241,3 @@ class UserCreditSecretRequest(BaseModel):
 
 class UserFavoriteRequest(BaseModel):
     userId: str
-
-
-class UserUnfavoriteRequest(BaseModel):
-    userId: str

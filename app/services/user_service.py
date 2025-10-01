@@ -15,6 +15,7 @@ from app.utils.logging_config import get_logger
 logger = get_logger(__name__)
 
 
+# TODO: 쿼리문을 합칠 수 있는것들 합치거나, 따로 빼서 유틸함수로 정리할 수 있는 부분은 정리하기!
 class UserService:
     def __init__(self):
         self.db = db
@@ -37,6 +38,7 @@ class UserService:
                 else:
                     return False
 
+    # TODO: 이거 왜 폼형태로 안빼서 일일이 처리하는지?
     async def create_user(
         self,
         id: str,
@@ -80,6 +82,7 @@ class UserService:
                 try:
                     await conn.begin()
 
+                    # 쿼리문 한줄로 쓸 수 있는데 왜그랬음. 파이썬 왜씀
                     insert_sql = """
                         INSERT INTO users (
                             id, fcm, sns, name, phone, provider, email, nickname,
@@ -2625,7 +2628,7 @@ class UserService:
 
                 # type은 추후 추가 예정
                 type_map = {
-                    "history_reward": (2, "광고 시청 보상"),
+                    "history_reward": (1, "광고 시청 보상"),
                 }
 
                 if type not in type_map:
@@ -3009,8 +3012,8 @@ class UserService:
 
     async def favorite_user(
         self,
-        user_id,
-        target_user_id,
+        user_id: str,
+        target_user_id: str,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
