@@ -3067,3 +3067,39 @@ class UserService:
 
                 await conn.commit()
                 return is_favorited
+
+    async def fetch_user_credit_profile_count(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM user_credit_profile_view
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                count_result = await cur.fetchone()
+                profile_count = count_result[0]
+                return profile_count
+
+    async def fetch_user_secret_album_count(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM user_credit_secret_view
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                count_result = await cur.fetchone()
+                secret_count = count_result[0]
+                return secret_count
