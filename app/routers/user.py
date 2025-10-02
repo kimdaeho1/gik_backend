@@ -511,7 +511,6 @@ async def fetch_user_id_list(
     user_id = None
     if token:
         user_id = await get_user_id_from_token(token)
-    print(user_id)
     user_ids = await user_service.fetch_user_id_list(
         user_id=user_id,
         position=position,
