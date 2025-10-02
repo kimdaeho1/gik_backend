@@ -1189,33 +1189,18 @@ async def favorite_user(
         }
 
 
-# 내가 결제해서 해제한 프로필 갯수
-@router.get("/v1/gik-backend/user/profile/count", status_code=status.HTTP_200_OK)
-async def fetch_user_credit_profile_count(token: str = Depends(oauth2_scheme)):
+# 내가 결제해서 해제한 프로필/시크릿 앨범 갯수
+@router.get("/v1/gik-backend/user/unlock/count", status_code=status.HTTP_200_OK)
+async def fetch_user_unlock_count(token: str = Depends(oauth2_scheme)):
     """
     내가 결제해서 본 프로필 갯수
     user_id: token에서 추출, 블라인드 프로필을 결제한 주체
     """
     user_id = await get_user_id_from_token(token)
-    count = await user_service.fetch_user_credit_profile_count(user_id)
+    count = await user_service.fetch_user_unlock_count(user_id)
     return {
         "success": True,
         "message": "내가 결제해서 본 프로필 갯수 조회 성공",
-        "count": count,
-    }
-
-
-# 내가 결제해서 해제한 시크릿 앨범 갯수
-@router.get("/v1/gik-backend/user/secret/count", status_code=status.HTTP_200_OK)
-async def fetch_user_secret_album_count(token: str = Depends(oauth2_scheme)):
-    """
-    내가 결제해서 본 시크릿 앨범 갯수
-    user_id: token에서 추출, 시크릿 앨범을 결제한 주체
-    """
-    user_id = await get_user_id_from_token(token)
-    count = await user_service.fetch_user_secret_album_count(user_id)
-    return {
-        "success": True,
-        "message": "내가 결제해서 본 시크릿 앨범 갯수 조회 성공",
-        "count": count,
+        "profileCount": count["profileCount"],
+        "secretCount": count["secretCount"],
     }

@@ -3068,7 +3068,7 @@ class UserService:
                 await conn.commit()
                 return is_favorited
 
-    async def fetch_user_credit_profile_count(
+    async def fetch_user_unlock_count(
         self,
         user_id: str,
     ):
@@ -3076,30 +3076,16 @@ class UserService:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT COUNT(*)
-                    FROM user_credit_profile_view
-                    WHERE user_id = %s
+                    SELECT 
+                        (SELECT COUNT(*) FROM user_credit_profile_view WHERE user_id = %s) AS profile_count,
+                        (SELECT COUNT(*) FROM user_credit_secret_view WHERE user_id = %s) AS secret_count
                     """,
-                    (user_id,),
+                    (user_id, user_id),
                 )
-                count_result = await cur.fetchone()
-                profile_count = count_result[0]
-                return profile_count
-
-    async def fetch_user_secret_album_count(
-        self,
-        user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT COUNT(*)
-                    FROM user_credit_secret_view
-                    WHERE user_id = %s
-                    """,
-                    (user_id,),
-                )
-                count_result = await cur.fetchone()
-                secret_count = count_result[0]
-                return secret_count
+                row = await cur.fetchone()
+                profile_count = row[0]
+                secret_count = row[1]
+                return {
+                    "profileCount": profile_count,
+                    "secretCount": secret_count,
+                }
