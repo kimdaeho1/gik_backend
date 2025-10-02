@@ -3068,7 +3068,7 @@ class UserService:
                 await conn.commit()
                 return is_favorited
 
-    async def fetch_user_credit_count(
+    async def fetch_user_unlock_count(
         self,
         user_id: str,
     ):
