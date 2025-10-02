@@ -736,6 +736,7 @@ async def fetch_user_secret_images(
     # 내 시크릿 앨범에 사진이 없다면
     is_image = await user_service.fetch_my_secret_images(user_id)
     if is_image is None:
+        await user_service.insert_user_secret_images_view(user_id, target_user_id)
         return {"success": False, "message": "내 시크릿 앨범에 사진이 없습니다."}
 
     if not is_blocked:
@@ -755,8 +756,7 @@ async def fetch_user_secret_images(
             content_available=True,
             user_no=target_user_no,
         )
-        await user_service.insert_user_secret_images_view(user_id, target_user_id)
-        # TODO : 내가 결제한 시크릿 앨범이 DB에 저장.
+    await user_service.insert_user_secret_images_view(user_id, target_user_id)
 
     return {"success": True, "message": "시크릿 앨범 열람 성공"}
 

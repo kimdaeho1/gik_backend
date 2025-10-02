@@ -2292,6 +2292,8 @@ class UserService:
                         ON ucsv.user_id = u.id
                     WHERE ucsv.user_id = %s
                         AND u.leaved = FALSE
+                        AND ucsv.created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                        AND ucsv.created_at <  CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
                     GROUP BY ucsv.viewed_id
                     ORDER BY viewed_at DESC
                     LIMIT 20 OFFSET %s
@@ -2675,6 +2677,7 @@ class UserService:
                 type_map = {
                     "history_view": (1, "프로필 조회"),
                     "secret_view": (5, "시크릿 앨범 조회"),
+                    "bypass_secret_view": (10, "우회한 시크릿 앨범 조회"),
                 }
                 if not type in type_map:
                     raise HTTPException(
