@@ -1105,12 +1105,11 @@ class UserService:
                         AND NOT EXISTS (
                             SELECT 1 
                             FROM user_block_list ubl
-                            WHERE 
-                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id
-                                ) OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
+                            WHERE ubl.block_user_id = %s
+                                AND ubl.blocked_user_id = users.id
                         )
                 """
-                await cur.execute(query, tuple(user_id_list) + (user_id, user_id))
+                await cur.execute(query, tuple(user_id_list) + (user_id,))
                 rows = await cur.fetchall()
                 user_profiles = []
 
@@ -2118,12 +2117,11 @@ class UserService:
                                 FROM user_block_list ubl
                                 WHERE 
                                     (ubl.block_user_id = %s AND ubl.blocked_user_id = upv.viewer_id)
-                                    OR (ubl.block_user_id = upv.viewer_id AND ubl.blocked_user_id = %s)
                             )
                     ORDER BY upv.updated_at DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, user_id, user_id, offset),
+                    (user_id, user_id, offset),
                 )
 
                 rows = await cur.fetchall()
@@ -2410,14 +2408,13 @@ class UserService:
                         SELECT 1
                         FROM user_block_list ubl
                         WHERE 
-                            (ubl.block_user_id = %s AND ubl.blocked_user_id = ucsv.viewed_id)
-                            OR (ubl.block_user_id = ucsv.viewed_id AND ubl.blocked_user_id = %s)
+                            ubl.block_user_id = %s AND ubl.blocked_user_id = ucsv.viewed_id
                     )
                     GROUP BY ucsv.viewed_id
                     ORDER BY viewed_at DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, user_id, user_id, offset),
+                    (user_id, user_id, offset),
                 )
                 rows = await cur.fetchall()
                 credet_secret_list = [
@@ -2917,14 +2914,13 @@ class UserService:
                             SELECT 1
                             FROM user_block_list ubl
                             WHERE 
-                                (ubl.block_user_id = %s AND ubl.blocked_user_id = ucpv.viewed_id)
-                                OR (ubl.block_user_id = ucpv.viewed_id AND ubl.blocked_user_id = %s)
+                                ubl.block_user_id = %s AND ubl.blocked_user_id = ucpv.viewed_id
                         )
                     GROUP BY ucpv.viewed_id, upv.view_count, today_views.today_count
                     ORDER BY created_at DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, user_id, user_id, user_id, user_id, user_id, offset),
+                    (user_id, user_id, user_id, user_id, user_id, offset),
                 )
                 rows = await cur.fetchall()
                 view_list = [
@@ -3202,16 +3198,32 @@ class UserService:
                 await cur.execute(
                     """
                     SELECT 
-                        (SELECT COUNT(DISTINCT viewed_id) FROM user_credit_profile_view WHERE user_id = %s) AS profile_count,
-                        (
-                            SELECT COUNT(DISTINCT viewed_id) 
-                            FROM user_credit_secret_view 
-                            WHERE user_id = %s
-                                AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
-                                AND created_at <  CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
-                        ) AS secret_count
+                    (
+                        SELECT COUNT(DISTINCT ucpv.viewed_id) 
+                        FROM user_credit_profile_view ucpv
+                        WHERE ucpv.user_id = %s
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl
+                            WHERE ubl.block_user_id = %s
+                                AND ubl.blocked_user_id = ucpv.viewed_id
+                        )
+                    ) AS profile_count,
+                    (
+                        SELECT COUNT(DISTINCT ucsv.viewed_id) 
+                        FROM user_credit_secret_view ucsv
+                        WHERE ucsv.user_id = %s
+                        AND ucsv.created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                        AND ucsv.created_at <  CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl
+                            WHERE ubl.block_user_id = %s
+                                AND ubl.blocked_user_id = ucsv.viewed_id
+                        )
+                    ) AS secret_count
                     """,
-                    (user_id, user_id),
+                    (user_id, user_id, user_id, user_id),
                 )
                 row = await cur.fetchone()
                 profile_count = row[0]
