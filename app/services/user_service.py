@@ -1091,7 +1091,7 @@ class UserService:
                 placeholders = ", ".join(["%s"] * len(user_id_list))
 
                 # 차단플로우 추가
-                blocked_users = await self.fetch_user_block_list(user_id)
+                # blocked_users = await self.fetch_user_block_list(user_id)
 
                 query = f"""
                     SELECT 
@@ -1136,8 +1136,8 @@ class UserService:
                         longitude,
                     ) = row
 
-                    if id in blocked_users:
-                        continue
+                    # if id in blocked_users:
+                    #     continue
 
                     hashtags = Hashtags.parse_raw(hashtags_json)
 
