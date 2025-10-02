@@ -1090,6 +1090,9 @@ class UserService:
 
                 placeholders = ", ".join(["%s"] * len(user_id_list))
 
+                # 차단플로우 추가
+                blocked_users = await self.fetch_user_block_list(user_id)
+
                 query = f"""
                     SELECT 
                         id, fcm, nickname, birthday, age, height, weight, 
@@ -1132,6 +1135,9 @@ class UserService:
                         latitude,
                         longitude,
                     ) = row
+
+                    if id in blocked_users:
+                        continue
 
                     hashtags = Hashtags.parse_raw(hashtags_json)
 
@@ -1208,6 +1214,7 @@ class UserService:
     # TODO : 쿼리문 걸리는 WHERE절에 index를 거는게 좋아보인다고함. 나중에라도 걸어보세요.
     async def fetch_user_id_list(
         self,
+        user_id: str,
         position: str,
         relation: str,
         bdsm_type: str,
@@ -1217,7 +1224,6 @@ class UserService:
     ) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-
                 # relation, talk_style 파싱
                 position = [p.strip() for p in position.split(",")] if position else []
                 relation = [r.strip() for r in relation.split(",")] if relation else []
@@ -1315,6 +1321,20 @@ class UserService:
                             )
                             """
                         )
+
+                if user_id:
+                    filters.append(
+                        """
+                        NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl
+                            WHERE 
+                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
+                                OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
+                        )
+                        """
+                    )
+                    arguments.extend([user_id, user_id])
 
                 # 전부 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
                 if filters:
@@ -1469,6 +1489,20 @@ class UserService:
                             """
                         )
 
+                if user_id:
+                    filters.append(
+                        """
+                        NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl
+                            WHERE 
+                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
+                                OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
+                        )
+                        """
+                    )
+                    arguments.extend([user_id, user_id])
+
                 if filters:
                     query += " AND " + " AND ".join(filters)
                 # 거리를 기준으로 오름차순 정렬
@@ -1562,6 +1596,20 @@ class UserService:
                             )
                             """
                         )
+
+                if user_id:
+                    null_filters.append(
+                        """
+                        NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl
+                            WHERE 
+                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
+                                OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
+                        )
+                        """
+                    )
+                    null_arguments.extend([user_id, user_id])
 
                 if null_filters:
                     null_query += " AND " + " AND ".join(null_filters)
