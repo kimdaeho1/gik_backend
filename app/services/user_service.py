@@ -1090,9 +1090,6 @@ class UserService:
 
                 placeholders = ", ".join(["%s"] * len(user_id_list))
 
-                # 차단플로우 추가
-                # blocked_users = await self.fetch_user_block_list(user_id)
-
                 query = f"""
                     SELECT 
                         id, fcm, nickname, birthday, age, height, weight, 
@@ -1103,9 +1100,17 @@ class UserService:
                         last_connected_at,
                         latitude, longitude
                     FROM users
-                    WHERE id IN ({placeholders}) AND leaved = FALSE
+                    WHERE id IN ({placeholders}) 
+                        AND leaved = FALSE
+                        AND NOT EXISTS (
+                            SELECT 1 
+                            FROM user_block_list ubl
+                            WHERE 
+                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id
+                                ) OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
+                        )
                 """
-                await cur.execute(query, tuple(user_id_list))
+                await cur.execute(query, tuple(user_id_list) + (user_id, user_id))
                 rows = await cur.fetchall()
                 user_profiles = []
 
@@ -1135,9 +1140,6 @@ class UserService:
                         latitude,
                         longitude,
                     ) = row
-
-                    # if id in blocked_users:
-                    #     continue
 
                     hashtags = Hashtags.parse_raw(hashtags_json)
 
