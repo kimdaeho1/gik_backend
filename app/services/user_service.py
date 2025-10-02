@@ -2403,11 +2403,18 @@ class UserService:
                         AND u.leaved = FALSE
                         AND ucsv.created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
                         AND ucsv.created_at <  CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                        AND NOT EXISTS (
+                        SELECT 1
+                        FROM user_block_list ubl
+                        WHERE 
+                            (ubl.block_user_id = %s AND ubl.blocked_user_id = ucsv.viewed_id)
+                            OR (ubl.block_user_id = ucsv.viewed_id AND ubl.blocked_user_id = %s)
+                    )
                     GROUP BY ucsv.viewed_id
                     ORDER BY viewed_at DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, offset),
+                    (user_id, user_id, user_id, offset),
                 )
                 rows = await cur.fetchall()
                 credet_secret_list = [
@@ -2888,9 +2895,6 @@ class UserService:
                     FROM user_credit_profile_view ucpv
                     JOIN users u
                         ON ucpv.viewed_id = u.id
-                    LEFT JOIN user_block_list ubl
-                        ON ucpv.user_id = ubl.block_user_id
-                        AND ucpv.viewed_id = ubl.blocked_user_id
                     LEFT JOIN users_profile_view upv
                         ON upv.user_id = %s
                         AND upv.viewer_id = ucpv.viewed_id
@@ -2906,12 +2910,18 @@ class UserService:
                         AND today_views.viewer_id = ucpv.viewed_id
                     WHERE ucpv.user_id = %s
                         AND u.leaved = FALSE
-                        AND ubl.id IS NULL
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl
+                            WHERE 
+                                (ubl.block_user_id = %s AND ubl.blocked_user_id = ucpv.viewed_id)
+                                OR (ubl.block_user_id = ucpv.viewed_id AND ubl.blocked_user_id = %s)
+                        )
                     GROUP BY ucpv.viewed_id, upv.view_count, today_views.today_count
                     ORDER BY created_at DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, user_id, user_id, user_id, offset),
+                    (user_id, user_id, user_id, user_id, user_id, user_id, offset),
                 )
                 rows = await cur.fetchall()
                 view_list = [
