@@ -2101,9 +2101,6 @@ class UserService:
                     FROM users_profile_view upv
                     JOIN users u
                         ON upv.viewer_id = u.id
-                    LEFT JOIN user_block_list ubl
-                        ON upv.user_id = ubl.block_user_id
-                        AND upv.viewer_id = ubl.blocked_user_id
                     LEFT JOIN (
                         SELECT user_id, viewer_id, COUNT(*) AS today_count
                         FROM users_profile_view_log
@@ -2116,11 +2113,17 @@ class UserService:
                     WHERE upv.user_id = %s
                         AND upv.updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
                         AND u.leaved = FALSE
-                        AND ubl.id IS NULL
+                        AND NOT EXISTS (
+                                SELECT 1
+                                FROM user_block_list ubl
+                                WHERE 
+                                    (ubl.block_user_id = %s AND ubl.blocked_user_id = upv.viewer_id)
+                                    OR (ubl.block_user_id = upv.viewer_id AND ubl.blocked_user_id = %s)
+                            )
                     ORDER BY upv.updated_at DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, offset),
+                    (user_id, user_id, user_id, offset),
                 )
 
                 rows = await cur.fetchall()
