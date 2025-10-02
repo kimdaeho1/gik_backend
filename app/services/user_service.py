@@ -1290,12 +1290,31 @@ class UserService:
                     )
                     arguments.extend(age)
 
-                # 시크릿 앨범이 존재하면
                 if secret is not None:
-                    secret_filter = []
-                    secret_filter.append("secret_yn = %s")
-                    arguments.append(secret)
-                    filters.append(f"({' OR '.join(secret_filter)})")
+                    # secret이 True 라면
+                    if secret is True:
+                        filters.append(
+                            """
+                            EXISTS (
+                                SELECT 1 
+                                FROM user_secret_images si 
+                                WHERE si.user_id = users.id 
+                                AND si.use_yn = TRUE
+                            )
+                            """
+                        )
+                    # 시크릿 앨범이 없다면
+                    else:
+                        filters.append(
+                            """
+                            NOT EXISTS (
+                                SELECT 1 
+                                FROM user_secret_images si 
+                                WHERE si.user_id = users.id 
+                                AND si.use_yn = TRUE
+                            )
+                            """
+                        )
 
                 # 전부 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
                 if filters:
@@ -1425,10 +1444,30 @@ class UserService:
                     arguments.extend(age)
 
                 if secret is not None:
-                    secret_filter = []
-                    secret_filter.append("secret_yn = %s")
-                    arguments.append(secret)
-                    filters.append(f"({' OR '.join(secret_filter)})")
+                    # secret이 True 라면
+                    if secret is True:
+                        filters.append(
+                            """
+                            EXISTS (
+                                SELECT 1 
+                                FROM user_secret_images si 
+                                WHERE si.user_id = users.id 
+                                AND si.use_yn = TRUE
+                            )
+                            """
+                        )
+                    # 시크릿 앨범이 없다면
+                    else:
+                        filters.append(
+                            """
+                            NOT EXISTS (
+                                SELECT 1 
+                                FROM user_secret_images si 
+                                WHERE si.user_id = users.id 
+                                AND si.use_yn = TRUE
+                            )
+                            """
+                        )
 
                 if filters:
                     query += " AND " + " AND ".join(filters)
@@ -1499,10 +1538,30 @@ class UserService:
                         null_arguments.extend(age)
 
                 if secret is not None:
-                    null_secret_filter = []
-                    null_secret_filter.append("secret_yn = %s")
-                    null_arguments.append(secret)
-                    null_filters.append(f"({' OR '.join(null_secret_filter)})")
+                    # secret이 True 라면
+                    if secret is True:
+                        null_filters.append(
+                            """
+                            EXISTS (
+                                SELECT 1 
+                                FROM user_secret_images si 
+                                WHERE si.user_id = users.id 
+                                AND si.use_yn = TRUE
+                            )
+                            """
+                        )
+                    # 시크릿 앨범이 없다면
+                    else:
+                        null_filters.append(
+                            """
+                            NOT EXISTS (
+                                SELECT 1 
+                                FROM user_secret_images si 
+                                WHERE si.user_id = users.id 
+                                AND si.use_yn = TRUE
+                            )
+                            """
+                        )
 
                 if null_filters:
                     null_query += " AND " + " AND ".join(null_filters)
