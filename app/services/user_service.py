@@ -3077,8 +3077,8 @@ class UserService:
                 await cur.execute(
                     """
                     SELECT 
-                        (SELECT COUNT(*) FROM user_credit_profile_view WHERE user_id = %s) AS profile_count,
-                        (SELECT COUNT(*) FROM user_credit_secret_view WHERE user_id = %s) AS secret_count
+                        (SELECT COUNT(DISTINCT viewed_id) FROM user_credit_profile_view WHERE user_id = %s) AS profile_count,
+                        (SELECT COUNT(DISTINCT viewed_id) FROM user_credit_secret_view WHERE user_id = %s) AS secret_count
                     """,
                     (user_id, user_id),
                 )
