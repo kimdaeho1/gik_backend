@@ -2402,8 +2402,7 @@ class UserService:
                         ON ucsv.user_id = u.id
                     WHERE ucsv.user_id = %s
                         AND u.leaved = FALSE
-                        AND ucsv.created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
-                        AND ucsv.created_at <  CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                        AND ucsv.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
                         AND NOT EXISTS (
                         SELECT 1
                         FROM user_block_list ubl
@@ -3213,8 +3212,7 @@ class UserService:
                         SELECT COUNT(DISTINCT ucsv.viewed_id) 
                         FROM user_credit_secret_view ucsv
                         WHERE ucsv.user_id = %s
-                        AND ucsv.created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
-                        AND ucsv.created_at <  CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                        AND ucsv.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
                         AND NOT EXISTS (
                             SELECT 1
                             FROM user_block_list ubl
