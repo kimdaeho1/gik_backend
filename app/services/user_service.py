@@ -11,6 +11,8 @@ from app.db.image import UserSecretResponse
 from app.db.db_connection import db
 from typing import List, Optional
 from app.utils.logging_config import get_logger
+from app.utils.firebase_init import init_firebase_admin
+from firebase_admin import auth
 
 logger = get_logger(__name__)
 
@@ -19,6 +21,7 @@ logger = get_logger(__name__)
 class UserService:
     def __init__(self):
         self.db = db
+        init_firebase_admin()
 
     async def fetch_active_user(self, user_id: str) -> bool:
         async with self.db.get_connection() as conn:
@@ -1681,6 +1684,16 @@ class UserService:
                     await cur.execute(insert_history, user_row)
 
                 await conn.commit()
+
+                # Firebase Authentication에서 사용자 삭제
+                try:
+                    auth.delete_user(id)
+                    logger.info(f"Firebase user {id} deleted successfully.")
+                except auth.UserNotFoundError:
+                    logger.warning(f"Firebase user {id} not found (already deleted).")
+                except Exception as e:
+                    logger.error(f"Firebase deletion failed: {e}")
+
                 return True
 
     async def user_health_check(
