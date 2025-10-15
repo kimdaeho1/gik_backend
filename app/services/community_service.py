@@ -12,7 +12,7 @@ import io, uuid, requests
 
 
 class CommunityService:
-    def __init__(self):
+    def __init__(self, db):
         self.db = db
 
     async def create_post(

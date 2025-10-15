@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 # TODO: 쿼리문을 합칠 수 있는것들 합치거나, 따로 빼서 유틸함수로 정리할 수 있는 부분은 정리하기!
 class UserService:
-    def __init__(self):
+    def __init__(self, db):
         self.db = db
         init_firebase_admin()
 

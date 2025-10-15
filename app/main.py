@@ -7,12 +7,27 @@ import boto3
 from botocore.exceptions import ClientError
 from app.utils.logging_config import setup_logging
 from app.utils.logging_config import get_logger
+from app.core.container import Container
 
 setup_logging()
 logger = get_logger(__name__)
 
 
 app = FastAPI()
+# 컨테이너 생성
+container = Container()
+container.wire(
+    modules=[
+        "app.routers.user",
+        "app.routers.image",
+        "app.routers.community",
+        "app.routers.token",
+        "app.routers.credit",
+        "app.routers.payment",
+    ]
+)
+app.container = container
+
 app.include_router(credit.router)
 app.include_router(payment.router)
 app.include_router(image.router)

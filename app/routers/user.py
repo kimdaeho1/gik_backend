@@ -1,4 +1,5 @@
 from typing import List
+from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
 from fastapi import BackgroundTasks, Depends
 from typing import Optional
@@ -27,6 +28,7 @@ from app.db.user import (
 from app.services.user_service import UserService
 from app.services.push_service import PushService
 from app.utils.token import get_user_id_from_token, JWTBearer
+from app.core.container import Container
 import uuid
 
 oauth2_scheme = JWTBearer(auto_error=False)

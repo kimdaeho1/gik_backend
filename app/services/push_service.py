@@ -10,7 +10,7 @@ import uuid
 
 
 class PushService:
-    def __init__(self):
+    def __init__(self, db):
         init_firebase_admin()
         self.user_service = UserService()
 
