@@ -21,10 +21,10 @@ from app.core.container import Container
 from app.utils.s3_upload import generate_filename, image_url_list
 
 oauth2_scheme = HTTPBearer()
-router = APIRouter()
+router = APIRouter(prefix="/v1/gik-backend", tags=["Image"])
 
 
-@router.post("/v1/gik-backend/community/images", status_code=status.HTTP_200_OK)
+@router.post("/community/images", status_code=status.HTTP_200_OK)
 async def upload_images(
     board_id: str = Form(...),
     images: List[UploadFile] = File(default=None),
@@ -86,7 +86,7 @@ async def upload_images(
         )
 
 
-@router.post("/v1/gik-backend/images", status_code=status.HTTP_200_OK)
+@router.post("/images", status_code=status.HTTP_200_OK)
 async def upload_gik_images(
     user_id: str = Form(...),
     image_label: str = Form(...),
@@ -104,7 +104,7 @@ async def upload_gik_images(
     return {"message": "이미지 업로드 성공", "image_urls": image_urls}
 
 
-@router.post("/v1/gik-backend/chat/images", status_code=status.HTTP_200_OK)
+@router.post("/chat/images", status_code=status.HTTP_200_OK)
 async def upload_chat_images(
     chat_id: str = Form(...),
     image_label: str = Form(...),
@@ -124,7 +124,7 @@ async def upload_chat_images(
     return {"message": "이미지 업로드 성공", "image_urls": image_urls}
 
 
-@router.post("/v1/gik-backend/group-profile/images", status_code=status.HTTP_200_OK)
+@router.post("/group-profile/images", status_code=status.HTTP_200_OK)
 async def upload_group_profile_images(
     chat_id: str = Form(...),
     images: List[UploadFile] = File(default=None),
@@ -140,7 +140,7 @@ async def upload_group_profile_images(
 
 
 # [시크릿] 시크릿 앨범 업로드
-@router.post("/v1/gik-backend/secret/images", status_code=status.HTTP_200_OK)
+@router.post("/secret/images", status_code=status.HTTP_200_OK)
 @inject
 async def upload_secret_images(
     token: str = Depends(oauth2_scheme),
@@ -164,7 +164,7 @@ async def upload_secret_images(
 
 
 # [시크릿] 시크릿 앨범 사진 수정
-@router.patch("/v1/gik-backend/secret/images/update", status_code=status.HTTP_200_OK)
+@router.patch("/secret/images/update", status_code=status.HTTP_200_OK)
 @inject
 async def update_secret_images(
     token: str = Depends(oauth2_scheme),

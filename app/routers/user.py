@@ -32,12 +32,12 @@ from app.core.container import Container
 import uuid
 
 oauth2_scheme = JWTBearer(auto_error=False)
-router = APIRouter()
+router = APIRouter(prefix="/v1/gik-backend", tags=["User"])
 
 
 # TODO: user.py로 적어놓았으면 컨벤션을 user로 써야하지 않을까.
 # [유저] 회원가입
-@router.post("/v1/gik-backend/user", status_code=status.HTTP_201_CREATED)
+@router.post("/user", status_code=status.HTTP_201_CREATED)
 @inject
 async def create_user_endpoint(
     id: str = Form(...),
@@ -118,9 +118,7 @@ async def create_user_endpoint(
 
 
 # [유저] 닉네임 중복 확인
-@router.get(
-    "/v1/gik-backend/user/check-nickname/{nickname}", status_code=status.HTTP_200_OK
-)
+@router.get("/user/check-nickname/{nickname}", status_code=status.HTTP_200_OK)
 @inject
 async def check_user_nickname(
     nickname: str, user_service: UserService = Depends(Provide[Container.user_service])
@@ -137,7 +135,7 @@ async def check_user_nickname(
     }
 
 
-@router.get("/v1/gik-backend/my-profile", status_code=status.HTTP_200_OK)
+@router.get("/my-profile", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_my_profile_by_token(
     token=Depends(oauth2_scheme),
@@ -155,7 +153,7 @@ async def fetch_my_profile_by_token(
 
 # TODO : 토큰으로 한번 검증 후에 만약 없다면 id로 검증.
 # [유저] 내 정보 조회 (user_id로)
-@router.get("/v1/gik-backend/my-profile/{id}", status_code=status.HTTP_200_OK)
+@router.get("/my-profile/{id}", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_my_profile(
     id: str, user_service: UserService = Depends(Provide[Container.user_service])
@@ -170,7 +168,7 @@ async def fetch_my_profile(
 
 
 # [유저] 내 정보 수정 (닉네임)
-@router.patch("/v1/gik-backend/my-profile/nickname", status_code=status.HTTP_200_OK)
+@router.patch("/my-profile/nickname", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_nickname(
     user_nickname: UserNicknameRequest,
@@ -194,7 +192,7 @@ async def update_user_nickname(
 
 
 # [유저] 내 정보 수정 (해시태그)
-@router.patch("/v1/gik-backend/my-profile/hashtag", status_code=status.HTTP_200_OK)
+@router.patch("/my-profile/hashtag", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_hashtag(
     user_hashtags: UserHashtagRequest,
@@ -216,7 +214,7 @@ async def update_user_hashtag(
 
 
 # [유저] 내 정보 수정 (기본정보)
-@router.patch("/v1/gik-backend/my-profile/info", status_code=status.HTTP_200_OK)
+@router.patch("/my-profile/info", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_info(
     user_info: UserInfoRequest,
@@ -245,7 +243,7 @@ async def update_user_info(
 
 
 # [유저] 내 정보 수정 (fcm 코드)
-@router.patch("/v1/gik-backend/my-profile/fcm", status_code=status.HTTP_200_OK)
+@router.patch("/my-profile/fcm", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_fcm(
     user_fcm: UserFcmRequest,
@@ -265,7 +263,7 @@ async def update_user_fcm(
 
 
 # [유저] 내 정보 수정 (희망 관계)
-@router.patch("/v1/gik-backend/my-profile/relation", status_code=status.HTTP_200_OK)
+@router.patch("/my-profile/relation", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_relation(
     user_relation: UserRelationRequest,
@@ -287,7 +285,7 @@ async def update_user_relation(
 
 
 # [유저] 내 정보 수정 (포지션)
-@router.patch("/v1/gik-backend/my-profile/position", status_code=status.HTTP_200_OK)
+@router.patch("/my-profile/position", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_position(
     user_position: UserPositionRequest,
@@ -309,7 +307,7 @@ async def update_user_position(
 
 
 # [유저] 내 소통 스타일 수정 (선택사항)
-@router.post("/v1/gik-backend/my-profile/talk-style", status_code=status.HTTP_200_OK)
+@router.post("/my-profile/talk-style", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_talk_style(
     user_talk_style: UserTalkStyleRequest,
@@ -332,7 +330,7 @@ async def update_user_talk_style(
 
 
 # [유저] 내 정보 수정 (알람)
-@router.patch("/v1/gik-backend/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
+@router.patch("/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_alarm(
     user_alarm: UserAlarmRequest,
@@ -356,9 +354,7 @@ async def update_user_alarm(
 
 
 # [유저] 내 정보 수정 (자기소개)
-@router.patch(
-    "/v1/gik-backend/my-profile/self-introduction", status_code=status.HTTP_200_OK
-)
+@router.patch("/my-profile/self-introduction", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_self_introduction(
     user_self_introduction: UserIntroductionRequest,
@@ -380,7 +376,7 @@ async def update_user_self_introduction(
 
 
 # [유저] 내 정보 수정 (bdsm 타입)
-@router.patch("/v1/gik-backend/my-profile/bdsm-type", status_code=status.HTTP_200_OK)
+@router.patch("/my-profile/bdsm-type", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_bdsm_type(
     user_bdsm_type: UserBdsmRequest,
@@ -401,7 +397,7 @@ async def update_user_bdsm_type(
 
 
 # [유저] 상대 유저 상세정보 조회
-@router.get("/v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
+@router.get("/user/{user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_profile(
     user_id: str, user_service: UserService = Depends(Provide[Container.user_service])
@@ -418,7 +414,7 @@ async def fetch_user_profile(
 
 
 # [유저] 상대 유저의 차단 여부 확인 True/False로 체크
-@router.get("/v1/gik-backend/user/block/{opponent_id}", status_code=status.HTTP_200_OK)
+@router.get("/user/block/{opponent_id}", status_code=status.HTTP_200_OK)
 @inject
 async def check_user_block(
     opponent_id: str,
@@ -442,7 +438,7 @@ async def check_user_block(
 
 
 # [유저] 상대 유저 상세정보 조회(토큰, 푸시)
-@router.get("/v1/gik-backend/user-token/{user_id}", status_code=status.HTTP_200_OK)
+@router.get("/user-token/{user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_profile_with_push(
     user_id: str,
@@ -502,7 +498,7 @@ async def fetch_user_profile_with_push(
 
 
 # [유저] 상대 유저 차단
-@router.post("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
+@router.post("/user/block", status_code=status.HTTP_200_OK)
 @inject
 async def block_user(
     user_block: UserBlockRequest,
@@ -524,7 +520,7 @@ async def block_user(
 
 
 # [유저] 상대 유저 신고
-@router.post("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
+@router.post("/user/report", status_code=status.HTTP_200_OK)
 @inject
 async def report_user(
     user_report: UserReportRequest,
@@ -553,7 +549,7 @@ async def report_user(
 
 
 # [유저] 유저 목록으로 조회
-@router.post("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
+@router.post("/users/list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_list(
     user_id_list: UserListRequest,
@@ -570,7 +566,7 @@ async def fetch_user_list(
 
 
 # [유저] 유저 ID 목록 조회 (탈퇴하지 않은 유저 전체) / 희망하는 관계, 소통 스타일을 쿼리 파라미터로 받아서 필터
-@router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
+@router.get("/users/id_list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_id_list(
     token: str = Depends(oauth2_scheme),
@@ -601,7 +597,7 @@ async def fetch_user_id_list(
 
 
 # [유저] 유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
-@router.get("/v1/gik-backend/users/id_list/near", status_code=status.HTTP_200_OK)
+@router.get("/users/id_list/near", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_near_user_id_list(
     token: str = Depends(oauth2_scheme),
@@ -636,7 +632,7 @@ async def fetch_near_user_id_list(
 
 
 # [유저] 유저 FCM 목록 조회 (탈퇴하지 않은 유저 전체) 유저id리스트 보내주면
-@router.post("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
+@router.post("/users/fcm_list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_fcm_list(
     user_id_list: UserListRequest,
@@ -652,7 +648,7 @@ async def fetch_user_fcm_list(
 
 
 # [유저] 회원 탈퇴 (leaved 탈퇴)
-@router.post("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
+@router.post("/leave", status_code=status.HTTP_200_OK)
 @inject
 async def leave_user(
     user_leave: UserLeaveRequest,
@@ -670,7 +666,7 @@ async def leave_user(
     return {"success": result, "message": "유저 탈퇴 성공."}
 
 
-@router.patch("/v1/gik-backend/user/health/{user_id}", status_code=status.HTTP_200_OK)
+@router.patch("/user/health/{user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def user_health_check(
     user_id: str,
@@ -694,7 +690,7 @@ async def user_health_check(
     return {"success": result, "message": "유저 실시간 정보 업데이트 성공."}
 
 
-@router.patch("/v1/gik-backend/user/images", status_code=status.HTTP_200_OK)
+@router.patch("/user/images", status_code=status.HTTP_200_OK)
 @inject
 async def update_user_images(
     user_id: str = Form(...),
@@ -724,7 +720,7 @@ async def update_user_images(
     }
 
 
-@router.get("/v1/gik-backend/user/push/list", status_code=status.HTTP_200_OK)
+@router.get("/user/push/list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_push_list(
     push_type: Optional[str] = Query(None),
@@ -749,7 +745,7 @@ async def fetch_user_push_list(
     }
 
 
-@router.patch("/v1/gik-backend/user/push/receive", status_code=status.HTTP_200_OK)
+@router.patch("/user/push/receive", status_code=status.HTTP_200_OK)
 @inject
 async def receive_user_push(
     push_id: str = Query(...),
@@ -773,7 +769,7 @@ async def receive_user_push(
     return {"success": result, "message": "유저 푸시 수신 처리 성공"}
 
 
-@router.patch("/v1/gik-backend/user/push/all-receive", status_code=status.HTTP_200_OK)
+@router.patch("/user/push/all-receive", status_code=status.HTTP_200_OK)
 @inject
 async def receive_all_user_push(
     token: str = Depends(oauth2_scheme),
@@ -795,7 +791,7 @@ async def receive_all_user_push(
     return {"success": result, "message": "유저 모든 푸시 수신 처리 성공"}
 
 
-@router.get("/v1/gik-backend/user/profile/viewed", status_code=status.HTTP_200_OK)
+@router.get("/user/profile/viewed", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_profile_view(
     page: int = Query(...),
@@ -817,7 +813,7 @@ async def fetch_user_profile_view(
 
 
 # [시크릿] 상대 유저의 시크릿 앨범 열람 푸시 전송
-@router.post("/v1/gik-backend/secret/push", status_code=status.HTTP_200_OK)
+@router.post("/secret/push", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_secret_images(
     background_tasks: BackgroundTasks,
@@ -871,7 +867,7 @@ async def fetch_user_secret_images(
     return {"success": True, "message": "시크릿 앨범 열람 성공"}
 
 
-@router.get("/v1/gik-backend/secret-list", status_code=status.HTTP_200_OK)
+@router.get("/secret-list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_secret_list(
     page: int = Query(...),
@@ -891,7 +887,7 @@ async def fetch_user_secret_list(
     }
 
 
-@router.post("/v1/gik-backend/secret/credit", status_code=status.HTTP_200_OK)
+@router.post("/secret/credit", status_code=status.HTTP_200_OK)
 @inject
 async def insert_user_credit_secret_list(
     credit_secret: UserCreditSecretRequest,
@@ -916,7 +912,7 @@ async def insert_user_credit_secret_list(
 
 
 # TODO: 내가 결제한 시크릿 앨범 목록 조회.
-@router.get("/v1/gik-backend/secret/credit-list", status_code=status.HTTP_200_OK)
+@router.get("/secret/credit-list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_credit_secret_view(
     page: int = Query(...),
@@ -939,7 +935,7 @@ async def fetch_user_credit_secret_view(
 
 
 # [시크릿] 상대 유저에게 시크릿 앨범 열람 수락
-@router.patch("/v1/gik-backend/secret/images/accept", status_code=status.HTTP_200_OK)
+@router.patch("/secret/images/accept", status_code=status.HTTP_200_OK)
 @inject
 async def accept_user_secret_images(
     background_tasks: BackgroundTasks,
@@ -989,7 +985,7 @@ async def accept_user_secret_images(
 
 
 # [시크릿] 상대 유저에게 시크릿 앨범 열람 거절
-@router.patch("/v1/gik-backend/secret/images/reject", status_code=status.HTTP_200_OK)
+@router.patch("/secret/images/reject", status_code=status.HTTP_200_OK)
 @inject
 async def reject_user_secret_images(
     token: str = Depends(oauth2_scheme),
@@ -1007,7 +1003,7 @@ async def reject_user_secret_images(
 
 
 # [시크릿] 내 시크릿 앨범 요청 취소
-@router.patch("/v1/gik-backend/secret/images/cancel", status_code=status.HTTP_200_OK)
+@router.patch("/secret/images/cancel", status_code=status.HTTP_200_OK)
 @inject
 async def cancel_my_secret_request(
     token: str = Depends(oauth2_scheme),
@@ -1025,7 +1021,7 @@ async def cancel_my_secret_request(
 
 
 # [시크릿] 내가 요청한 시크릿 앨범 열람건 조회
-@router.get("/v1/gik-backend/secret/images/requests", status_code=status.HTTP_200_OK)
+@router.get("/secret/images/requests", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_my_secret_request(
     token: str = Depends(oauth2_scheme),
@@ -1045,7 +1041,7 @@ async def fetch_my_secret_request(
 
 
 # [시크릿] 나에게 온 시크릿 앨범 요청건 조회
-@router.get("/v1/gik-backend/secret/images/accepts", status_code=status.HTTP_200_OK)
+@router.get("/secret/images/accepts", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_opponent_secret_request(
     token: str = Depends(oauth2_scheme),
@@ -1065,9 +1061,7 @@ async def fetch_opponent_secret_request(
 
 
 # [시크릿] 내 시크릿 앨범 허용 취소
-@router.patch(
-    "/v1/gik-backend/secret/images/cancel-accept", status_code=status.HTTP_200_OK
-)
+@router.patch("/secret/images/cancel-accept", status_code=status.HTTP_200_OK)
 @inject
 async def cancel_accept_my_secret_request(
     token: str = Depends(oauth2_scheme),
@@ -1085,7 +1079,7 @@ async def cancel_accept_my_secret_request(
 
 
 # [시크릿] 요청 수락된 시크릿 앨범 조회
-@router.get("/v1/gik-backend/secret/images", status_code=status.HTTP_200_OK)
+@router.get("/secret/images", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_accepted_secret_images(
     token: str = Depends(oauth2_scheme),
@@ -1114,7 +1108,7 @@ async def fetch_accepted_secret_images(
     }
 
 
-@router.post("/v1/gik-backend/user/credit/give", status_code=status.HTTP_200_OK)
+@router.post("/user/credit/give", status_code=status.HTTP_200_OK)
 @inject
 async def give_user_credit(
     user_credit_type: UserCreditRequest,
@@ -1142,7 +1136,7 @@ async def give_user_credit(
     }
 
 
-@router.post("/v1/gik-backend/user/credit/consume", status_code=status.HTTP_200_OK)
+@router.post("/user/credit/consume", status_code=status.HTTP_200_OK)
 @inject
 async def consume_user_credit(
     user_credit_type: UserCreditRequest,
@@ -1168,7 +1162,7 @@ async def consume_user_credit(
     }
 
 
-@router.post("/v1/gik-backend/user/credit/{user_id}", status_code=status.HTTP_200_OK)
+@router.post("/user/credit/{user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def add_user_credit_profile_view(
     user_id: str,
@@ -1191,7 +1185,7 @@ async def add_user_credit_profile_view(
     }
 
 
-@router.get("/v1/gik-backend/user/credit/profile", status_code=status.HTTP_200_OK)
+@router.get("/user/credit/profile", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_credit_profile_view(
     page: int = Query(...),
@@ -1212,7 +1206,7 @@ async def fetch_user_credit_profile_view(
     }
 
 
-@router.get("/v1/gik-backend/users/block", status_code=status.HTTP_200_OK)
+@router.get("/users/block", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_block_list(
     page: int = Query(...),
@@ -1232,7 +1226,7 @@ async def fetch_user_block_list(
     }
 
 
-@router.patch("/v1/gik-backend/users/block", status_code=status.HTTP_200_OK)
+@router.patch("/users/block", status_code=status.HTTP_200_OK)
 @inject
 async def unblock_user(
     user_block: UserUnblockRequest,
@@ -1253,9 +1247,7 @@ async def unblock_user(
 
 
 # TOBE: 아직 구체화가 더 필요.
-@router.post(
-    "/v1/gik-backend/users/poke/{target_user_id}", status_code=status.HTTP_200_OK
-)
+@router.post("/users/poke/{target_user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def poke_user(
     target_user_id: str,
@@ -1305,7 +1297,7 @@ async def poke_user(
 
 
 # TOBE: 아직 구체화가 더 필요.
-@router.get("/v1/gik-backend/users/poke-list", status_code=status.HTTP_200_OK)
+@router.get("/users/poke-list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_my_poke_list(
     page: int = Query(...),
@@ -1325,7 +1317,7 @@ async def fetch_my_poke_list(
     }
 
 
-@router.post("/v1/gik-backend/users/favorite", status_code=status.HTTP_200_OK)
+@router.post("/users/favorite", status_code=status.HTTP_200_OK)
 @inject
 async def favorite_user(
     target_user_id: UserFavoriteRequest,
@@ -1352,7 +1344,7 @@ async def favorite_user(
 
 
 # 내가 결제해서 해제한 프로필/시크릿 앨범 갯수
-@router.get("/v1/gik-backend/user/unlock/count", status_code=status.HTTP_200_OK)
+@router.get("/user/unlock/count", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_unlock_count(
     token: str = Depends(oauth2_scheme),

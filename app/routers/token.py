@@ -13,11 +13,11 @@ from app.utils.token import (
 from jose import jwt
 
 oauth2_scheme = HTTPBearer()
-router = APIRouter()
+router = APIRouter(prefix="/v1/gik-backend/token", tags=["Token"])
 
 
 # TODO: expired_in을 어떻게 처리할지.
-@router.get("/v1/gik-backend/token/refresh", status_code=status.HTTP_200_OK)
+@router.get("/refresh", status_code=status.HTTP_200_OK)
 @inject
 async def refresh_token(
     token: str = Depends(oauth2_scheme),
@@ -45,7 +45,7 @@ async def refresh_token(
     }
 
 
-@router.get("/v1/gik-backend/token/{user_id}", status_code=status.HTTP_200_OK)
+@router.get("/{user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def generate_user_token(
     user_id: str,
@@ -82,7 +82,7 @@ async def generate_user_token(
     }
 
 
-@router.post("/v1/gik-backend/token/logout", status_code=status.HTTP_200_OK)
+@router.post("/logout", status_code=status.HTTP_200_OK)
 @inject
 async def logout_user(
     token: str = Depends(oauth2_scheme),
