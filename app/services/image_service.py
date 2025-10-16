@@ -7,7 +7,7 @@ from typing import List, Optional
 
 
 class ImageService:
-    def __init__(self):
+    def __init__(self, db):
         self.db = db
 
     async def upload_user_secret_images(

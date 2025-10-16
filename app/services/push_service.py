@@ -4,15 +4,13 @@ import time, json
 from fastapi import HTTPException
 from firebase_admin import messaging
 from app.utils.firebase_init import init_firebase_admin
-from app.services.user_service import UserService
 from app.db.db_connection import db
 import uuid
 
 
 class PushService:
-    def __init__(self):
+    def __init__(self, db):
         init_firebase_admin()
-        self.user_service = UserService()
 
     def _build_message(
         self,

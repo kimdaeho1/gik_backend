@@ -31,24 +31,25 @@ from app.services.community_service import CommunityService
 from app.services.push_service import PushService
 from app.utils.token import get_user_id_from_token
 from app.services.user_service import UserService
+from dependency_injector.wiring import inject, Provide
+from app.core.container import Container
 import uuid
 
 oauth2_scheme = HTTPBearer()
-router = APIRouter()
-community_service = CommunityService()
-user_service = UserService()
-push_service = PushService()
+router = APIRouter(prefix="/v1/gik-backend/community", tags=["community"])
 
 
 # TODO : category, is_admin 컬럼 추가해서 전면 수정 필요 is_admin은 admin웹페이지에서 쓴 글만 true로, default NULL.
 # [게시글] 게시글 등록
-@router.post("/v1/gik-backend/community", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
+@inject
 async def create_post(
     user_id: str = Form(...),
     title: str = Form(...),
     content: str = Form(...),
     category: Optional[str] = Form(default="talk"),
     images: Optional[List[UploadFile]] = File(default=[]),
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
 ):
     """
     게시글 등록
@@ -73,7 +74,8 @@ async def create_post(
 
 # 카테고리는 수정이 안되는거라고 하셔서(수민님) 일단은 카테고리 수정은 제외함.
 # [게시글] 게시글 수정
-@router.patch("/v1/gik-backend/community/{post_id}", status_code=status.HTTP_200_OK)
+@router.patch("/{post_id}", status_code=status.HTTP_200_OK)
+@inject
 async def edit_post(
     post_id: str,
     user_id: str = Form(...),
@@ -81,6 +83,7 @@ async def edit_post(
     content: str = Form(...),
     url_list: Optional[List[str]] = Form(default=[]),
     images: List[UploadFile] = File(default=[]),
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
 ):
     """
     게시글 수정
@@ -110,9 +113,11 @@ async def edit_post(
 
 # TODO 라우터 경로설정 신경써야할듯. 현재 토큰이 따로 없어 user_id를 받아와야 하는 상황에서, delete메서드를 사용할 수 없어서 post로 사용하고, 라우터 경로를 delete로 임시저장.
 # [게시글] 게시글 삭제
-@router.post("/v1/gik-backend/community/delete", status_code=status.HTTP_200_OK)
+@router.post("/delete", status_code=status.HTTP_200_OK)
+@inject
 async def delete_post(
     delete_request: PostDeleteRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
 ):
     """
     게시글 삭제
@@ -132,10 +137,12 @@ async def delete_post(
 
 # TODO: 카테고리 별 list를 따로 불러올 필요가 있음.
 # [게시글] 게시글 목록 불러오기
-@router.get("/v1/gik-backend/community", status_code=status.HTTP_200_OK)
+@router.get("", status_code=status.HTTP_200_OK)
+@inject
 async def get_posts(
     page: int = Query(...),
     category: Optional[str] = Query(default=None),
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
 ):
     """
     게시글 목록 불러오기
@@ -147,8 +154,12 @@ async def get_posts(
 
 
 # [게시글] 게시글 상세보기
-@router.get("/v1/gik-backend/community/{post_id}", status_code=status.HTTP_200_OK)
-async def get_post_detail(post_id: str):
+@router.get("/{post_id}", status_code=status.HTTP_200_OK)
+@inject
+async def get_post_detail(
+    post_id: str,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 상세보기
     post_id: 상세보기할 게시글 ID
@@ -164,8 +175,13 @@ async def get_post_detail(post_id: str):
 
 
 # [게시글] 게시글 검색
-@router.get("/v1/gik-backend/community/search/{search}", status_code=status.HTTP_200_OK)
-async def search_posts(search: str, category: Optional[str] = None):
+@router.get("/search/{search}", status_code=status.HTTP_200_OK)
+@inject
+async def search_posts(
+    search: str,
+    category: Optional[str] = None,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 검색
     search(수정 예정): 검색어
@@ -176,8 +192,12 @@ async def search_posts(search: str, category: Optional[str] = None):
 
 # TODO: snake_case로 변경 필요
 # [게시글] 게시글 좋아요
-@router.post("/v1/gik-backend/community/post/likes", status_code=status.HTTP_200_OK)
-async def like_post(like_request: PostLikeRequest):
+@router.post("/post/likes", status_code=status.HTTP_200_OK)
+@inject
+async def like_post(
+    like_request: PostLikeRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 좋아요
     userId: 게시글을 좋아요한 사용자 ID
@@ -196,13 +216,15 @@ async def like_post(like_request: PostLikeRequest):
 
 
 # [게시글] 게시글 좋아요, 토큰으로 변경 및 push 전송
-@router.post(
-    "/v1/gik-backend/community/post/likes-token", status_code=status.HTTP_200_OK
-)
+@router.post("/post/likes-token", status_code=status.HTTP_200_OK)
+@inject
 async def like_post_with_push(
     post_id_request: PostLikeRequestToken,
     background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     게시글 좋아요(토큰 사용)
@@ -263,10 +285,12 @@ async def like_post_with_push(
 
 # TODO: snake_case로 변경 필요
 # [게시글] 게시글 좋아요 취소
-@router.post(
-    "/v1/gik-backend/community/post/cancel_likes", status_code=status.HTTP_200_OK
-)
-async def cancel_post_like(like_request: PostLikeRequest):
+@router.post("/post/cancel_likes", status_code=status.HTTP_200_OK)
+@inject
+async def cancel_post_like(
+    like_request: PostLikeRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 좋아요 취소
     userId: 게시글 좋아요 취소한 사용자 ID
@@ -285,8 +309,12 @@ async def cancel_post_like(like_request: PostLikeRequest):
 
 
 # [게시글] 게시글 차단
-@router.post("/v1/gik-backend/community/post/block", status_code=status.HTTP_200_OK)
-async def block_post(block_request: PostBlockRequest):
+@router.post("/post/block", status_code=status.HTTP_200_OK)
+@inject
+async def block_post(
+    block_request: PostBlockRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 차단
     userId: 게시글을 차단한 사용자 ID
@@ -304,8 +332,12 @@ async def block_post(block_request: PostBlockRequest):
 
 
 # [게시글] 게시글 신고
-@router.post("/v1/gik-backend/community/post/report", status_code=status.HTTP_200_OK)
-async def report_post(report_request: PostReportRequest):
+@router.post("/post/report", status_code=status.HTTP_200_OK)
+@inject
+async def report_post(
+    report_request: PostReportRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 신고
     reportPostId: 신고할 게시글 ID
@@ -326,8 +358,12 @@ async def report_post(report_request: PostReportRequest):
 
 
 # [게시글] 게시글 댓글 작성하기
-@router.post("/v1/gik-backend/community/comments", status_code=status.HTTP_201_CREATED)
-async def create_comment(comment_request: PostCommentRequest):
+@router.post("/comments", status_code=status.HTTP_201_CREATED)
+@inject
+async def create_comment(
+    comment_request: PostCommentRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 댓글 작성하기
     postId: 댓글을 작성할 게시글 ID
@@ -347,13 +383,15 @@ async def create_comment(comment_request: PostCommentRequest):
     return {"success": success, "message": "댓글 작성 성공"}
 
 
-@router.post(
-    "/v1/gik-backend/community/comments-token", status_code=status.HTTP_201_CREATED
-)
+@router.post("/comments-token", status_code=status.HTTP_201_CREATED)
+@inject
 async def create_comment_with_push(
     comment_request: PostCommentRequestToken,
     background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     게시글 댓글 작성하기 (토큰 사용)
@@ -409,8 +447,12 @@ async def create_comment_with_push(
 
 
 # [게시글] 게시글 댓글 좋아요
-@router.post("/v1/gik-backend/community/comment/likes", status_code=status.HTTP_200_OK)
-async def like_comment(comment_like_request: CommentLikeRequest):
+@router.post("/comment/likes", status_code=status.HTTP_200_OK)
+@inject
+async def like_comment(
+    comment_like_request: CommentLikeRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 댓글 좋아요
     userId: 댓글을 좋아요한 사용자 ID
@@ -428,10 +470,12 @@ async def like_comment(comment_like_request: CommentLikeRequest):
 
 
 # [게시글] 게시글 댓글 좋아요 취소
-@router.post(
-    "/v1/gik-backend/community/comment/cancel_likes", status_code=status.HTTP_200_OK
-)
-async def cancel_like_comment(comment_like_cancel_request: CommentLikeRequest):
+@router.post("/comment/cancel_likes", status_code=status.HTTP_200_OK)
+@inject
+async def cancel_like_comment(
+    comment_like_cancel_request: CommentLikeRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 댓글 좋아요 취소
     userId: 댓글 좋아요 취소한 사용자 ID
@@ -450,10 +494,12 @@ async def cancel_like_comment(comment_like_cancel_request: CommentLikeRequest):
 
 
 # [게시글] 게시글 댓글 삭제하기
-@router.post(
-    "/v1/gik-backend/community/comments/delete", status_code=status.HTTP_200_OK
-)
-async def delete_comment(comment_delete_request: CommentDeleteRequest):
+@router.post("/comments/delete", status_code=status.HTTP_200_OK)
+@inject
+async def delete_comment(
+    comment_delete_request: CommentDeleteRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 댓글 삭제하기
     userId: 댓글을 삭제한 사용자 ID
@@ -471,10 +517,12 @@ async def delete_comment(comment_delete_request: CommentDeleteRequest):
 
 
 # [게시글] 게시글 댓글 목록 불러오기
-@router.get(
-    "/v1/gik-backend/community/comments/{post_id}", status_code=status.HTTP_200_OK
-)
-async def get_comments(post_id: str):
+@router.get("/comments/{post_id}", status_code=status.HTTP_200_OK)
+@inject
+async def get_comments(
+    post_id: str,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 댓글 목록 불러오기
     post_id: 댓글 목록을 불러올 게시글 ID
@@ -486,10 +534,12 @@ async def get_comments(post_id: str):
 
 # TODO 게시글 댓글 수정은 이전 댓글의 데이터는 삭제하지 않는 것으로.
 # [게시글] 게시글 댓글 수정하기
-@router.patch(
-    "/v1/gik-backend/community/comments/{comment_id}", status_code=status.HTTP_200_OK
-)
-async def edit_comment(comment_edit_request: CommentEditRequest):
+@router.patch("/comments/{comment_id}", status_code=status.HTTP_200_OK)
+@inject
+async def edit_comment(
+    comment_edit_request: CommentEditRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     게시글 댓글 수정하기
     userId: 댓글을 수정한 사용자 ID
@@ -509,10 +559,12 @@ async def edit_comment(comment_edit_request: CommentEditRequest):
 
 
 # [게시글] 내 게시글 불러오기
-@router.post(
-    "/v1/gik-backend/community/my-post/{user_id}", status_code=status.HTTP_200_OK
-)
-async def get_my_posts(user_id: str):
+@router.post("/my-post/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def get_my_posts(
+    user_id: str,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     내 게시글 불러오기
     user_id: 게시글을 작성한 사용자 ID
@@ -523,10 +575,12 @@ async def get_my_posts(user_id: str):
 
 
 # [게시글] 내 댓글 불러오기
-@router.post(
-    "/v1/gik-backend/community/my-comment/{user_id}", status_code=status.HTTP_200_OK
-)
-async def get_my_comments(user_id: str):
+@router.post("/my-comment/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def get_my_comments(
+    user_id: str,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     내 댓글 불러오기
     user_id: 댓글을 작성한 사용자 ID
@@ -537,8 +591,12 @@ async def get_my_comments(user_id: str):
 
 
 # [게시글] 댓글 차단하기
-@router.post("/v1/gik-backend/community/comment/block", status_code=status.HTTP_200_OK)
-async def block_comment(block_request: CommentBlockRequest):
+@router.post("/comment/block", status_code=status.HTTP_200_OK)
+@inject
+async def block_comment(
+    block_request: CommentBlockRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     댓글 차단하기
     userId: 댓글을 차단한 사용자 ID
@@ -555,8 +613,12 @@ async def block_comment(block_request: CommentBlockRequest):
 
 
 # [게시글] 댓글 신고하기
-@router.post("/v1/gik-backend/community/comment/report", status_code=status.HTTP_200_OK)
-async def report_comment(report_request: CommentReportRequest):
+@router.post("/comment/report", status_code=status.HTTP_200_OK)
+@inject
+async def report_comment(
+    report_request: CommentReportRequest,
+    community_service: CommunityService = Depends(Provide[Container.community_service]),
+):
     """
     댓글 신고하기
     reportCommentId: 신고할 댓글 ID

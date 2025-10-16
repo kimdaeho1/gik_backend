@@ -26,7 +26,7 @@ from app.utils.config import (
 from app.utils.logging_config import get_logger
 
 
-router = APIRouter()
+router = APIRouter(prefix="/v1/gik-backend", tags=["Payment"])
 logger = get_logger(__name__)
 oauth2_scheme = HTTPBearer()
 
@@ -82,7 +82,7 @@ def get_product_price(product_id, package_name):
         return None, None
 
 
-@router.post("/v1/gik-backend/purchase/verify-android", status_code=status.HTTP_200_OK)
+@router.post("/purchase/verify-android", status_code=status.HTTP_200_OK)
 async def android_verify_purchase_endpoint(
     payments_info: VerifyPaymentsAndroid, token: str = Depends(oauth2_scheme)
 ):
@@ -190,7 +190,7 @@ async def android_verify_purchase_endpoint(
         raise HTTPException(status_code=500, detail="영수증 검증 중 오류 발생")
 
 
-@router.post("/v1/gik-backend/purchase/verify-ios", status_code=status.HTTP_200_OK)
+@router.post("/purchase/verify-ios", status_code=status.HTTP_200_OK)
 async def ios_verify_purchase_endpoint(
     payments_info: VerifyPaymentsIOS, token: str = Depends(oauth2_scheme)
 ):

@@ -5,10 +5,10 @@ from app.services.credit_service import CreditManager
 from app.utils.token import get_user_id_from_token
 
 oauth2_scheme = HTTPBearer()
-router = APIRouter()
+router = APIRouter(prefix="/v1/gik-backend", tags=["Credit"])
 
 
-@router.get("/v1/gik-backend/credit", status_code=status.HTTP_200_OK)
+@router.get("/credit", status_code=status.HTTP_200_OK)
 async def get_credit_end_point(token: str = Depends(oauth2_scheme)) -> dict:
     """
     현재 보유 중인 크레딧을 조회
@@ -22,7 +22,7 @@ async def get_credit_end_point(token: str = Depends(oauth2_scheme)) -> dict:
     return {"balance": credit_balance}
 
 
-@router.get("/v1/gik-backend/credit-history", status_code=status.HTTP_200_OK)
+@router.get("/credit-history", status_code=status.HTTP_200_OK)
 async def get_credit_history_end_point(token: str = Depends(oauth2_scheme)) -> dict:
     """
     현재 크레딧 내역을 조회

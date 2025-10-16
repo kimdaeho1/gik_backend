@@ -1,7 +1,7 @@
 from fastapi import UploadFile, HTTPException, status
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
-from app.routers.image import generate_filename
+from app.utils.s3_upload import generate_filename
 from app.utils.utils import kst
 from app.db.db_connection import db
 from app.db.community import PostListResponse, CommentResponse, PostDetailResponse
@@ -12,7 +12,7 @@ import io, uuid, requests
 
 
 class CommunityService:
-    def __init__(self):
+    def __init__(self, db):
         self.db = db
 
     async def create_post(

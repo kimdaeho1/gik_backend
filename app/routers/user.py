@@ -1,4 +1,5 @@
 from typing import List
+from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
 from fastapi import BackgroundTasks, Depends
 from typing import Optional
@@ -27,17 +28,17 @@ from app.db.user import (
 from app.services.user_service import UserService
 from app.services.push_service import PushService
 from app.utils.token import get_user_id_from_token, JWTBearer
+from app.core.container import Container
 import uuid
 
 oauth2_scheme = JWTBearer(auto_error=False)
-router = APIRouter()
-user_service = UserService()
-push_service = PushService()
+router = APIRouter(prefix="/v1/gik-backend", tags=["User"])
 
 
-# user.py로 적어놓았으면 컨벤션을 user로 써야하지 않을까.
+# TODO: user.py로 적어놓았으면 컨벤션을 user로 써야하지 않을까.
 # [유저] 회원가입
-@router.post("/v1/gik-backend/user", status_code=status.HTTP_201_CREATED)
+@router.post("/user", status_code=status.HTTP_201_CREATED)
+@inject
 async def create_user_endpoint(
     id: str = Form(...),
     fcm: str = Form(...),
@@ -69,6 +70,7 @@ async def create_user_endpoint(
     night_agree: bool = Form(...),
     leave: bool = Form(...),
     test: Optional[str] = Form(default=""),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 회원가입
@@ -116,10 +118,11 @@ async def create_user_endpoint(
 
 
 # [유저] 닉네임 중복 확인
-@router.get(
-    "/v1/gik-backend/user/check-nickname/{nickname}", status_code=status.HTTP_200_OK
-)
-async def check_user_nickname(nickname: str):
+@router.get("/user/check-nickname/{nickname}", status_code=status.HTTP_200_OK)
+@inject
+async def check_user_nickname(
+    nickname: str, user_service: UserService = Depends(Provide[Container.user_service])
+):
     """
     유저 닉네임 중복 확인
     nickname: 유저 닉네임
@@ -132,8 +135,12 @@ async def check_user_nickname(nickname: str):
     }
 
 
-@router.get("/v1/gik-backend/my-profile", status_code=status.HTTP_200_OK)
-async def fetch_my_profile_by_token(token=Depends(oauth2_scheme)):
+@router.get("/my-profile", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_my_profile_by_token(
+    token=Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 프로필 조회
     id: 유저 ID
@@ -146,8 +153,11 @@ async def fetch_my_profile_by_token(token=Depends(oauth2_scheme)):
 
 # TODO : 토큰으로 한번 검증 후에 만약 없다면 id로 검증.
 # [유저] 내 정보 조회 (user_id로)
-@router.get("/v1/gik-backend/my-profile/{id}", status_code=status.HTTP_200_OK)
-async def fetch_my_profile(id: str):
+@router.get("/my-profile/{id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_my_profile(
+    id: str, user_service: UserService = Depends(Provide[Container.user_service])
+):
     """
     유저 프로필 조회
     id: 유저 ID
@@ -158,8 +168,12 @@ async def fetch_my_profile(id: str):
 
 
 # [유저] 내 정보 수정 (닉네임)
-@router.patch("/v1/gik-backend/my-profile/nickname", status_code=status.HTTP_200_OK)
-async def update_user_nickname(user_nickname: UserNicknameRequest):
+@router.patch("/my-profile/nickname", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_nickname(
+    user_nickname: UserNicknameRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 닉네임 수정
     id: 유저 ID
@@ -178,8 +192,12 @@ async def update_user_nickname(user_nickname: UserNicknameRequest):
 
 
 # [유저] 내 정보 수정 (해시태그)
-@router.patch("/v1/gik-backend/my-profile/hashtag", status_code=status.HTTP_200_OK)
-async def update_user_hashtag(user_hashtags: UserHashtagRequest):
+@router.patch("/my-profile/hashtag", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_hashtag(
+    user_hashtags: UserHashtagRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 해시태그 수정
     id: 유저 ID
@@ -196,8 +214,12 @@ async def update_user_hashtag(user_hashtags: UserHashtagRequest):
 
 
 # [유저] 내 정보 수정 (기본정보)
-@router.patch("/v1/gik-backend/my-profile/info", status_code=status.HTTP_200_OK)
-async def update_user_info(user_info: UserInfoRequest):
+@router.patch("/my-profile/info", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_info(
+    user_info: UserInfoRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 기본 정보 수정
     id: 유저 ID
@@ -221,8 +243,12 @@ async def update_user_info(user_info: UserInfoRequest):
 
 
 # [유저] 내 정보 수정 (fcm 코드)
-@router.patch("/v1/gik-backend/my-profile/fcm", status_code=status.HTTP_200_OK)
-async def update_user_fcm(user_fcm: UserFcmRequest):
+@router.patch("/my-profile/fcm", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_fcm(
+    user_fcm: UserFcmRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 FCM 코드 수정
     id: 유저 ID
@@ -237,8 +263,12 @@ async def update_user_fcm(user_fcm: UserFcmRequest):
 
 
 # [유저] 내 정보 수정 (희망 관계)
-@router.patch("/v1/gik-backend/my-profile/relation", status_code=status.HTTP_200_OK)
-async def update_user_relation(user_relation: UserRelationRequest):
+@router.patch("/my-profile/relation", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_relation(
+    user_relation: UserRelationRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 희망 관계 수정
     id: 유저 ID
@@ -255,8 +285,12 @@ async def update_user_relation(user_relation: UserRelationRequest):
 
 
 # [유저] 내 정보 수정 (포지션)
-@router.patch("/v1/gik-backend/my-profile/position", status_code=status.HTTP_200_OK)
-async def update_user_position(user_position: UserPositionRequest):
+@router.patch("/my-profile/position", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_position(
+    user_position: UserPositionRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 포지션 수정
     id: 유저 ID
@@ -273,8 +307,12 @@ async def update_user_position(user_position: UserPositionRequest):
 
 
 # [유저] 내 소통 스타일 수정 (선택사항)
-@router.post("/v1/gik-backend/my-profile/talk-style", status_code=status.HTTP_200_OK)
-async def update_user_talk_style(user_talk_style: UserTalkStyleRequest):
+@router.post("/my-profile/talk-style", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_talk_style(
+    user_talk_style: UserTalkStyleRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 소통 스타일 수정
     id: 유저 ID
@@ -292,8 +330,13 @@ async def update_user_talk_style(user_talk_style: UserTalkStyleRequest):
 
 
 # [유저] 내 정보 수정 (알람)
-@router.patch("/v1/gik-backend/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
-async def update_user_alarm(user_alarm: UserAlarmRequest, type: str):
+@router.patch("/my-profile/alarm/{type}", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_alarm(
+    user_alarm: UserAlarmRequest,
+    type: str,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 알람 설정 수정
     id: 유저 ID
@@ -311,11 +354,11 @@ async def update_user_alarm(user_alarm: UserAlarmRequest, type: str):
 
 
 # [유저] 내 정보 수정 (자기소개)
-@router.patch(
-    "/v1/gik-backend/my-profile/self-introduction", status_code=status.HTTP_200_OK
-)
+@router.patch("/my-profile/self-introduction", status_code=status.HTTP_200_OK)
+@inject
 async def update_user_self_introduction(
     user_self_introduction: UserIntroductionRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 자기소개 변경
@@ -333,8 +376,12 @@ async def update_user_self_introduction(
 
 
 # [유저] 내 정보 수정 (bdsm 타입)
-@router.patch("/v1/gik-backend/my-profile/bdsm-type", status_code=status.HTTP_200_OK)
-async def update_user_bdsm_type(user_bdsm_type: UserBdsmRequest):
+@router.patch("/my-profile/bdsm-type", status_code=status.HTTP_200_OK)
+@inject
+async def update_user_bdsm_type(
+    user_bdsm_type: UserBdsmRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 bdsm 타입 변경
     user_bdsm_type: bdsm 타입
@@ -350,8 +397,11 @@ async def update_user_bdsm_type(user_bdsm_type: UserBdsmRequest):
 
 
 # [유저] 상대 유저 상세정보 조회
-@router.get("/v1/gik-backend/user/{user_id}", status_code=status.HTTP_200_OK)
-async def fetch_user_profile(user_id: str):
+@router.get("/user/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_profile(
+    user_id: str, user_service: UserService = Depends(Provide[Container.user_service])
+):
     """
     상대 유저 프로필 조회
     user_id: 조회할 상대 유저 ID
@@ -364,8 +414,13 @@ async def fetch_user_profile(user_id: str):
 
 
 # [유저] 상대 유저의 차단 여부 확인 True/False로 체크
-@router.get("/v1/gik-backend/user/block/{opponent_id}", status_code=status.HTTP_200_OK)
-async def check_user_block(opponent_id: str, token: str = Depends(oauth2_scheme)):
+@router.get("/user/block/{opponent_id}", status_code=status.HTTP_200_OK)
+@inject
+async def check_user_block(
+    opponent_id: str,
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     상대 유저의 차단 여부 확인
     token: 본인 엑세스 토큰
@@ -383,9 +438,14 @@ async def check_user_block(opponent_id: str, token: str = Depends(oauth2_scheme)
 
 
 # [유저] 상대 유저 상세정보 조회(토큰, 푸시)
-@router.get("/v1/gik-backend/user-token/{user_id}", status_code=status.HTTP_200_OK)
+@router.get("/user-token/{user_id}", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_profile_with_push(
-    user_id: str, background_tasks: BackgroundTasks, token: str = Depends(oauth2_scheme)
+    user_id: str,
+    background_tasks: BackgroundTasks,
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     상대 유저 프로필 조회
@@ -438,8 +498,12 @@ async def fetch_user_profile_with_push(
 
 
 # [유저] 상대 유저 차단
-@router.post("/v1/gik-backend/user/block", status_code=status.HTTP_200_OK)
-async def block_user(user_block: UserBlockRequest):
+@router.post("/user/block", status_code=status.HTTP_200_OK)
+@inject
+async def block_user(
+    user_block: UserBlockRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     상대 유저 차단
     id: 유저 ID (본인)
@@ -456,8 +520,12 @@ async def block_user(user_block: UserBlockRequest):
 
 
 # [유저] 상대 유저 신고
-@router.post("/v1/gik-backend/user/report", status_code=status.HTTP_200_OK)
-async def report_user(user_report: UserReportRequest):
+@router.post("/user/report", status_code=status.HTTP_200_OK)
+@inject
+async def report_user(
+    user_report: UserReportRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 신고
     chatId: 채팅방 ID (채팅방에서 신고했다면 존재)
@@ -481,9 +549,12 @@ async def report_user(user_report: UserReportRequest):
 
 
 # [유저] 유저 목록으로 조회
-@router.post("/v1/gik-backend/users/list", status_code=status.HTTP_200_OK)
+@router.post("/users/list", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_list(
-    user_id_list: UserListRequest, token: str = Depends(oauth2_scheme)
+    user_id_list: UserListRequest,
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 목록으로 조회
@@ -495,7 +566,8 @@ async def fetch_user_list(
 
 
 # [유저] 유저 ID 목록 조회 (탈퇴하지 않은 유저 전체) / 희망하는 관계, 소통 스타일을 쿼리 파라미터로 받아서 필터
-@router.get("/v1/gik-backend/users/id_list", status_code=status.HTTP_200_OK)
+@router.get("/users/id_list", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_id_list(
     token: str = Depends(oauth2_scheme),
     position: str = None,
@@ -504,6 +576,7 @@ async def fetch_user_id_list(
     talkStyle: str = None,
     age: str = None,
     secret: bool = None,
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 ID 목록 조회
@@ -524,7 +597,8 @@ async def fetch_user_id_list(
 
 
 # [유저] 유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
-@router.get("/v1/gik-backend/users/id_list/near", status_code=status.HTTP_200_OK)
+@router.get("/users/id_list/near", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_near_user_id_list(
     token: str = Depends(oauth2_scheme),
     age: str = None,
@@ -533,6 +607,7 @@ async def fetch_near_user_id_list(
     bdsmType: str = None,
     talkStyle: str = None,
     secret: bool = None,
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
@@ -557,8 +632,12 @@ async def fetch_near_user_id_list(
 
 
 # [유저] 유저 FCM 목록 조회 (탈퇴하지 않은 유저 전체) 유저id리스트 보내주면
-@router.post("/v1/gik-backend/users/fcm_list", status_code=status.HTTP_200_OK)
-async def fetch_user_fcm_list(user_id_list: UserListRequest):
+@router.post("/users/fcm_list", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_fcm_list(
+    user_id_list: UserListRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 FCM 목록 조회
     """
@@ -569,8 +648,12 @@ async def fetch_user_fcm_list(user_id_list: UserListRequest):
 
 
 # [유저] 회원 탈퇴 (leaved 탈퇴)
-@router.post("/v1/gik-backend/leave", status_code=status.HTTP_200_OK)
-async def leave_user(user_leave: UserLeaveRequest):
+@router.post("/leave", status_code=status.HTTP_200_OK)
+@inject
+async def leave_user(
+    user_leave: UserLeaveRequest,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저 탈퇴
     """
@@ -583,10 +666,12 @@ async def leave_user(user_leave: UserLeaveRequest):
     return {"success": result, "message": "유저 탈퇴 성공."}
 
 
-@router.patch("/v1/gik-backend/user/health/{user_id}", status_code=status.HTTP_200_OK)
+@router.patch("/user/health/{user_id}", status_code=status.HTTP_200_OK)
+@inject
 async def user_health_check(
     user_id: str,
     user_health: Optional[UserHealthCheckRequest] = None,
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 실시간 정보를 찍기 위한 API
@@ -605,11 +690,13 @@ async def user_health_check(
     return {"success": result, "message": "유저 실시간 정보 업데이트 성공."}
 
 
-@router.patch("/v1/gik-backend/user/images", status_code=status.HTTP_200_OK)
+@router.patch("/user/images", status_code=status.HTTP_200_OK)
+@inject
 async def update_user_images(
     user_id: str = Form(...),
     image_index: Optional[List[str]] = Form(default=[]),
     images: Optional[List[UploadFile]] = File(default=None),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 프로필 사진 수정
@@ -633,11 +720,13 @@ async def update_user_images(
     }
 
 
-@router.get("/v1/gik-backend/user/push/list", status_code=status.HTTP_200_OK)
+@router.get("/user/push/list", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_push_list(
     push_type: Optional[str] = Query(None),
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저가 받은 푸시 목록 조회
@@ -656,9 +745,12 @@ async def fetch_user_push_list(
     }
 
 
-@router.patch("/v1/gik-backend/user/push/receive", status_code=status.HTTP_200_OK)
+@router.patch("/user/push/receive", status_code=status.HTTP_200_OK)
+@inject
 async def receive_user_push(
-    push_id: str = Query(...), token: str = Depends(oauth2_scheme)
+    push_id: str = Query(...),
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저의 푸시 수신, db의 delivery_state를 OPENED로 변경
@@ -677,8 +769,12 @@ async def receive_user_push(
     return {"success": result, "message": "유저 푸시 수신 처리 성공"}
 
 
-@router.patch("/v1/gik-backend/user/push/all-receive", status_code=status.HTTP_200_OK)
-async def receive_all_user_push(token: str = Depends(oauth2_scheme)):
+@router.patch("/user/push/all-receive", status_code=status.HTTP_200_OK)
+@inject
+async def receive_all_user_push(
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     유저의 모든 푸시 수신, db의 delivery_state를 OPENED로 변경
     """
@@ -695,10 +791,12 @@ async def receive_all_user_push(token: str = Depends(oauth2_scheme)):
     return {"success": result, "message": "유저 모든 푸시 수신 처리 성공"}
 
 
-@router.get("/v1/gik-backend/user/profile/viewed", status_code=status.HTTP_200_OK)
+@router.get("/user/profile/viewed", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_profile_view(
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저를 보고간 사람 조회
@@ -715,11 +813,14 @@ async def fetch_user_profile_view(
 
 
 # [시크릿] 상대 유저의 시크릿 앨범 열람 푸시 전송
-@router.post("/v1/gik-backend/secret/push", status_code=status.HTTP_200_OK)
+@router.post("/secret/push", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_secret_images(
     background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     유저 시크릿 앨범 열람시 푸시
@@ -766,9 +867,12 @@ async def fetch_user_secret_images(
     return {"success": True, "message": "시크릿 앨범 열람 성공"}
 
 
-@router.get("/v1/gik-backend/secret-list", status_code=status.HTTP_200_OK)
+@router.get("/secret-list", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_secret_list(
-    page: int = Query(...), token: str = Depends(oauth2_scheme)
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내 시크릿 앨범을 조회한 사람들 조회
@@ -783,9 +887,12 @@ async def fetch_user_secret_list(
     }
 
 
-@router.post("/v1/gik-backend/secret/credit", status_code=status.HTTP_200_OK)
+@router.post("/secret/credit", status_code=status.HTTP_200_OK)
+@inject
 async def insert_user_credit_secret_list(
-    credit_secret: UserCreditSecretRequest, token: str = Depends(oauth2_scheme)
+    credit_secret: UserCreditSecretRequest,
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제한 시크릿 앨범 추가
@@ -805,10 +912,12 @@ async def insert_user_credit_secret_list(
 
 
 # TODO: 내가 결제한 시크릿 앨범 목록 조회.
-@router.get("/v1/gik-backend/secret/credit-list", status_code=status.HTTP_200_OK)
+@router.get("/secret/credit-list", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_credit_secret_view(
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제한 시크릿 앨범 목록 조회
@@ -826,11 +935,14 @@ async def fetch_user_credit_secret_view(
 
 
 # [시크릿] 상대 유저에게 시크릿 앨범 열람 수락
-@router.patch("/v1/gik-backend/secret/images/accept", status_code=status.HTTP_200_OK)
+@router.patch("/secret/images/accept", status_code=status.HTTP_200_OK)
+@inject
 async def accept_user_secret_images(
     background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     유저 시크릿 앨범 열람 수락
@@ -873,10 +985,12 @@ async def accept_user_secret_images(
 
 
 # [시크릿] 상대 유저에게 시크릿 앨범 열람 거절
-@router.patch("/v1/gik-backend/secret/images/reject", status_code=status.HTTP_200_OK)
+@router.patch("/secret/images/reject", status_code=status.HTTP_200_OK)
+@inject
 async def reject_user_secret_images(
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 시크릿 앨범 열람 거절
@@ -889,10 +1003,12 @@ async def reject_user_secret_images(
 
 
 # [시크릿] 내 시크릿 앨범 요청 취소
-@router.patch("/v1/gik-backend/secret/images/cancel", status_code=status.HTTP_200_OK)
+@router.patch("/secret/images/cancel", status_code=status.HTTP_200_OK)
+@inject
 async def cancel_my_secret_request(
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 시크릿 앨범 요청 취소
@@ -905,8 +1021,12 @@ async def cancel_my_secret_request(
 
 
 # [시크릿] 내가 요청한 시크릿 앨범 열람건 조회
-@router.get("/v1/gik-backend/secret/images/requests", status_code=status.HTTP_200_OK)
-async def fetch_my_secret_request(token: str = Depends(oauth2_scheme)):
+@router.get("/secret/images/requests", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_my_secret_request(
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     내가 상대에게 요청한 시크릿 앨범 요청건 조회
     user_id: token에서 추출, 유저가 상대에게 요청한 시크릿 앨범건 주체
@@ -921,8 +1041,12 @@ async def fetch_my_secret_request(token: str = Depends(oauth2_scheme)):
 
 
 # [시크릿] 나에게 온 시크릿 앨범 요청건 조회
-@router.get("/v1/gik-backend/secret/images/accepts", status_code=status.HTTP_200_OK)
-async def fetch_opponent_secret_request(token: str = Depends(oauth2_scheme)):
+@router.get("/secret/images/accepts", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_opponent_secret_request(
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     나에게 온 상대의 시크릿 앨범 요청건 조회
     user_id: token에서 추출, 유저에게 온 상대방들의 시크릿 앨범 요청건 주체
@@ -937,12 +1061,12 @@ async def fetch_opponent_secret_request(token: str = Depends(oauth2_scheme)):
 
 
 # [시크릿] 내 시크릿 앨범 허용 취소
-@router.patch(
-    "/v1/gik-backend/secret/images/cancel-accept", status_code=status.HTTP_200_OK
-)
+@router.patch("/secret/images/cancel-accept", status_code=status.HTTP_200_OK)
+@inject
 async def cancel_accept_my_secret_request(
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 시크릿 앨범 허용 취소
@@ -955,10 +1079,12 @@ async def cancel_accept_my_secret_request(
 
 
 # [시크릿] 요청 수락된 시크릿 앨범 조회
-@router.get("/v1/gik-backend/secret/images", status_code=status.HTTP_200_OK)
+@router.get("/secret/images", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_accepted_secret_images(
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     요청 수락된 시크릿 앨범 조회
@@ -982,9 +1108,12 @@ async def fetch_accepted_secret_images(
     }
 
 
-@router.post("/v1/gik-backend/user/credit/give", status_code=status.HTTP_200_OK)
+@router.post("/user/credit/give", status_code=status.HTTP_200_OK)
+@inject
 async def give_user_credit(
-    user_credit_type: UserCreditRequest, token: str = Depends(oauth2_scheme)
+    user_credit_type: UserCreditRequest,
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     사용자에게 재화 리워드 제공
@@ -1007,9 +1136,12 @@ async def give_user_credit(
     }
 
 
-@router.post("/v1/gik-backend/user/credit/consume", status_code=status.HTTP_200_OK)
+@router.post("/user/credit/consume", status_code=status.HTTP_200_OK)
+@inject
 async def consume_user_credit(
-    user_credit_type: UserCreditRequest, token: str = Depends(oauth2_scheme)
+    user_credit_type: UserCreditRequest,
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     사용자의 재화 소모
@@ -1030,10 +1162,12 @@ async def consume_user_credit(
     }
 
 
-@router.post("/v1/gik-backend/user/credit/{user_id}", status_code=status.HTTP_200_OK)
+@router.post("/user/credit/{user_id}", status_code=status.HTTP_200_OK)
+@inject
 async def add_user_credit_profile_view(
     user_id: str,
     token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제해서 본 사용자 추가
@@ -1051,9 +1185,12 @@ async def add_user_credit_profile_view(
     }
 
 
-@router.get("/v1/gik-backend/user/credit/profile", status_code=status.HTTP_200_OK)
+@router.get("/user/credit/profile", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_credit_profile_view(
-    page: int = Query(...), token: str = Depends(oauth2_scheme)
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제해서 본 사용자 리스트
@@ -1069,9 +1206,12 @@ async def fetch_user_credit_profile_view(
     }
 
 
-@router.get("/v1/gik-backend/users/block", status_code=status.HTTP_200_OK)
+@router.get("/users/block", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_user_block_list(
-    page: int = Query(...), token: str = Depends(oauth2_scheme)
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 차단한 유저 리스트
@@ -1086,9 +1226,12 @@ async def fetch_user_block_list(
     }
 
 
-@router.patch("/v1/gik-backend/users/block", status_code=status.HTTP_200_OK)
+@router.patch("/users/block", status_code=status.HTTP_200_OK)
+@inject
 async def unblock_user(
-    user_block: UserUnblockRequest, token: str = Depends(oauth2_scheme)
+    user_block: UserUnblockRequest,
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     상대 유저 차단 해제
@@ -1104,13 +1247,14 @@ async def unblock_user(
 
 
 # TOBE: 아직 구체화가 더 필요.
-@router.post(
-    "/v1/gik-backend/users/poke/{target_user_id}", status_code=status.HTTP_200_OK
-)
+@router.post("/users/poke/{target_user_id}", status_code=status.HTTP_200_OK)
+@inject
 async def poke_user(
     target_user_id: str,
     background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     유저 찔러보기
@@ -1153,9 +1297,12 @@ async def poke_user(
 
 
 # TOBE: 아직 구체화가 더 필요.
-@router.get("/v1/gik-backend/users/poke-list", status_code=status.HTTP_200_OK)
+@router.get("/users/poke-list", status_code=status.HTTP_200_OK)
+@inject
 async def fetch_my_poke_list(
-    page: int = Query(...), token: str = Depends(oauth2_scheme)
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     나를 찔러본 유저 리스트
@@ -1170,10 +1317,12 @@ async def fetch_my_poke_list(
     }
 
 
-@router.post("/v1/gik-backend/users/favorite", status_code=status.HTTP_200_OK)
+@router.post("/users/favorite", status_code=status.HTTP_200_OK)
+@inject
 async def favorite_user(
     target_user_id: UserFavoriteRequest,
     token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 즐겨찾기 추가
@@ -1195,8 +1344,12 @@ async def favorite_user(
 
 
 # 내가 결제해서 해제한 프로필/시크릿 앨범 갯수
-@router.get("/v1/gik-backend/user/unlock/count", status_code=status.HTTP_200_OK)
-async def fetch_user_unlock_count(token: str = Depends(oauth2_scheme)):
+@router.get("/user/unlock/count", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_unlock_count(
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
     """
     내가 결제해서 본 프로필 갯수
     user_id: token에서 추출, 블라인드 프로필을 결제한 주체
