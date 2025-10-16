@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.user_service import UserService
 from app.services.token_service import TokenService
+from dependency_injector.wiring import inject, Provide
+from app.core.container import Container
 from app.utils.token import (
     create_access_token,
     create_refresh_token,
@@ -12,13 +14,15 @@ from jose import jwt
 
 oauth2_scheme = HTTPBearer()
 router = APIRouter()
-user_service = UserService()
-token_service = TokenService()
 
 
 # TODO: expired_in을 어떻게 처리할지.
 @router.get("/v1/gik-backend/token/refresh", status_code=status.HTTP_200_OK)
-async def refresh_token(token: str = Depends(oauth2_scheme)):
+@inject
+async def refresh_token(
+    token: str = Depends(oauth2_scheme),
+    token_service: TokenService = Depends(Provide[Container.token_service]),
+):
     """
     리프레시 토큰을 사용해 새로운 엑세스 토큰과 리프레스 토큰 발급
     token : 기존의 리프레시 토큰
@@ -42,8 +46,11 @@ async def refresh_token(token: str = Depends(oauth2_scheme)):
 
 
 @router.get("/v1/gik-backend/token/{user_id}", status_code=status.HTTP_200_OK)
+@inject
 async def generate_user_token(
     user_id: str,
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    token_service: TokenService = Depends(Provide[Container.token_service]),
 ):
     """
     DB에 유저id를 검색하고, 일치하는 유저에게 토큰 발급
@@ -76,7 +83,11 @@ async def generate_user_token(
 
 
 @router.post("/v1/gik-backend/token/logout", status_code=status.HTTP_200_OK)
-async def logout_user(token: str = Depends(oauth2_scheme)):
+@inject
+async def logout_user(
+    token: str = Depends(oauth2_scheme),
+    token_service: TokenService = Depends(Provide[Container.token_service]),
+):
     """
     DB 에서 해당 유저의 액세스 토큰과 리프레시 토큰 제거
     token : 로그아웃할 유저의 액세스 토큰
