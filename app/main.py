@@ -14,8 +14,9 @@ logger = get_logger(__name__)
 
 
 app = FastAPI()
-# 컨테이너 생성
+# 컨테이너를 생성
 container = Container()
+# container.wire이 실제로 의존성 주입을 실행.
 container.wire(
     modules=[
         "app.routers.user",
