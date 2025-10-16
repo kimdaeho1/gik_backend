@@ -245,8 +245,8 @@ async def like_post_with_push(
     like_count = await community_service.fetch_post_like_count(post_id_request.postId)
     await push_service.send_push_to_user(
         background_tasks=background_tasks,
-        user_id=viewer_id,
-        target_user_id=post_user_id,
+        user_id=post_user_id,
+        target_user_id=viewer_id,
         title_content="❤️내 게시글이 반응 폭발 중!",
         body_content=f"회원님의 게시글이 좋아요 {like_count}개를 돌파했어요. 지금 확인해 보세요!",
         data={"type": "postLike", "postId": post_id_request.postId},
@@ -387,8 +387,8 @@ async def create_comment_with_push(
     post_user_id = await community_service.fetch_post_user_id(comment_request.postId)
     await push_service.send_push_to_user(
         background_tasks=background_tasks,
-        commenter_id=commenter_id,
-        post_user_id=post_user_id,
+        user_id=post_user_id,
+        target_user_id=commenter_id,
         title_content="📩 새로운 댓글이 달렸어요!",
         body_content="내 글에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
         data={"type": "profile", "postId": comment_request.postId},

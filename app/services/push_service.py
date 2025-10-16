@@ -321,6 +321,7 @@ class PushService:
         collapse_key=str,
     ):
         # 본인이 본인껄 보거나, 게시글에 좋아요를 누르는 경우는 보내지 않는다
+        print(user_id, target_user_id)
         if user_id == target_user_id:
             return
 
