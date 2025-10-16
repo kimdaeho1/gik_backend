@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from fastapi import Form
 
 
 class Hashtags(BaseModel):
@@ -8,6 +9,100 @@ class Hashtags(BaseModel):
     hobbies: List[str]
     outfitStyle: List[str]
     personality: List[str]
+
+
+class UserCreateRequest(BaseModel):
+    id: str
+    fcm: str
+    email: str
+    name: str
+    phone: str
+    birthday: str
+    provider: str
+    sns: str
+    nickname: str
+    age: int
+    height: int
+    weight: int
+    country: str
+    position: str
+    relation: str
+    hashtags: str
+    self_introduction: Optional[str] = None
+    bdsm_type: Optional[str] = None
+    personal_chat_alarm: bool
+    group_chat_alarm: bool
+    post_comment_alarm: bool
+    post_like_alarm: bool
+    service_agree: bool
+    personal_agree: bool
+    marketing_agree: bool
+    night_agree: bool
+    leave: bool
+    test: Optional[str] = ""
+
+    @classmethod
+    def create_form(
+        cls,
+        id: str = Form(...),
+        fcm: str = Form(...),
+        email: str = Form(...),
+        name: str = Form(...),
+        phone: str = Form(...),
+        birthday: str = Form(...),
+        provider: str = Form(...),
+        sns: str = Form(...),
+        nickname: str = Form(...),
+        age: int = Form(...),
+        height: int = Form(...),
+        weight: int = Form(...),
+        country: str = Form(...),
+        position: str = Form(...),
+        relation: str = Form(...),
+        hashtags: str = Form(...),
+        self_introduction: Optional[str] = Form(default=None),
+        bdsm_type: Optional[str] = Form(default=None),
+        personal_chat_alarm: bool = Form(...),
+        group_chat_alarm: bool = Form(...),
+        post_comment_alarm: bool = Form(...),
+        post_like_alarm: bool = Form(...),
+        service_agree: bool = Form(...),
+        personal_agree: bool = Form(...),
+        marketing_agree: bool = Form(...),
+        night_agree: bool = Form(...),
+        leave: bool = Form(...),
+        test: Optional[str] = Form(default=""),
+    ) -> "UserCreateRequest":
+        return cls(
+            id=id,
+            fcm=fcm,
+            email=email,
+            name=name,
+            phone=phone,
+            birthday=birthday,
+            provider=provider,
+            sns=sns,
+            nickname=nickname,
+            age=age,
+            height=height,
+            weight=weight,
+            country=country,
+            position=position,
+            relation=relation,
+            hashtags=hashtags,
+            self_introduction=self_introduction,
+            bdsm_type=bdsm_type,
+            personal_chat_alarm=personal_chat_alarm,
+            group_chat_alarm=group_chat_alarm,
+            post_comment_alarm=post_comment_alarm,
+            post_like_alarm=post_like_alarm,
+            service_agree=service_agree,
+            personal_agree=personal_agree,
+            marketing_agree=marketing_agree,
+            night_agree=night_agree,
+            leave=leave,
+            test=test,
+        )
 
 
 class User(BaseModel):
@@ -241,3 +336,100 @@ class UserCreditSecretRequest(BaseModel):
 
 class UserFavoriteRequest(BaseModel):
     userId: str
+
+
+class UserProfileRow(BaseModel):
+    id: str
+    nickname: str
+    birthday: str
+    age: int
+    height: int
+    weight: int
+    sns: str
+    relation: str
+    position: str
+    country: str
+    hashtags: str
+    self_introduction: Optional[str]
+    bdsm_type: Optional[str]
+    talk_style: Optional[str]
+    secret_yn: bool
+    credit: int
+    provider: str
+    marketing_agree: bool
+    night_agree: bool
+    personal_chat_alarm_agree: bool
+    group_chat_alarm_agree: bool
+    post_comment_alarm_agree: bool
+    post_like_alarm_agree: bool
+    profile_alarm_agree: bool
+    secret_alarm_agree: bool
+    banned: bool
+    unbanned_dt: Optional[datetime]
+    last_connected_at: datetime
+    latitude: Optional[float]
+    longitude: Optional[float]
+
+
+class UserDetailRow(BaseModel):
+    id: str
+    fcm: str
+    nickname: str
+    birthday: str
+    relation: str
+    position: str
+    country: str
+    age: int
+    height: int
+    weight: int
+    hashtags: str
+    self_introduction: Optional[str]
+    bdsm_type: Optional[str]
+    talk_style: Optional[str]
+    secret_yn: bool
+    leaved: bool
+    personal_chat_alarm_agree: bool
+    group_chat_alarm_agree: bool
+    post_comment_alarm_agree: bool
+    post_like_alarm_agree: bool
+    last_connected_at: datetime
+    latitude: Optional[float]
+    longitude: Optional[float]
+
+
+class UserListRow(BaseModel):
+    id: str
+    fcm: Optional[str]
+    nickname: str
+    birthday: str
+    age: int
+    height: int
+    weight: int
+    relation: str
+    position: str
+    country: str
+    hashtags: str
+    self_introduction: Optional[str]
+    bdsm_type: Optional[str]
+    leaved: bool
+    talk_style: Optional[str]
+    secret_yn: bool
+    personal_chat_alarm_agree: bool
+    group_chat_alarm_agree: bool
+    post_comment_alarm_agree: bool
+    post_like_alarm_agree: bool
+    last_connected_at: datetime
+    latitude: Optional[float]
+    longitude: Optional[float]
+
+
+class ViewCountRow(BaseModel):
+    viewerId: str
+    viewedAt: datetime
+    viewCount: int
+    todayViewCount: int
+
+
+class CountRow(BaseModel):
+    profileCount: int
+    secretCount: int
