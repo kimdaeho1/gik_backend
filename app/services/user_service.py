@@ -2441,6 +2441,10 @@ class UserService:
     async def accept_user_secret_images(self, user_id: str, target_user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+                is_blocked = self.fetch_user_blocked(user_id, target_user_id)
+                if is_blocked:
+                    return
+
                 await cur.execute(
                     "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
                     (target_user_id,),
@@ -3035,6 +3039,11 @@ class UserService:
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+
+                is_blocked = self.fetch_user_blocked(user_id, target_user_id)
+                if is_blocked:
+                    return
+
                 await cur.execute(
                     "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
                     (user_id,),

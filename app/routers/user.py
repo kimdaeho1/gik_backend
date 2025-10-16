@@ -460,36 +460,20 @@ async def fetch_user_profile_with_push(
     # 1-2. api 작업 - 조회할 상대방의 프로필 정보 가져오기
     target_profile = await user_service.fetch_user_profile(user_id, viewer_id)
 
-    # 2-1. push 작업 - fcm 토큰 가져오기
-    target_token = await user_service.fetch_user_fcm(user_id)
+    # user_id = 푸시 받을사람
+    # viewer_id = 푸시 보내는 사람(프로필을 조회한 사람)
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=user_id,
+        target_user_id=viewer_id,
+        title_content="내 프로필을 보고 간 사람이 있어요 👀",
+        body_content="누군가가 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
+        data={"type": "profile", "viewerId": viewer_id},
+        collapse_key=f"profile-view-{user_id}",
+    )
 
-    # 2-2. push 작업 - api를 호출한 사용자의 닉네임 가져오기
-    nickname = await user_service.fetch_user_nickname(viewer_id)
+    await user_service.insert_user_profile_view(user_id, viewer_id)
 
-    # 3. push_logging 작업 - 로그를 남기기 위한 유저 no 가져오기
-    target_user_no = await user_service.fetch_user_no(user_id)
-
-    # 3-1. 만약 상대방이 나를 차단했다면 ( # TODO: 플로우 다시 설계.)
-    is_blocked = await user_service.fetch_user_blocked(user_id, viewer_id)
-
-    if not is_blocked:
-        # 4. push 전송 (backgroud task 내에 들어갈 때 함수 대신 객체를 넣으면 안됨)
-        push_id = str(uuid.uuid4())
-
-        background_tasks.add_task(
-            push_service.push_task,
-            target_token,
-            title="내 프로필을 보고 간 사람이 있어요 👀",
-            body=f"누군가가 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
-            data={"type": "profile", "viewerId": viewer_id, "pushId": push_id},
-            ttl_seconds=3600,
-            collapse_key=f"profile-view-{user_id}",
-            android_priority="high",
-            mutable_content=True,
-            content_available=True,
-            user_no=target_user_no,
-        )
-        await user_service.insert_user_profile_view(user_id, viewer_id)
     return {
         "success": True,
         "message": "유저 정보 조회 성공",
@@ -830,38 +814,22 @@ async def fetch_user_secret_images(
     # api를 호출한 사용자의 id
     user_id = await get_user_id_from_token(token)
 
-    # fcm 토큰 가져오기
-    target_token = await user_service.fetch_user_fcm(target_user_id)
-
-    # 푸시 로깅 작업 - 로그를 남기기 위한 유저의 no 가져오기
-    target_user_no = await user_service.fetch_user_no(target_user_id)
-
-    # 상대방이 나를 차단했다면
-    is_blocked = await user_service.fetch_user_blocked(target_user_id, user_id)
-
     # 내 시크릿 앨범에 사진이 없다면
     is_image = await user_service.fetch_my_secret_images(user_id)
     if is_image is None:
         await user_service.insert_user_secret_images_view(user_id, target_user_id)
         return {"success": False, "message": "내 시크릿 앨범에 사진이 없습니다."}
 
-    if not is_blocked:
-        # 푸시 전송
-        push_id = str(uuid.uuid4())
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=user_id,
+        target_user_id=target_user_id,
+        title_content="내 시크릿 앨범을 보고 간 사람이 있어요 💋",
+        body_content="누군가가 내 시크릿 앨범💋을 보고 갔어요. 지금 접속해서 확인해 보세요!",
+        data={"type": "secret", "requestId": user_id},
+        collapse_key=f"secret-view-{user_id}",
+    )
 
-        background_tasks.add_task(
-            push_service.push_task,
-            target_token,
-            title="시크릿 앨범 열람",
-            body=f"누군가 내 시크릿 앨범💋을 보고 갔어요. 👀",
-            data={"type": "secret", "requestId": user_id, "pushId": push_id},
-            ttl_seconds=3600,
-            collapse_key=f"secret-view-{user_id}",
-            android_priority="high",
-            mutable_content=True,
-            content_available=True,
-            user_no=target_user_no,
-        )
     await user_service.insert_user_secret_images_view(user_id, target_user_id)
 
     return {"success": True, "message": "시크릿 앨범 열람 성공"}
@@ -951,36 +919,20 @@ async def accept_user_secret_images(
     """
     user_id = await get_user_id_from_token(token)
 
-    # fcm 토큰 가져오기
-    target_token = await user_service.fetch_user_fcm(target_user_id)
-
     # api를 호출한 사용자의 닉네임 가져오기
     user_nickname = await user_service.fetch_user_nickname(user_id)
 
-    # 푸시 로깅 작업 - 로그를 남기기 위한 유저의 no 가져오기
-    target_user_no = await user_service.fetch_user_no(target_user_id)
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=user_id,
+        target_user_id=target_user_id,
+        title_content="시크릿 앨범 열람 수락",
+        body_content=f"{user_nickname}님이 회원님의 시크릿 앨범 열람 요청을 수락했습니다.",
+        data={"type": "secret", "requestId": user_id},
+        collapse_key=f"secret-view-{user_id}",
+    )
+    await user_service.accept_user_secret_images(user_id, target_user_id)
 
-    # 상대방이 나를 차단했다면
-    is_blocked = await user_service.fetch_user_blocked(target_user_id, user_id)
-
-    if not is_blocked:
-        # 푸시 전송
-        push_id = str(uuid.uuid4())
-
-        background_tasks.add_task(
-            push_service.push_task,
-            target_token,
-            title="시크릿 앨범 열람 수락",
-            body=f"{user_nickname}님이 회원님의 시크릿 앨범 열람 요청을 수락했습니다.",
-            data={"type": "secret", "requestId": user_id, "pushId": push_id},
-            ttl_seconds=3600,
-            collapse_key=f"secret-view-{user_id}",
-            android_priority="high",
-            mutable_content=True,
-            content_available=True,
-            user_no=target_user_no,
-        )
-        await user_service.accept_user_secret_images(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 열람 수락 성공"}
 
 
@@ -1263,36 +1215,20 @@ async def poke_user(
     """
     pocker_id = await get_user_id_from_token(token)
 
-    # fcm 토큰 가져오기
-    target_token = await user_service.fetch_user_fcm(target_user_id)
-
     # api를 호출한 사용자의 닉네임 가져오기
     user_nickname = await user_service.fetch_user_nickname(pocker_id)
 
-    # 푸시 로깅 작업 - 로그를 남기기 위한 유저의 no 가져오기
-    target_user_no = await user_service.fetch_user_no(target_user_id)
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=pocker_id,
+        target_user_id=target_user_id,
+        title_content="누군가가 회원님을 찔렀어요! 👀",
+        body_content=f"{user_nickname}님이 회원님을 찔렀어요! 지금 접속해서 확인해 보세요!",
+        data={"type": "poke", "requestId": pocker_id},
+        collapse_key=f"poke-{pocker_id}",
+    )
 
-    # 상대방이 나를 차단했다면
-    is_blocked = await user_service.fetch_user_blocked(target_user_id, pocker_id)
-
-    if not is_blocked:
-        # 푸시 전송
-        push_id = str(uuid.uuid4())
-
-        background_tasks.add_task(
-            push_service.push_task,
-            target_token,
-            title="누군가가 회원님을 찔렀어요! 👀",
-            body=f"{user_nickname}님이 회원님을 찔렀어요! 지금 접속해서 확인해 보세요!",
-            data={"type": "poke", "requestId": pocker_id, "pushId": push_id},
-            ttl_seconds=3600,
-            collapse_key=f"poke-{pocker_id}",
-            android_priority="high",
-            mutable_content=True,
-            content_available=True,
-            user_no=target_user_no,
-        )
-        await user_service.poke_user(pocker_id, target_user_id)
+    await user_service.poke_user(pocker_id, target_user_id)
     return {"success": True, "message": "유저 찔러보기 성공"}
 
 

@@ -28,7 +28,9 @@ class Container(containers.DeclarativeContainer):
     database = providers.Object(db)
     user_service = providers.Factory(UserService, db=database)
     image_service = providers.Factory(ImageService, db=database)
-    push_service = providers.Factory(PushService, db=database)
+    push_service = providers.Factory(
+        PushService, db=database, user_service=user_service
+    )
     community_service = providers.Factory(CommunityService, db=database)
     token_service = providers.Factory(TokenService, db=database)
 
