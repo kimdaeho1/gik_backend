@@ -20,7 +20,7 @@ router = APIRouter(prefix="/v1/gik-backend/feed/comment", tags=["Feed"])
 @router.post("/{feed_id}", status_code=status.HTTP_201_CREATED)
 @inject
 async def create_feed_comment(
-    feed_id: str,
+    feed_id: int,
     create_feed_comment_request: CreateFeedCommentRequest,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
@@ -50,7 +50,7 @@ async def update_feed_comment(
 @router.post("/{comment_id}", status_code=status.HTTP_200_OK)
 @inject
 async def delete_feed_comment(
-    comment_id: str,
+    comment_id: int,
     delete_feed_comment_request: UpdateFeedCommentRequest,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
@@ -65,7 +65,7 @@ async def delete_feed_comment(
 @router.post("/block/{comment_id}", status_code=status.HTTP_200_OK)
 @inject
 async def block_feed_comment(
-    comment_id: str,
+    comment_id: int,
     block_feed_comment_request: BlockFeedCommentRequest,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
@@ -80,7 +80,7 @@ async def block_feed_comment(
 @router.post("/report/{comment_id}", status_code=status.HTTP_200_OK)
 @inject
 async def report_feed_comment(
-    comment_id: str,
+    comment_id: int,
     report_feed_comment_request: ReportFeedCommentRequest,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
@@ -95,7 +95,7 @@ async def report_feed_comment(
 @router.get("/list/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def get_feed_comment_list(
-    feed_id: str,
+    feed_id: int,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
         Provide[Container.feed_comment_service]
