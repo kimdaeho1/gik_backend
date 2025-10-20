@@ -43,7 +43,7 @@ async def update_feed(
 
 
 # 피드 삭제
-@router.post("/{feed_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def delete_feed(
     feed_id: str,

@@ -47,7 +47,7 @@ async def update_feed_comment(
 
 
 # 피드 댓글 삭제
-@router.post("/{comment_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{comment_id}", status_code=status.HTTP_200_OK)
 @inject
 async def delete_feed_comment(
     comment_id: int,
