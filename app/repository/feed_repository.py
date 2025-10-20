@@ -13,10 +13,11 @@ from app.db.user import (
     ViewCountRow,
     CountRow,
 )
+from app.db.db_connection import db
 
 logger = get_logger(__name__)
 
 
 class FeedRepository:
-    def __init__(self):
-        pass
+    def __init__(self, db):
+        self.db = db

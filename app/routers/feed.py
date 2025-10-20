@@ -25,7 +25,7 @@ async def create_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.create_feed()
+    return await feed_service.create_feed(create_feed_request, feed_images, token)
     # return {"success": True, "message": "피드가 성공적으로 게시되었습니다."}
 
 
@@ -33,7 +33,7 @@ async def create_feed(
 @router.patch("/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def update_feed(
-    feed_id: int,
+    feed_id: str,
     update_feed_request: UpdateFeedRequest,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
@@ -46,7 +46,7 @@ async def update_feed(
 @router.post("/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def delete_feed(
-    feed_id: int,
+    feed_id: str,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
@@ -58,7 +58,7 @@ async def delete_feed(
 @router.get("/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def get_feed(
-    feed_id: int,
+    feed_id: str,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
@@ -74,7 +74,7 @@ async def get_feed(
 @router.post("/report/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def report_feed(
-    feed_id: int,
+    feed_id: str,
     report_feed_request: ReportFeedRequest,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
@@ -87,7 +87,7 @@ async def report_feed(
 @router.post("/block/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def block_feed(
-    feed_id: int,
+    feed_id: str,
     block_feed_request: BlockFeedRequest,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
@@ -100,7 +100,7 @@ async def block_feed(
 @router.post("/like/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def like_feed(
-    feed_id: int,
+    feed_id: str,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
@@ -112,7 +112,7 @@ async def like_feed(
 @router.post("/unlike/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def unlike_feed(
-    feed_id: int,
+    feed_id: str,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):

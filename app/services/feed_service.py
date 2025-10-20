@@ -14,7 +14,12 @@ class FeedService:
     def __init__(self, feed_repository):
         self.feed_repository = feed_repository
 
-    async def create_feed(): ...
+    async def create_feed(
+        self,
+        token,
+        create_feed_request,
+        feed_images,
+    ): ...
 
     async def update_feed(): ...
 

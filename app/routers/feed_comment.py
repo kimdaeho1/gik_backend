@@ -20,7 +20,7 @@ router = APIRouter(prefix="/v1/gik-backend/feed/comment", tags=["Feed"])
 @router.post("/{feed_id}", status_code=status.HTTP_201_CREATED)
 @inject
 async def create_feed_comment(
-    feed_id: int,
+    feed_id: str,
     create_feed_comment_request: CreateFeedCommentRequest,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
@@ -95,7 +95,7 @@ async def report_feed_comment(
 @router.get("/list/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def get_feed_comment_list(
-    feed_id: int,
+    feed_id: str,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
         Provide[Container.feed_comment_service]
