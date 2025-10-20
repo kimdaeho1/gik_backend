@@ -6,13 +6,6 @@ from app.utils.logging_config import get_logger
 from app.utils.firebase_init import init_firebase_admin
 from firebase_admin import auth
 from app.utils.logging_config import get_logger
-from app.db.user import (
-    UserProfileRow,
-    UserDetailRow,
-    UserListRow,
-    ViewCountRow,
-    CountRow,
-)
 from app.db.db_connection import db
 
 logger = get_logger(__name__)
