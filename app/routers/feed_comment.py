@@ -27,8 +27,8 @@ async def create_feed_comment(
         Provide[Container.feed_comment_service]
     ),
 ):
-    return await feed_comment_service.create_feed_comment()
-    # return {"success": result, "message": "피드 댓글이 성공적으로 등록되었습니다."}
+    result = await feed_comment_service.create_feed_comment()
+    return {"success": result, "message": "피드 댓글이 성공적으로 등록되었습니다."}
 
 
 # 피드 댓글 수정
@@ -42,8 +42,8 @@ async def update_feed_comment(
         Provide[Container.feed_comment_service]
     ),
 ):
-    return await feed_comment_service.update_feed_comment()
-    # return {"success": result, "message": "피드 댓글이 성공적으로 수정되었습니다."}
+    result = await feed_comment_service.update_feed_comment()
+    return {"success": result, "message": "피드 댓글이 성공적으로 수정되었습니다."}
 
 
 # 피드 댓글 삭제
@@ -57,8 +57,8 @@ async def delete_feed_comment(
         Provide[Container.feed_comment_service]
     ),
 ):
-    return await feed_comment_service.delete_feed_comment()
-    # return {"success": result, "message": "피드 댓글이 성공적으로 삭제되었습니다."}
+    result = await feed_comment_service.delete_feed_comment()
+    return {"success": result, "message": "피드 댓글이 성공적으로 삭제되었습니다."}
 
 
 # 피드 댓글 차단
@@ -72,8 +72,8 @@ async def block_feed_comment(
         Provide[Container.feed_comment_service]
     ),
 ):
-    return await feed_comment_service.block_feed_comment()
-    # return {"success": result, "message": "피드 댓글이 성공적으로 차단되었습니다."}
+    result = await feed_comment_service.block_feed_comment()
+    return {"success": result, "message": "피드 댓글이 성공적으로 차단되었습니다."}
 
 
 # 피드 댓글 신고
@@ -87,8 +87,8 @@ async def report_feed_comment(
         Provide[Container.feed_comment_service]
     ),
 ):
-    return await feed_comment_service.report_feed_comment()
-    # return {"success": result, "message": "피드 댓글이 성공적으로 신고되었습니다."}
+    result = await feed_comment_service.report_feed_comment()
+    return {"success": result, "message": "피드 댓글이 성공적으로 신고되었습니다."}
 
 
 # 피드 댓글 리스트 조회
@@ -101,9 +101,9 @@ async def get_feed_comment_list(
         Provide[Container.feed_comment_service]
     ),
 ):
-    return await feed_comment_service.get_feed_comment_list()
-    # return {
-    #     "success": True,
-    #     "message": "피드 댓글 리스트 조회에 성공했습니다.",
-    #     "comments": result,
-    # }
+    result = await feed_comment_service.get_feed_comment_list()
+    return {
+        "success": True,
+        "message": "피드 댓글 리스트 조회에 성공했습니다.",
+        "comments": result,
+    }

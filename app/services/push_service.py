@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 from datetime import timedelta
 import time, json
-from fastapi import HTTPException
+from fastapi import HTTPException, BackgroundTasks
 from firebase_admin import messaging
 from app.utils.firebase_init import init_firebase_admin
 from app.db.db_connection import db
@@ -9,7 +9,9 @@ import uuid
 
 
 class PushService:
-    def __init__(self, db):
+    def __init__(self, db, user_service):
+        self.db = db
+        self.user_service = user_service
         init_firebase_admin()
 
     def _build_message(
@@ -306,4 +308,46 @@ class PushService:
             android_priority=android_priority,
             mutable_content=mutable_content,
             content_available=content_available,
+        )
+
+    async def send_push_to_user(
+        self,
+        background_tasks: BackgroundTasks,
+        user_id: str,
+        target_user_id: str,
+        title_content: str,
+        body_content: str,
+        data: str,
+        collapse_key=str,
+    ):
+        # 본인이 본인껄 보거나, 게시글에 좋아요를 누르는 경우는 보내지 않는다
+        if user_id == target_user_id:
+            return
+
+        # 차단되었는지 확인
+        is_blocked = await self.user_service.fetch_user_blocked(user_id, target_user_id)
+
+        if is_blocked:
+            return
+
+        # fcm 가져오기
+        target_token = await self.user_service.fetch_user_fcm(user_id)
+
+        # 푸시를 전송할 상대의 user_no가져오기
+        target_user_no = await self.user_service.fetch_user_no(user_id)
+
+        push_id = str(uuid.uuid4())
+
+        background_tasks.add_task(
+            self.push_task,
+            target_token,
+            title=title_content,
+            body=body_content,
+            data={**data, "pushId": push_id},
+            ttl_seconds=3600,
+            collapse_key=collapse_key,
+            android_priority="high",
+            mutable_content=True,
+            content_available=True,
+            user_no=target_user_no,
         )

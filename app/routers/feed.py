@@ -25,8 +25,8 @@ async def create_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.create_feed(create_feed_request, feed_images, token)
-    # return {"success": True, "message": "피드가 성공적으로 게시되었습니다."}
+    result = await feed_service.create_feed(create_feed_request, feed_images, token)
+    return {"success": result, "message": "피드가 성공적으로 게시되었습니다."}
 
 
 # 피드 수정
@@ -38,8 +38,8 @@ async def update_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.update_feed()
-    # return {"success": result, "message": "피드가 성공적으로 수정되었습니다."}
+    result = await feed_service.update_feed()
+    return {"success": result, "message": "피드가 성공적으로 수정되었습니다."}
 
 
 # 피드 삭제
@@ -50,8 +50,8 @@ async def delete_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.delete_feed()
-    # return {"success": result, "message": "피드가 성공적으로 삭제되었습니다."}
+    result = await feed_service.delete_feed()
+    return {"success": result, "message": "피드가 성공적으로 삭제되었습니다."}
 
 
 # 피드 조회하기
@@ -62,12 +62,12 @@ async def get_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.get_feed()
-    # return {
-    #     "success": True,
-    #     "message": "피드 조회에 성공했습니다.",
-    #     "feed": result,
-    # }
+    result = await feed_service.get_feed()
+    return {
+        "success": True,
+        "message": "피드 조회에 성공했습니다.",
+        "feed": result,
+    }
 
 
 # 피드 신고
@@ -79,8 +79,8 @@ async def report_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.report_feed()
-    # return {"success": result, "message": "피드가 성공적으로 신고되었습니다."}
+    result = await feed_service.report_feed()
+    return {"success": result, "message": "피드가 성공적으로 신고되었습니다."}
 
 
 # 피드 차단
@@ -92,8 +92,8 @@ async def block_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.block_feed()
-    # return {"success": result, "message": "피드가 성공적으로 차단되었습니다."}
+    result = await feed_service.block_feed()
+    return {"success": result, "message": "피드가 성공적으로 차단되었습니다."}
 
 
 # 피드 좋아요
@@ -104,8 +104,8 @@ async def like_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.like_feed()
-    # return {"success": result, "message": "피드 좋아요가 성공적으로 처리되었습니다."}
+    result = await feed_service.like_feed()
+    return {"success": result, "message": "피드 좋아요가 성공적으로 처리되었습니다."}
 
 
 # 피드 좋아요 취소
@@ -116,11 +116,11 @@ async def unlike_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await feed_service.unlike_feed()
-    # return {
-    #     "success": result,
-    #     "message": "피드 좋아요 취소가 성공적으로 처리되었습니다.",
-    # }
+    result = await feed_service.unlike_feed()
+    return {
+        "success": result,
+        "message": "피드 좋아요 취소가 성공적으로 처리되었습니다.",
+    }
 
 
 # 내 피드 리스트 가져오기
@@ -131,12 +131,12 @@ async def get_my_feed_list(
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await service.get_my_feed_list()
-    # return {
-    #     "success": True,
-    #     "message": "내 피드 리스트를 성공적으로 가져왔습니다.",
-    #     "feeds": result,
-    # }
+    result = await service.get_my_feed_list()
+    return {
+        "success": True,
+        "message": "내 피드 리스트를 성공적으로 가져왔습니다.",
+        "feeds": result,
+    }
 
 
 # 피드 리스트 가져오기 - redis와 같은 캐싱을 사용해서 5개씩 가져오고, 로직 생각해보기.
@@ -147,9 +147,9 @@ async def get_feed_list(
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    return await service.get_feed_list()
-    # return {
-    #     "success": True,
-    #     "message": "피드 리스트를 성공적으로 가져왔습니다.",
-    #     "feeds": result,
-    # }
+    result = await service.get_feed_list()
+    return {
+        "success": True,
+        "message": "피드 리스트를 성공적으로 가져왔습니다.",
+        "feeds": result,
+    }
