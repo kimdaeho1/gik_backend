@@ -3,7 +3,7 @@ from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
 from app.db.db_connection import db
 from app.db.image import UserSecretResponse
-from typing import List, Optional
+from typing import List, Optional, Iterable
 
 
 class ImageService:
@@ -187,3 +187,41 @@ class ImageService:
 
                 await conn.commit()
                 return image_url_list
+
+    async def upload_images(
+        self,
+        user_id: str,
+        images: Optional[Iterable[UploadFile]],
+        image_label: str,
+    ) -> List[str]:
+        if not images:
+            return []
+
+        image_label_map = {
+            "user_profile": "user_profile",
+            "user_secret_profile": "user_secret_profile",
+        }
+        image_prefix = image_label_map.get(image_label)
+        if not image_prefix:
+            raise HTTPException(
+                status_code=400,
+                detail=f"지원하지 않는 이미지 레이블입니다: {image_label}",
+            )
+
+        uploaded_urls: List[str] = []
+        for file in images:
+            if not file:
+                continue
+            now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
+            ext = file.filename.split(".")[-1] if file.filename else "jpg"
+            filename = f"{now}.{ext}"
+            s3_key = f"{image_prefix}/{user_id}/"
+            file.file.seek(0)
+            if not upload_file_to_s3(file.file, s3_key, filename):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to upload image {file.filename} to S3",
+                )
+            uploaded_urls.append(f"{CLOUDFRONT_URL}/{s3_key}{filename}")
+
+        return uploaded_urls

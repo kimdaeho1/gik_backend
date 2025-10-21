@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Qu
 from fastapi import BackgroundTasks, Depends
 from typing import Optional
 from app.db.user import (
-    Hashtags,
+    UserCreateRequest,
     UserNicknameRequest,
     UserHashtagRequest,
     UserInfoRequest,
@@ -27,89 +27,35 @@ from app.db.user import (
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
-from app.utils.token import get_user_id_from_token, JWTBearer
+from app.repository.user_repository import UserRepository
 from app.core.container import Container
+from app.utils.token import get_user_id_from_token, JWTBearer
+from app.db.db_connection import db
 import uuid
 
 oauth2_scheme = JWTBearer(auto_error=False)
+# tags는 swagger에서 그룹핑할 때 사용
 router = APIRouter(prefix="/v1/gik-backend", tags=["User"])
 
 
-# TODO: user.py로 적어놓았으면 컨벤션을 user로 써야하지 않을까.
+# user.py로 적어놓았으면 컨벤션을 user로 써야하지 않을까.
 # [유저] 회원가입
 @router.post("/user", status_code=status.HTTP_201_CREATED)
 @inject
 async def create_user_endpoint(
-    id: str = Form(...),
-    fcm: str = Form(...),
-    email: str = Form(...),
-    name: str = Form(...),
-    phone: str = Form(...),
-    birthday: str = Form(...),
-    provider: str = Form(...),
-    sns: str = Form(...),
-    nickname: str = Form(...),
+    service: UserService = Depends(Provide[Container.user_service]),
+    user_form: UserCreateRequest = Depends(UserCreateRequest.create_form),
     profile_images: List[UploadFile] = File(default=[]),
-    age: int = Form(...),
-    height: int = Form(...),
-    weight: int = Form(...),
-    country: str = Form(...),
-    position: str = Form(...),
-    relation: str = Form(...),
-    hashtags: str = Form(...),
-    self_introduction: Optional[str] = Form(default=None),
-    bdsm_type: Optional[str] = Form(default=None),
     secret_images: Optional[List[UploadFile]] = File(default=[]),
-    personal_chat_alarm: bool = Form(...),
-    group_chat_alarm: bool = Form(...),
-    post_comment_alarm: bool = Form(...),
-    post_like_alarm: bool = Form(...),
-    service_agree: bool = Form(...),
-    personal_agree: bool = Form(...),
-    marketing_agree: bool = Form(...),
-    night_agree: bool = Form(...),
-    leave: bool = Form(...),
-    test: Optional[str] = Form(default=""),
-    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 회원가입
     """
-    hashtags_obj = Hashtags.parse_raw(hashtags)
-
-    result: bool = await user_service.create_user(
-        id=id,
-        fcm=fcm,
-        email=email,
-        name=name,
-        phone=phone,
-        birthday=birthday,
-        provider=provider,
-        sns=sns,
-        nickname=nickname,
+    result: bool = await service.create_user(
+        user_form=user_form,
         profile_images=profile_images,
-        age=age,
-        height=height,
-        weight=weight,
-        country=country,
-        position=position,
-        relation=relation,
-        hashtags=hashtags_obj,
-        self_introduction=self_introduction,
-        bdsm_type=bdsm_type,
         secret_images=secret_images,
-        personal_chat_alarm=personal_chat_alarm,
-        group_chat_alarm=group_chat_alarm,
-        post_comment_alarm=post_comment_alarm,
-        post_like_alarm=post_like_alarm,
-        service_agree=service_agree,
-        personal_agree=personal_agree,
-        marketing_agree=marketing_agree,
-        night_agree=night_agree,
-        leave=leave,
-        test=test,
     )
-
     if not result:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 유저입니다."
@@ -121,13 +67,13 @@ async def create_user_endpoint(
 @router.get("/user/check-nickname/{nickname}", status_code=status.HTTP_200_OK)
 @inject
 async def check_user_nickname(
-    nickname: str, user_service: UserService = Depends(Provide[Container.user_service])
+    nickname: str, service: UserService = Depends(Provide[Container.user_service])
 ):
     """
     유저 닉네임 중복 확인
     nickname: 유저 닉네임
     """
-    exist = await user_service.check_nickname(nickname)
+    exist = await service.check_nickname(nickname)
     return {
         "success": True,
         "message": "중복된 닉네임입니다." if exist else "중복되지 않은 닉네임입니다.",
@@ -139,14 +85,14 @@ async def check_user_nickname(
 @inject
 async def fetch_my_profile_by_token(
     token=Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 프로필 조회
     id: 유저 ID
     """
     id = await get_user_id_from_token(token)
-    user = await user_service.fetch_my_profile(user_id=id)
+    user = await service.fetch_my_profile(user_id=id)
 
     return {"success": True, "message": "내 정보 조회 성공", "user": user}
 
@@ -156,13 +102,14 @@ async def fetch_my_profile_by_token(
 @router.get("/my-profile/{id}", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_my_profile(
-    id: str, user_service: UserService = Depends(Provide[Container.user_service])
+    id: str,
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 프로필 조회
     id: 유저 ID
     """
-    user = await user_service.fetch_my_profile(user_id=id)
+    user = await service.fetch_my_profile(user_id=id)
 
     return {"success": True, "message": "내 정보 조회 성공", "user": user}
 
@@ -172,14 +119,14 @@ async def fetch_my_profile(
 @inject
 async def update_user_nickname(
     user_nickname: UserNicknameRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 닉네임 수정
     id: 유저 ID
     nickname: 변경된 닉네임
     """
-    result: bool = await user_service.update_user_nickname(
+    result: bool = await service.update_user_nickname(
         user_nickname.id, user_nickname.nickname
     )
     if result == "duplicate":
@@ -196,14 +143,14 @@ async def update_user_nickname(
 @inject
 async def update_user_hashtag(
     user_hashtags: UserHashtagRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 해시태그 수정
     id: 유저 ID
     hashtags: 변경된 해시태그
     """
-    result: bool = await user_service.update_user_hashtag(
+    result: bool = await service.update_user_hashtag(
         user_hashtags.id, user_hashtags.hashtags
     )
     if result is False:
@@ -218,7 +165,7 @@ async def update_user_hashtag(
 @inject
 async def update_user_info(
     user_info: UserInfoRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 기본 정보 수정
@@ -228,7 +175,7 @@ async def update_user_info(
     weight: 몸무게
     country: 국가
     """
-    result: bool = await user_service.update_user_info(
+    result: bool = await service.update_user_info(
         user_info.id,
         user_info.age,
         user_info.height,
@@ -247,14 +194,14 @@ async def update_user_info(
 @inject
 async def update_user_fcm(
     user_fcm: UserFcmRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 FCM 코드 수정
     id: 유저 ID
     fcm: 변경된 FCM 코드
     """
-    result: bool = await user_service.update_user_fcm(user_fcm.id, user_fcm.fcm)
+    result: bool = await service.update_user_fcm(user_fcm.id, user_fcm.fcm)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="나의 FCM 코드 변경 실패."
@@ -267,14 +214,14 @@ async def update_user_fcm(
 @inject
 async def update_user_relation(
     user_relation: UserRelationRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 희망 관계 수정
     id: 유저 ID
     relation: 변경된 희망 관계
     """
-    result: bool = await user_service.update_user_relation(
+    result: bool = await service.update_user_relation(
         user_relation.id, user_relation.relation
     )
     if not result:
@@ -289,14 +236,14 @@ async def update_user_relation(
 @inject
 async def update_user_position(
     user_position: UserPositionRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 포지션 수정
     id: 유저 ID
     position: 변경된 포지션
     """
-    result: bool = await user_service.update_user_position(
+    result: bool = await service.update_user_position(
         user_position.id, user_position.position
     )
     if not result:
@@ -311,15 +258,15 @@ async def update_user_position(
 @inject
 async def update_user_talk_style(
     user_talk_style: UserTalkStyleRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 소통 스타일 수정
     id: 유저 ID
     talkStyle: 변경된 소통 스타일
     """
-    result: bool = await user_service.update_user_talk_style(
-        user_id=user_talk_style.id, talk_style=user_talk_style.talkStyle
+    result: bool = await service.update_user_talk_style(
+        id=user_talk_style.id, talk_style=user_talk_style.talkStyle
     )
     if not result:
         raise HTTPException(
@@ -335,7 +282,7 @@ async def update_user_talk_style(
 async def update_user_alarm(
     user_alarm: UserAlarmRequest,
     type: str,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 알람 설정 수정
@@ -343,7 +290,7 @@ async def update_user_alarm(
     type: 알람 종류 (markeing_agree, personal_chat, group_chat, post_comment, post_like, night_agree, profile_agree, secret_alarm_agree)
     value: 변경된 알람 설정 값 (True/False)
     """
-    result: bool = await user_service.update_user_alarm(
+    result: bool = await service.update_user_alarm(
         user_alarm.id, type, user_alarm.value
     )
     if not result:
@@ -358,14 +305,14 @@ async def update_user_alarm(
 @inject
 async def update_user_self_introduction(
     user_self_introduction: UserIntroductionRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 자기소개 변경
     user_self_introduction: 자기소개
     """
-    result: bool = await user_service.update_user_self_introduction(
-        user_id=user_self_introduction.id,
+    result: bool = await service.update_user_self_introduction(
+        id=user_self_introduction.id,
         user_self_introduction=user_self_introduction.selfIntroduction,
     )
     if not result:
@@ -380,13 +327,13 @@ async def update_user_self_introduction(
 @inject
 async def update_user_bdsm_type(
     user_bdsm_type: UserBdsmRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 bdsm 타입 변경
     user_bdsm_type: bdsm 타입
     """
-    result: bool = await user_service.update_user_bdsm_type(
+    result: bool = await service.update_user_bdsm_type(
         user_id=user_bdsm_type.id, bdsm_type=user_bdsm_type.bdsmType
     )
     if not result:
@@ -400,7 +347,7 @@ async def update_user_bdsm_type(
 @router.get("/user/{user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_profile(
-    user_id: str, user_service: UserService = Depends(Provide[Container.user_service])
+    user_id: str, service: UserService = Depends(Provide[Container.user_service])
 ):
     """
     상대 유저 프로필 조회
@@ -408,18 +355,18 @@ async def fetch_user_profile(
     viewer_id: 조회한 주체
     """
     viewer_id = None
-    user = await user_service.fetch_user_profile(user_id, viewer_id)
+    user = await service.fetch_user_profile(user_id, viewer_id)
 
     return {"success": True, "message": "유저 정보 조회 성공", "user": user}
 
 
 # [유저] 상대 유저의 차단 여부 확인 True/False로 체크
-@router.get("/user/block/{opponent_id}", status_code=status.HTTP_200_OK)
+@router.get("/user/block/{target_user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def check_user_block(
-    opponent_id: str,
+    target_user_id: str,
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     상대 유저의 차단 여부 확인
@@ -427,8 +374,8 @@ async def check_user_block(
     user_id: 상대 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.check_user_block(
-        user_id=user_id, opponent_id=opponent_id
+    result = await service.check_user_block(
+        user_id=user_id, target_user_id=target_user_id
     )
     return {
         "success": result,
@@ -460,36 +407,20 @@ async def fetch_user_profile_with_push(
     # 1-2. api 작업 - 조회할 상대방의 프로필 정보 가져오기
     target_profile = await user_service.fetch_user_profile(user_id, viewer_id)
 
-    # 2-1. push 작업 - fcm 토큰 가져오기
-    target_token = await user_service.fetch_user_fcm(user_id)
+    # user_id = 푸시 받을사람
+    # viewer_id = 푸시 보내는 사람(프로필을 조회한 사람)
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=user_id,
+        target_user_id=viewer_id,
+        title_content="내 프로필을 보고 간 사람이 있어요 👀",
+        body_content="누군가가 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
+        data={"type": "profile", "viewerId": viewer_id},
+        collapse_key=f"profile-view-{user_id}",
+    )
 
-    # 2-2. push 작업 - api를 호출한 사용자의 닉네임 가져오기
-    nickname = await user_service.fetch_user_nickname(viewer_id)
+    await user_service.insert_user_profile_view(user_id, viewer_id)
 
-    # 3. push_logging 작업 - 로그를 남기기 위한 유저 no 가져오기
-    target_user_no = await user_service.fetch_user_no(user_id)
-
-    # 3-1. 만약 상대방이 나를 차단했다면 ( # TODO: 플로우 다시 설계.)
-    is_blocked = await user_service.fetch_user_blocked(user_id, viewer_id)
-
-    if not is_blocked:
-        # 4. push 전송 (backgroud task 내에 들어갈 때 함수 대신 객체를 넣으면 안됨)
-        push_id = str(uuid.uuid4())
-
-        background_tasks.add_task(
-            push_service.push_task,
-            target_token,
-            title="내 프로필을 보고 간 사람이 있어요 👀",
-            body=f"누군가가 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
-            data={"type": "profile", "viewerId": viewer_id, "pushId": push_id},
-            ttl_seconds=3600,
-            collapse_key=f"profile-view-{user_id}",
-            android_priority="high",
-            mutable_content=True,
-            content_available=True,
-            user_no=target_user_no,
-        )
-        await user_service.insert_user_profile_view(user_id, viewer_id)
     return {
         "success": True,
         "message": "유저 정보 조회 성공",
@@ -502,14 +433,14 @@ async def fetch_user_profile_with_push(
 @inject
 async def block_user(
     user_block: UserBlockRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     상대 유저 차단
     id: 유저 ID (본인)
     user_id: 차단할 상대 유저 ID
     """
-    result = await user_service.block_user(user_block.id, user_block.userId)
+    result = await service.block_user(user_block.id, user_block.userId)
 
     if not result:
         raise HTTPException(
@@ -524,7 +455,7 @@ async def block_user(
 @inject
 async def report_user(
     user_report: UserReportRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 신고
@@ -533,7 +464,7 @@ async def report_user(
     reportedUserId: 신고당하는 유저 ID
     reason: 신고 사유
     """
-    result = await user_service.report_user(
+    result = await service.report_user(
         user_report.chatId,
         user_report.reportUserId,
         user_report.reportedUserId,
@@ -554,14 +485,14 @@ async def report_user(
 async def fetch_user_list(
     user_id_list: UserListRequest,
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 목록으로 조회
     user_id: 조회할 유저 ID 목록
     """
     user_id = await get_user_id_from_token(token)
-    users = await user_service.fetch_user_list(user_id, user_id_list.userIdList)
+    users = await service.fetch_user_list(user_id, user_id_list.userIdList)
     return {"success": True, "message": "유저 목록 조회 성공", "users": users}
 
 
@@ -576,7 +507,7 @@ async def fetch_user_id_list(
     talkStyle: str = None,
     age: str = None,
     secret: bool = None,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 ID 목록 조회
@@ -584,7 +515,7 @@ async def fetch_user_id_list(
     user_id = None
     if token:
         user_id = await get_user_id_from_token(token)
-    user_ids = await user_service.fetch_user_id_list(
+    user_ids = await service.fetch_user_id_list(
         user_id=user_id,
         position=position,
         relation=relation,
@@ -607,7 +538,7 @@ async def fetch_near_user_id_list(
     bdsmType: str = None,
     talkStyle: str = None,
     secret: bool = None,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 ID 목록 조회, 근처 유저 순서대로 ORDER BY
@@ -615,7 +546,7 @@ async def fetch_near_user_id_list(
     # get_user_id_from_token을 쓰는 이유는, verify_token이 Optional[str] 이기 때문에 사용할 수 없음.
     # get_user_id_from_token이 있는 이유는 str을 반환하기 때문.
     user_id = await get_user_id_from_token(token)
-    user_ids = await user_service.fetch_near_user_id_list(
+    user_ids = await service.fetch_near_user_id_list(
         user_id,
         age=age,
         position=position,
@@ -636,13 +567,13 @@ async def fetch_near_user_id_list(
 @inject
 async def fetch_user_fcm_list(
     user_id_list: UserListRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 FCM 목록 조회
     """
 
-    fcm_list = await user_service.fetch_user_fcm_list(user_id_list.userIdList)
+    fcm_list = await service.fetch_user_fcm_list(user_id_list.userIdList)
 
     return {"success": True, "message": "유저 FCM 목록 조회 성공", "fcmList": fcm_list}
 
@@ -652,13 +583,13 @@ async def fetch_user_fcm_list(
 @inject
 async def leave_user(
     user_leave: UserLeaveRequest,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 탈퇴
     """
 
-    result = await user_service.leave_user(user_leave.id, user_leave.reason)
+    result = await service.leave_user(user_leave.id, user_leave.reason)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="유저 탈퇴 실패."
@@ -671,13 +602,13 @@ async def leave_user(
 async def user_health_check(
     user_id: str,
     user_health: Optional[UserHealthCheckRequest] = None,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 실시간 정보를 찍기 위한 API
     """
 
-    result = await user_service.user_health_check(
+    result = await service.user_health_check(
         user_id,
         user_latitude=user_health.userLatitude if user_health else None,
         user_longitude=user_health.userLongitude if user_health else None,
@@ -696,7 +627,7 @@ async def update_user_images(
     user_id: str = Form(...),
     image_index: Optional[List[str]] = Form(default=[]),
     images: Optional[List[UploadFile]] = File(default=None),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 프로필 사진 수정
@@ -705,7 +636,7 @@ async def update_user_images(
     image_label: 이미지 사용처
         - user_profile: 유저 프로필 사진
     """
-    image_url_list = await user_service.update_user_images(user_id, image_index, images)
+    image_url_list = await service.update_user_images(user_id, image_index, images)
 
     if not image_url_list:
         raise HTTPException(
@@ -720,13 +651,13 @@ async def update_user_images(
     }
 
 
-@router.get("/user/push/list", status_code=status.HTTP_200_OK)
+@router.get("/push/list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_push_list(
     push_type: Optional[str] = Query(None),
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저가 받은 푸시 목록 조회
@@ -734,7 +665,7 @@ async def fetch_user_push_list(
     push_type: 푸시 타입(없으면 전체, userAction, announcement)
     """
     user_id = await get_user_id_from_token(token)
-    push_list = await user_service.fetch_user_push_list(
+    push_list = await service.fetch_user_push_list(
         push_type=push_type, page=page, user_id=user_id
     )
 
@@ -750,7 +681,7 @@ async def fetch_user_push_list(
 async def receive_user_push(
     push_id: str = Query(...),
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저의 푸시 수신, db의 delivery_state를 OPENED로 변경
@@ -758,7 +689,7 @@ async def receive_user_push(
     """
     # 토큰에서 유저 아이디 추출,
     user_id = await get_user_id_from_token(token)
-    result = await user_service.receive_user_push(push_id=push_id, user_id=user_id)
+    result = await service.receive_user_push(push_id=push_id, user_id=user_id)
 
     if result is False:
         raise HTTPException(
@@ -773,14 +704,14 @@ async def receive_user_push(
 @inject
 async def receive_all_user_push(
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저의 모든 푸시 수신, db의 delivery_state를 OPENED로 변경
     """
     # 토큰에서 유저 아이디 추출,
     user_id = await get_user_id_from_token(token)
-    result = await user_service.receive_all_user_push(user_id=user_id)
+    result = await service.receive_all_user_push(user_id=user_id)
 
     if result is False:
         raise HTTPException(
@@ -796,19 +727,19 @@ async def receive_all_user_push(
 async def fetch_user_profile_view(
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저를 보고간 사람 조회
     """
 
     user_id = await get_user_id_from_token(token)
-    result = await user_service.fetch_user_profile_view(page=page, user_id=user_id)
+    result = await service.fetch_user_profile_view(page=page, user_id=user_id)
 
     return {
         "success": True,
         "message": "유저를 보고간 사람 조회 성공",
-        "viewList": result,
+        "viewList": [view.model_dump() for view in result],
     }
 
 
@@ -830,38 +761,22 @@ async def fetch_user_secret_images(
     # api를 호출한 사용자의 id
     user_id = await get_user_id_from_token(token)
 
-    # fcm 토큰 가져오기
-    target_token = await user_service.fetch_user_fcm(target_user_id)
-
-    # 푸시 로깅 작업 - 로그를 남기기 위한 유저의 no 가져오기
-    target_user_no = await user_service.fetch_user_no(target_user_id)
-
-    # 상대방이 나를 차단했다면
-    is_blocked = await user_service.fetch_user_blocked(target_user_id, user_id)
-
     # 내 시크릿 앨범에 사진이 없다면
     is_image = await user_service.fetch_my_secret_images(user_id)
     if is_image is None:
         await user_service.insert_user_secret_images_view(user_id, target_user_id)
         return {"success": False, "message": "내 시크릿 앨범에 사진이 없습니다."}
 
-    if not is_blocked:
-        # 푸시 전송
-        push_id = str(uuid.uuid4())
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=user_id,
+        target_user_id=target_user_id,
+        title_content="내 시크릿 앨범을 보고 간 사람이 있어요 💋",
+        body_content="누군가가 내 시크릿 앨범💋을 보고 갔어요. 지금 접속해서 확인해 보세요!",
+        data={"type": "secret", "requestId": user_id},
+        collapse_key=f"secret-view-{user_id}",
+    )
 
-        background_tasks.add_task(
-            push_service.push_task,
-            target_token,
-            title="시크릿 앨범 열람",
-            body=f"누군가 내 시크릿 앨범💋을 보고 갔어요. 👀",
-            data={"type": "secret", "requestId": user_id, "pushId": push_id},
-            ttl_seconds=3600,
-            collapse_key=f"secret-view-{user_id}",
-            android_priority="high",
-            mutable_content=True,
-            content_available=True,
-            user_no=target_user_no,
-        )
     await user_service.insert_user_secret_images_view(user_id, target_user_id)
 
     return {"success": True, "message": "시크릿 앨범 열람 성공"}
@@ -872,14 +787,14 @@ async def fetch_user_secret_images(
 async def fetch_user_secret_list(
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내 시크릿 앨범을 조회한 사람들 조회
     user_id: token에서 추출
     """
     user_id = await get_user_id_from_token(token)
-    secret_list = await user_service.fetch_user_secret_list(page=page, user_id=user_id)
+    secret_list = await service.fetch_user_secret_list(page=page, user_id=user_id)
     return {
         "success": True,
         "message": "내 시크릿 앨범을 조회한 사람들 조회 성공",
@@ -892,7 +807,7 @@ async def fetch_user_secret_list(
 async def insert_user_credit_secret_list(
     credit_secret: UserCreditSecretRequest,
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제한 시크릿 앨범 추가
@@ -900,7 +815,7 @@ async def insert_user_credit_secret_list(
     secret_user_id: 결제한 시크릿 앨범 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.insert_user_credit_secret_list(
+    result = await service.insert_user_credit_secret_list(
         user_id=user_id, secret_user_id=credit_secret.userId
     )
     if result is False:
@@ -917,14 +832,14 @@ async def insert_user_credit_secret_list(
 async def fetch_user_credit_secret_view(
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제한 시크릿 앨범 목록 조회
     user_id: token에서 추출
     """
     user_id = await get_user_id_from_token(token)
-    credit_secret_list = await user_service.fetch_user_credit_secret_view(
+    credit_secret_list = await service.fetch_user_credit_secret_view(
         page=page, user_id=user_id
     )
     return {
@@ -951,36 +866,20 @@ async def accept_user_secret_images(
     """
     user_id = await get_user_id_from_token(token)
 
-    # fcm 토큰 가져오기
-    target_token = await user_service.fetch_user_fcm(target_user_id)
-
     # api를 호출한 사용자의 닉네임 가져오기
     user_nickname = await user_service.fetch_user_nickname(user_id)
 
-    # 푸시 로깅 작업 - 로그를 남기기 위한 유저의 no 가져오기
-    target_user_no = await user_service.fetch_user_no(target_user_id)
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=user_id,
+        target_user_id=target_user_id,
+        title_content="시크릿 앨범 열람 수락",
+        body_content=f"{user_nickname}님이 회원님의 시크릿 앨범 열람 요청을 수락했습니다.",
+        data={"type": "secret", "requestId": user_id},
+        collapse_key=f"secret-view-{user_id}",
+    )
+    await user_service.accept_user_secret_images(user_id, target_user_id)
 
-    # 상대방이 나를 차단했다면
-    is_blocked = await user_service.fetch_user_blocked(target_user_id, user_id)
-
-    if not is_blocked:
-        # 푸시 전송
-        push_id = str(uuid.uuid4())
-
-        background_tasks.add_task(
-            push_service.push_task,
-            target_token,
-            title="시크릿 앨범 열람 수락",
-            body=f"{user_nickname}님이 회원님의 시크릿 앨범 열람 요청을 수락했습니다.",
-            data={"type": "secret", "requestId": user_id, "pushId": push_id},
-            ttl_seconds=3600,
-            collapse_key=f"secret-view-{user_id}",
-            android_priority="high",
-            mutable_content=True,
-            content_available=True,
-            user_no=target_user_no,
-        )
-        await user_service.accept_user_secret_images(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 열람 수락 성공"}
 
 
@@ -990,7 +889,7 @@ async def accept_user_secret_images(
 async def reject_user_secret_images(
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 시크릿 앨범 열람 거절
@@ -998,7 +897,7 @@ async def reject_user_secret_images(
     target_user_id: 시크릿 앨범 열람 거절 대상 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    await user_service.reject_user_secret_images(user_id, target_user_id)
+    await service.reject_user_secret_images(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 열람 거절 성공"}
 
 
@@ -1008,7 +907,7 @@ async def reject_user_secret_images(
 async def cancel_my_secret_request(
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 시크릿 앨범 요청 취소
@@ -1016,7 +915,7 @@ async def cancel_my_secret_request(
     target_user_id: 시크릿 앨범 요청 취소 대상 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    await user_service.cancel_my_secret_request(user_id, target_user_id)
+    await service.cancel_my_secret_request(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 요청 취소 성공"}
 
 
@@ -1025,14 +924,14 @@ async def cancel_my_secret_request(
 @inject
 async def fetch_my_secret_request(
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 상대에게 요청한 시크릿 앨범 요청건 조회
     user_id: token에서 추출, 유저가 상대에게 요청한 시크릿 앨범건 주체
     """
     user_id = await get_user_id_from_token(token)
-    requests = await user_service.fetch_my_secret_requests(user_id)
+    requests = await service.fetch_my_secret_requests(user_id)
     return {
         "success": True,
         "message": "내가 요청한 시크릿 앨범건 조회 성공",
@@ -1045,14 +944,14 @@ async def fetch_my_secret_request(
 @inject
 async def fetch_opponent_secret_request(
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     나에게 온 상대의 시크릿 앨범 요청건 조회
     user_id: token에서 추출, 유저에게 온 상대방들의 시크릿 앨범 요청건 주체
     """
     user_id = await get_user_id_from_token(token)
-    accepts = await user_service.fetch_opponent_secret_requests(user_id)
+    accepts = await service.fetch_opponent_secret_requests(user_id)
     return {
         "success": True,
         "message": "나에게 온 시크릿 앨범 열람 요청건 조회 성공",
@@ -1066,7 +965,7 @@ async def fetch_opponent_secret_request(
 async def cancel_accept_my_secret_request(
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 시크릿 앨범 허용 취소
@@ -1074,7 +973,7 @@ async def cancel_accept_my_secret_request(
     target_user_id: 시크릿 앨범 허용 취소 대상 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    await user_service.cancel_accept_my_secret_request(user_id, target_user_id)
+    await service.cancel_accept_my_secret_request(user_id, target_user_id)
     return {"success": True, "message": "시크릿 앨범 허용 취소 성공"}
 
 
@@ -1084,7 +983,7 @@ async def cancel_accept_my_secret_request(
 async def fetch_accepted_secret_images(
     token: str = Depends(oauth2_scheme),
     target_user_id: str = Query(...),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     요청 수락된 시크릿 앨범 조회
@@ -1092,9 +991,7 @@ async def fetch_accepted_secret_images(
     target_user_id: 시크릿 앨범 조회 대상 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    image_urls = await user_service.fetch_accepted_secret_images(
-        user_id, target_user_id
-    )
+    image_urls = await service.fetch_accepted_secret_images(user_id, target_user_id)
     if image_urls is None:
         return {
             "success": False,
@@ -1113,7 +1010,7 @@ async def fetch_accepted_secret_images(
 async def give_user_credit(
     user_credit_type: UserCreditRequest,
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     사용자에게 재화 리워드 제공
@@ -1122,7 +1019,7 @@ async def give_user_credit(
         - type: 크레딧 지급 사유, history_reward (프로필 조회 시 광고 시청 리워드)
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.give_user_credit(user_id, user_credit_type.type)
+    result = await service.give_user_credit(user_id, user_credit_type.type)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1141,7 +1038,7 @@ async def give_user_credit(
 async def consume_user_credit(
     user_credit_type: UserCreditRequest,
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     사용자의 재화 소모
@@ -1150,7 +1047,7 @@ async def consume_user_credit(
         - type: 크레딧 지급 사유, history_view (프로필 조회 시 크레딧 소모), secret_view(시크릿 앨범 열람시 크레딧 소모)
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.consume_user_credit(user_id, user_credit_type.type)
+    result = await service.consume_user_credit(user_id, user_credit_type.type)
     if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="크레딧 소모 실패."
@@ -1167,7 +1064,7 @@ async def consume_user_credit(
 async def add_user_credit_profile_view(
     user_id: str,
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제해서 본 사용자 추가
@@ -1175,7 +1072,7 @@ async def add_user_credit_profile_view(
     user_id: 조회한 사용자 ID
     """
     viewer_id = await get_user_id_from_token(token)
-    result = await user_service.add_user_credit_profile_view(
+    result = await service.add_user_credit_profile_view(
         viewer_id=viewer_id,
         viewed_id=user_id,
     )
@@ -1190,7 +1087,7 @@ async def add_user_credit_profile_view(
 async def fetch_user_credit_profile_view(
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제해서 본 사용자 리스트
@@ -1198,7 +1095,7 @@ async def fetch_user_credit_profile_view(
     page: 페이지 번호 (1부터 시작)
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.fetch_user_credit_profile_view(user_id, page)
+    result = await service.fetch_user_credit_profile_view(user_id, page)
     return {
         "success": True,
         "message": "내가 결제해서 본 사용자 리스트 조회 성공",
@@ -1211,14 +1108,14 @@ async def fetch_user_credit_profile_view(
 async def fetch_user_block_list(
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 차단한 유저 리스트
     user_id: token에서 추출, 차단한 유저 리스트 조회 주체
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.fetch_user_block_list(page=page, user_id=user_id)
+    result = await service.fetch_user_block_list(page=page, user_id=user_id)
     return {
         "success": True,
         "message": "내가 차단한 유저 리스트 조회 성공",
@@ -1231,15 +1128,15 @@ async def fetch_user_block_list(
 async def unblock_user(
     user_block: UserUnblockRequest,
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     상대 유저 차단 해제
     user_id: token에서 추출, 차단 해제 주체
-    opponent_id: 차단 해제할 상대 유저 ID
+    target_user_id: 차단 해제할 상대 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.unblock_user(user_id, user_block.userId)
+    result = await service.unblock_user(user_id, user_block.userId)
     return {
         "success": result,
         "message": "유저 차단 해제 성공.",
@@ -1263,36 +1160,20 @@ async def poke_user(
     """
     pocker_id = await get_user_id_from_token(token)
 
-    # fcm 토큰 가져오기
-    target_token = await user_service.fetch_user_fcm(target_user_id)
-
     # api를 호출한 사용자의 닉네임 가져오기
     user_nickname = await user_service.fetch_user_nickname(pocker_id)
 
-    # 푸시 로깅 작업 - 로그를 남기기 위한 유저의 no 가져오기
-    target_user_no = await user_service.fetch_user_no(target_user_id)
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=pocker_id,
+        target_user_id=target_user_id,
+        title_content="누군가가 회원님을 찔렀어요! 👀",
+        body_content=f"{user_nickname}님이 회원님을 찔렀어요! 지금 접속해서 확인해 보세요!",
+        data={"type": "poke", "requestId": pocker_id},
+        collapse_key=f"poke-{pocker_id}",
+    )
 
-    # 상대방이 나를 차단했다면
-    is_blocked = await user_service.fetch_user_blocked(target_user_id, pocker_id)
-
-    if not is_blocked:
-        # 푸시 전송
-        push_id = str(uuid.uuid4())
-
-        background_tasks.add_task(
-            push_service.push_task,
-            target_token,
-            title="누군가가 회원님을 찔렀어요! 👀",
-            body=f"{user_nickname}님이 회원님을 찔렀어요! 지금 접속해서 확인해 보세요!",
-            data={"type": "poke", "requestId": pocker_id, "pushId": push_id},
-            ttl_seconds=3600,
-            collapse_key=f"poke-{pocker_id}",
-            android_priority="high",
-            mutable_content=True,
-            content_available=True,
-            user_no=target_user_no,
-        )
-        await user_service.poke_user(pocker_id, target_user_id)
+    await user_service.poke_user(pocker_id, target_user_id)
     return {"success": True, "message": "유저 찔러보기 성공"}
 
 
@@ -1302,14 +1183,14 @@ async def poke_user(
 async def fetch_my_poke_list(
     page: int = Query(...),
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     나를 찔러본 유저 리스트
     user_id: token에서 추출, 찔러본 유저 리스트 조회 주체
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.fetch_my_poke_list(page=page, user_id=user_id)
+    result = await service.fetch_my_poke_list(page=page, user_id=user_id)
     return {
         "success": True,
         "message": "나를 찔러본 유저 리스트 조회 성공",
@@ -1322,7 +1203,7 @@ async def fetch_my_poke_list(
 async def favorite_user(
     target_user_id: UserFavoriteRequest,
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     유저 즐겨찾기 추가
@@ -1330,7 +1211,7 @@ async def favorite_user(
     target_user_id: 즐겨찾기할 대상 유저 ID
     """
     user_id = await get_user_id_from_token(token)
-    result = await user_service.favorite_user(user_id, target_user_id.userId)
+    result = await service.favorite_user(user_id, target_user_id.userId)
     if result:
         return {
             "success": True,
@@ -1348,17 +1229,17 @@ async def favorite_user(
 @inject
 async def fetch_user_unlock_count(
     token: str = Depends(oauth2_scheme),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     내가 결제해서 본 프로필 갯수
     user_id: token에서 추출, 블라인드 프로필을 결제한 주체
     """
     user_id = await get_user_id_from_token(token)
-    count = await user_service.fetch_user_unlock_count(user_id)
+    count = await service.fetch_user_unlock_count(user_id)
     return {
         "success": True,
         "message": "내가 결제해서 본 프로필 갯수 조회 성공",
-        "profileCount": count["profileCount"],
-        "secretCount": count["secretCount"],
+        "profileCount": count.profileCount,
+        "secretCount": count.secretCount,
     }
