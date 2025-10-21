@@ -1,6 +1,14 @@
 from fastapi import FastAPI, status, HTTPException
-from app.routers import image
-from app.routers import user, community, token, credit, payment
+from app.routers import (
+    image,
+    user,
+    community,
+    token,
+    credit,
+    payment,
+    feed,
+    feed_comment,
+)
 from app.db.db_connection import db
 import os
 import boto3
@@ -25,10 +33,14 @@ container.wire(
         "app.routers.token",
         "app.routers.credit",
         "app.routers.payment",
+        "app.routers.feed",
+        "app.routers.feed_comment",
     ]
 )
 app.container = container
 
+app.include_router(feed.router)
+app.include_router(feed_comment.router)
 app.include_router(credit.router)
 app.include_router(payment.router)
 app.include_router(image.router)

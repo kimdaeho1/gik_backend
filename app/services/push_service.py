@@ -9,9 +9,9 @@ import uuid
 
 
 class PushService:
-    def __init__(self, db, user_service):
+    def __init__(self, db, user_repository):
         self.db = db
-        self.user_service = user_service
+        self.user_repository = user_repository
         init_firebase_admin()
 
     def _build_message(
@@ -325,16 +325,18 @@ class PushService:
             return
 
         # 차단되었는지 확인
-        is_blocked = await self.user_service.fetch_user_blocked(user_id, target_user_id)
+        is_blocked = await self.user_repository.check_user_block(
+            user_id, target_user_id
+        )
 
         if is_blocked:
             return
 
         # fcm 가져오기
-        target_token = await self.user_service.fetch_user_fcm(user_id)
+        target_token = await self.user_repository.fetch_user_fcm(user_id)
 
         # 푸시를 전송할 상대의 user_no가져오기
-        target_user_no = await self.user_service.fetch_user_no(user_id)
+        target_user_no = await self.user_repository.fetch_user_no(user_id)
 
         push_id = str(uuid.uuid4())
 

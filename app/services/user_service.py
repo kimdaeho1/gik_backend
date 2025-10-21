@@ -6,1216 +6,458 @@ from app.db.user import (
     UserProfileResponse,
     UserDetailResponse,
     UserListResponse,
+    UserCreateRequest,
 )
 from app.db.image import UserSecretResponse
 from app.db.db_connection import db
 from typing import List, Optional
 from app.utils.logging_config import get_logger
-from app.utils.firebase_init import init_firebase_admin
-from firebase_admin import auth
+from app.repository.user_repository import UserRepository
+from app.services.image_service import ImageService
 
 logger = get_logger(__name__)
 
 
 # TODO: 쿼리문을 합칠 수 있는것들 합치거나, 따로 빼서 유틸함수로 정리할 수 있는 부분은 정리하기!
 class UserService:
-    def __init__(self, db):
+    def __init__(
+        self,
+        user_repository: UserRepository,
+        image_service: ImageService,
+    ):
         self.db = db
-        init_firebase_admin()
+        self.user_repository = user_repository
+        self.image_service = image_service
 
-    async def fetch_active_user(self, user_id: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM users
-                    WHERE id = %s AND leaved = FALSE
-                    """,
-                    (user_id,),
-                )
-
-                result = await cur.fetchone()
-                if result:
-                    return True
-                else:
-                    return False
-
-    # TODO: 이거 왜 폼형태로 안빼서 일일이 처리하는지?
+    # form data는 JSON이 아니다. FastAPI가 Pydantic 모델에 자동으로 변환해주지 않음.
+    # 이 데이터 형식은 multipart/form-data가 되는데 Pydantic 모델을 Form 입력값으로 감싸서 생성하는 팩토리 메서드로
+    # Depends()로 넘긴 함수의 시그니처를 보고 의존성 주입.
     async def create_user(
         self,
-        id: str,
-        fcm: str,
-        email: str,
-        name: str,
-        phone: str,
-        birthday: str,
-        provider: str,
-        sns: str,
-        nickname: str,
+        user_form: UserCreateRequest,
         profile_images: List[UploadFile],
-        age: int,
-        height: int,
-        weight: int,
-        country: str,
-        position: str,
-        relation: str,
-        hashtags: Hashtags,
-        self_introduction: Optional[str],
-        bdsm_type: Optional[str],
-        secret_images: Optional[List[UploadFile]],
-        personal_chat_alarm: bool,
-        group_chat_alarm: bool,
-        post_comment_alarm: bool,
-        post_like_alarm: bool,
-        service_agree: bool,
-        personal_agree: bool,
-        marketing_agree: bool,
-        night_agree: bool,
-        leave: bool,
-        test: str,
+        secret_images: Optional[List[UploadFile]] = None,
     ) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT 1 FROM users WHERE id = %s", (id,))
-                result = await cur.fetchone()
-                if result:
-                    return False
-
-                try:
-                    await conn.begin()
-
-                    # 쿼리문 한줄로 쓸 수 있는데 왜그랬음. 파이썬 왜씀
-                    insert_sql = """
-                        INSERT INTO users (
-                            id, fcm, sns, name, phone, provider, email, nickname,
-                            birthday, age, height, weight, country, position, relation,
-                            hashtags, self_introduction, bdsm_type,
-                            marketing_agree, service_agree, personal_agree,
-                            personal_chat_alarm_agree, group_chat_alarm_agree,
-                            post_comment_alarm_agree, post_like_alarm_agree,
-                            night_agree, leaved, test_yn
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s,
-                            %s, %s, %s, 
-                            %s, %s, %s,
-                            %s, %s,
-                            %s, %s,
-                            %s, %s, %s
-                        )
-                    """
-                    await cur.execute(
-                        insert_sql,
-                        (
-                            id,
-                            fcm,
-                            sns,
-                            name,
-                            phone,
-                            provider,
-                            email,
-                            nickname,
-                            birthday,
-                            age,
-                            height,
-                            weight,
-                            country,
-                            position,
-                            relation,
-                            hashtags.json(),
-                            self_introduction,
-                            bdsm_type,
-                            marketing_agree,
-                            service_agree,
-                            personal_agree,
-                            personal_chat_alarm,
-                            group_chat_alarm,
-                            post_comment_alarm,
-                            post_like_alarm,
-                            night_agree,
-                            leave,
-                            test,
-                        ),
-                    )
-
-                    user_no = cur.lastrowid
-                    image_urls = []
-
-                    for idx, file in enumerate(profile_images):
-                        now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
-                        extension = file.filename.split(".")[-1] or "jpg"
-                        filename = f"{now}.{extension}"
-                        s3_key = f"user_profile/{id}/"
-
-                        file.file.seek(0)
-                        if not upload_file_to_s3(file.file, s3_key, filename):
-                            raise Exception(f"S3 업로드 실패: {file.filename}")
-
-                        image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
-                        image_urls.append(image_url)
-                        await cur.execute(
-                            """
-                            INSERT INTO user_images (user_id, `index`, url, use_yn)
-                            VALUES (%s, %s, %s, %s)
-                            """,
-                            (id, idx, image_url, True),
-                        )
-
-                    image_urls = ",".join(image_urls)
-
-                    if secret_images:
-                        for idx, file in enumerate(secret_images):
-                            now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
-                            extension = file.filename.split(".")[-1] or "jpg"
-                            filename = f"{now}.{extension}"
-                            s3_key = f"user_secret_profile/{id}/"
-
-                            file.file.seek(0)
-                            if not upload_file_to_s3(file.file, s3_key, filename):
-                                raise Exception(f"S3 업로드 실패: {file.filename}")
-
-                            secret_image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
-                            await cur.execute(
-                                """
-                                INSERT INTO user_secret_images (user_id, `index`, url, use_yn)
-                                VALUES (%s, %s, %s, %s)
-                                """,
-                                (id, idx, secret_image_url, True),
-                            )
-
-                        secret_query = """
-                            UPDATE users
-                            SET secret_yn = %s
-                            WHERE id = %s
-                            """
-                        await cur.execute(secret_query, (True, id))
-
-                    insert_history = """
-                        INSERT INTO users_history (
-                            user_no, id, fcm, sns, name, phone, provider, email, nickname,
-                            birthday, age, height, weight, country, position, relation,
-                            hashtags, self_introduction, bdsm_type,
-                            marketing_agree, service_agree, personal_agree,
-                            personal_chat_alarm_agree, group_chat_alarm_agree,
-                            post_comment_alarm_agree, post_like_alarm_agree,
-                            night_agree, leaved, image_list, test_yn
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s,
-                            %s, %s, %s,
-                            %s, %s, %s,
-                            %s, %s,
-                            %s, %s,
-                            %s, %s, %s, %s
-                        )
-                    """
-                    await cur.execute(
-                        insert_history,
-                        (
-                            user_no,
-                            id,
-                            fcm,
-                            sns,
-                            name,
-                            phone,
-                            provider,
-                            email,
-                            nickname,
-                            birthday,
-                            age,
-                            height,
-                            weight,
-                            country,
-                            position,
-                            relation,
-                            hashtags.json(),
-                            self_introduction,
-                            bdsm_type,
-                            marketing_agree,
-                            service_agree,
-                            personal_agree,
-                            personal_chat_alarm,
-                            group_chat_alarm,
-                            post_comment_alarm,
-                            post_like_alarm,
-                            night_agree,
-                            leave,
-                            image_urls,
-                            test,
-                        ),
-                    )
-
-                    await conn.commit()
-                    return True
-                except Exception as e:
-                    await conn.rollback()
-                    print(f"Error creating user: {e}")
-                    return False
-
-    async def check_nickname(self, nickname: str) -> bool:
+        hashtags = Hashtags.parse_raw(user_form.hashtags)
         try:
-            async with self.db.get_connection() as conn:
-                async with conn.cursor() as cur:
-                    await cur.execute(
-                        "SELECT 1 FROM users WHERE nickname = %s", (nickname,)
-                    )
-                    result = await cur.fetchone()
-                    return result is not None
+            user_data = (
+                user_form.id,
+                user_form.fcm,
+                user_form.sns,
+                user_form.name,
+                user_form.phone,
+                user_form.provider,
+                user_form.email,
+                user_form.nickname,
+                user_form.birthday,
+                user_form.age,
+                user_form.height,
+                user_form.weight,
+                user_form.country,
+                user_form.position,
+                user_form.relation,
+                hashtags.json(),
+                user_form.self_introduction,
+                user_form.bdsm_type,
+                user_form.marketing_agree,
+                user_form.service_agree,
+                user_form.personal_agree,
+                user_form.personal_chat_alarm,
+                user_form.group_chat_alarm,
+                user_form.post_comment_alarm,
+                user_form.post_like_alarm,
+                user_form.night_agree,
+                user_form.leave,
+                user_form.test or "",
+            )
+
+            await self.user_repository.insert_user(user_data)
+
+            profile_urls = await self.image_service.upload_images(
+                user_id=user_form.id,
+                images=profile_images,
+                image_label="user_profile",
+            )
+            await self.user_repository.insert_user_images(
+                user_form.id, profile_urls, start_index=0
+            )
+
+            secret_urls = await self.image_service.upload_images(
+                user_id=user_form.id,
+                images=secret_images,
+                image_label="user_secret_profile",
+            )
+            if secret_urls:
+                await self.user_repository.insert_secret_images(
+                    user_form.id, secret_urls
+                )
+
+            user_row, columns = await self.user_repository.get_user_row(user_form.id)
+            if user_row and columns:
+                await self.user_repository.insert_user_history(user_row, columns)
+            return True
         except Exception as e:
-            print(f"닉네임 중복확인실패: {e}")
-            raise HTTPException(status_code=500, detail="닉네임 중복 확인 실패")
+            logger.error(f"User creation failed: {str(e)}")
+            raise HTTPException(status_code=500, detail="사용자 생성 실패")
 
     async def fetch_my_profile(self, user_id: str) -> UserProfileResponse | None:
         try:
-            async with self.db.get_connection() as conn:
-                async with conn.cursor() as cur:
-                    user_query = """
-                    SELECT
-                        id, nickname, birthday, age, height, weight, sns, 
-                        relation, position, country, hashtags, 
-                        self_introduction, bdsm_type, talk_style, secret_yn, credit,
-                        provider, marketing_agree, night_agree,
-                        personal_chat_alarm_agree, group_chat_alarm_agree,
-                        post_comment_alarm_agree, post_like_alarm_agree, profile_alarm_agree, secret_alarm_agree,
-                        banned, unbanned_dt, last_connected_at,
-                        latitude, longitude
-                    FROM users
-                    WHERE id = %s AND leaved = FALSE
-                    """
+            # users에 있는 유저 정보
+            user_row = await self.user_repository.fetch_my_profile(user_id)
+            if not user_row:
+                raise HTTPException(
+                    status_code=404, detail="존재하지 않는 사용자입니다."
+                )
+            # 이미지 정보
+            profile_images = await self.user_repository.fetch_profile_images(user_id)
+            secret_images = await self.user_repository.fetch_secret_images(user_id)
+            # 차단 목록 / 즐겨찾기
+            block_user_list = await self.user_repository.fetch_user_block_list(user_id)
+            favorite_list = await self.user_repository.fetch_favorite_list(user_id)
+            # 푸시 상태
+            user_no = await self.user_repository.fetch_user_no(user_id)
+            push_read, profile_read = await self.user_repository.fetch_push_status(
+                user_no
+            )
+            # 광고 시청 횟수
+            today_ad_count = await self.user_repository.fetch_today_ads(user_id)
+            return UserProfileResponse(
+                id=user_row.id,
+                nickname=user_row.nickname,
+                birthday=user_row.birthday,
+                age=user_row.age,
+                height=user_row.height,
+                weight=user_row.weight,
+                sns=user_row.sns,
+                relation=user_row.relation,
+                provider=user_row.provider,
+                position=user_row.position,
+                country=user_row.country,
+                hashtags=Hashtags.parse_raw(user_row.hashtags),
+                selfIntroduction=user_row.self_introduction,
+                bdsmType=user_row.bdsm_type,
+                talkStyle=user_row.talk_style,
+                profileImages=profile_images,
+                secretYn=user_row.secret_yn,
+                credit=user_row.credit,
+                todayAdCount=today_ad_count,
+                secretImages=secret_images,
+                marketingAlarm=user_row.marketing_agree,
+                nightAlarm=user_row.night_agree,
+                personalChatAlarm=user_row.personal_chat_alarm_agree,
+                groupChatAlarm=user_row.group_chat_alarm_agree,
+                postCommentAlarm=user_row.post_comment_alarm_agree,
+                postLikeAlarm=user_row.post_like_alarm_agree,
+                profileAlarm=user_row.profile_alarm_agree,
+                secretAlarm=user_row.secret_alarm_agree,
+                pushRead=push_read,
+                profileRead=profile_read,
+                banned=user_row.banned,
+                unBannedDate=user_row.unbanned_dt,
+                blockUserList=block_user_list,
+                blockPostList=[],
+                blockCommentList=[],
+                favoriteUserList=favorite_list,
+                lastConnectedAt=user_row.last_connected_at,
+                latitude=user_row.latitude,
+                longitude=user_row.longitude,
+            )
 
-                    await cur.execute(user_query, (user_id,))
-                    user_row = await cur.fetchone()
-                    if not user_row:
-                        return {}
-
-                    (
-                        id,
-                        nickname,
-                        birthday,
-                        age,
-                        height,
-                        weight,
-                        sns,
-                        relation,
-                        position,
-                        country,
-                        hashtags_json,
-                        self_introduction,
-                        bdsm_type,
-                        talk_style,
-                        secret_yn,
-                        credit,
-                        provider,
-                        marketing_agree,
-                        night_agree,
-                        personal_chat_alarm,
-                        group_chat_alarm,
-                        post_comment_alarm,
-                        post_like_alarm,
-                        profile_alarm,
-                        secret_alarm,
-                        banned,
-                        unbanned_dt,
-                        last_connected_at,
-                        latitude,
-                        longitude,
-                    ) = user_row
-
-                    hashtags = Hashtags.parse_raw(hashtags_json)
-
-                    profile_images_query = """
-                    SELECT url 
-                    FROM user_images 
-                    WHERE user_id = %s AND use_yn = TRUE
-                    """
-
-                    await cur.execute(profile_images_query, (user_id,))
-                    profile_images = [row[0] for row in await cur.fetchall()]
-
-                    secret_images_query = """
-                    SELECT url
-                    FROM user_secret_images 
-                    WHERE user_id = %s AND use_yn = TRUE
-                    """
-                    await cur.execute(secret_images_query, (user_id,))
-                    secret_images = [row[0] for row in await cur.fetchall()]
-
-                    block_user_query = """
-                        SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
-                    """
-                    await cur.execute(block_user_query, (user_id,))
-                    block_user_list = [row[0] for row in await cur.fetchall()]
-
-                    block_post_query = """
-                        SELECT blocked_post_id FROM post_block_list WHERE block_user_id = %s
-                    """
-                    await cur.execute(block_post_query, (user_id,))
-                    block_post_list = [row[0] for row in await cur.fetchall()]
-
-                    block_comment_query = """
-                        SELECT blocked_comment_id FROM comment_block_list WHERE block_user_id = %s
-                    """
-                    await cur.execute(block_comment_query, (user_id,))
-                    block_comment_list = [row[0] for row in await cur.fetchall()]
-
-                    user_no = await self.fetch_user_no(user_id)
-
-                    push_read_query = """
-                        SELECT 1 FROM push_user_log WHERE user_no = %s AND delivery_state = 'DELIVERED' LIMIT 1
-                    """
-                    await cur.execute(push_read_query, (user_no,))
-                    push_read_row = await cur.fetchone()
-                    pushRead = bool(push_read_row[0] if push_read_row else False)
-
-                    profile_read_query = """
-                        SELECT 1 
-                        FROM push_user_log 
-                        WHERE user_no = %s 
-                            AND status = 'SUCCESS'
-                            AND delivery_state = 'DELIVERED' 
-                            AND push_type = 'profile'
-                    """
-                    await cur.execute(profile_read_query, (user_no,))
-                    profile_read_row = await cur.fetchone()
-                    profileRead = bool(
-                        profile_read_row[0] if profile_read_row else False
-                    )
-
-                    today_ads_query = """
-                        SELECT COUNT(*)
-                        FROM credit_history
-                        WHERE user_id = %s
-                            AND description = '광고 시청 보상'
-                            AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
-                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
-                    """
-                    await cur.execute(today_ads_query, (user_id,))
-                    today_ads_row = await cur.fetchone()
-                    todayAdCount = today_ads_row[0] if today_ads_row else 0
-
-                    favorite_query = """
-                        SELECT favorite_user_id
-                        FROM users_favorite_list
-                        WHERE user_id = %s
-                    """
-                    await cur.execute(favorite_query, (user_id,))
-                    favorite_list = [row[0] for row in await cur.fetchall()]
-
-                    return UserProfileResponse(
-                        id=user_id,
-                        nickname=nickname,
-                        birthday=birthday,
-                        age=age,
-                        height=height,
-                        weight=weight,
-                        sns=sns,
-                        relation=relation,
-                        provider=provider,
-                        position=position,
-                        country=country,
-                        hashtags=hashtags,
-                        selfIntroduction=self_introduction,
-                        bdsmType=bdsm_type,
-                        talkStyle=talk_style,
-                        profileImages=profile_images,
-                        secretYn=secret_yn,
-                        credit=credit,
-                        todayAdCount=todayAdCount,
-                        secretImages=secret_images,
-                        marketingAlarm=marketing_agree,
-                        nightAlarm=night_agree,
-                        personalChatAlarm=personal_chat_alarm,
-                        groupChatAlarm=group_chat_alarm,
-                        postCommentAlarm=post_comment_alarm,
-                        postLikeAlarm=post_like_alarm,
-                        profileAlarm=profile_alarm,
-                        secretAlarm=secret_alarm,
-                        pushRead=pushRead,
-                        profileRead=profileRead,
-                        banned=banned,
-                        unBannedDate=unbanned_dt,
-                        blockUserList=block_user_list,
-                        blockPostList=block_post_list,
-                        blockCommentList=block_comment_list,
-                        favoriteUserList=favorite_list,
-                        lastConnectedAt=last_connected_at,
-                        latitude=latitude,
-                        longitude=longitude,
-                    )
+        except HTTPException:
+            raise
         except Exception as e:
-            print(f"Error fetching user profile: {e}")
-            raise HTTPException(status_code=500, detail="내 정보 없음")
+            raise HTTPException(status_code=500, detail=f"내 정보 조회 실패: {str(e)}")
 
-    async def update_user_nickname(self, id: str, nickname: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    return "not_found"
+    async def check_nickname(self, nickname: str) -> bool:
+        return await self.user_repository.check_nickname(nickname)
 
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE nickname = %s", (nickname,)
-                )
-                nickname_exist = await cur.fetchone()
-                if nickname_exist:
-                    return "duplicate"
+    async def update_user_nickname(self, id: str, nickname: str) -> str:
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            return "not_found"
 
-                await cur.execute(
-                    "UPDATE users SET nickname = %s WHERE id = %s", (nickname, id)
-                )
+        if await self.user_repository.check_nickname(nickname):
+            return "duplicate"
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
+        await self.user_repository.update_user_nickname(id, nickname)
 
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
 
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return "success"
+        return "success"
 
     async def update_user_hashtag(self, id: str, hashtags: Hashtags) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute(
-                    "UPDATE users SET hashtags = %s WHERE id = %s",
-                    (hashtags.json(), id),
-                )
+        await self.user_repository.update_user_hashtags(id, hashtags.json())
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
-
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return True
+        return True
 
     async def update_user_info(
         self, id: str, age: int, height: int, weight: int, country: str
     ) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute(
-                    """
-                    UPDATE users 
-                    SET age = %s, height = %s, weight = %s, country = %s 
-                    WHERE id = %s
-                    """,
-                    (age, height, weight, country, id),
-                )
+        await self.user_repository.update_user_info(id, age, height, weight, country)
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
 
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return True
+        return True
 
     async def update_user_fcm(self, id: str, fcm: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute("UPDATE users SET fcm = %s WHERE id = %s", (fcm, id))
+        await self.user_repository.update_user_fcm(id, fcm)
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
 
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return True
+        return True
 
     async def update_user_relation(self, id: str, relation: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute(
-                    "UPDATE users SET relation = %s WHERE id = %s", (relation, id)
-                )
+        await self.user_repository.update_user_relation(id, relation)
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
-
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return True
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
+        return True
 
     async def update_user_position(self, id: str, position: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute(
-                    "UPDATE users SET position = %s WHERE id = %s", (position, id)
-                )
+        await self.user_repository.update_user_position(id, position)
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
+        return True
 
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
+    async def update_user_talk_style(self, id: str, talk_style: str) -> bool:
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
+        await self.user_repository.update_user_talk_style(id, talk_style)
 
-                await conn.commit()
-                return True
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
+        return True
 
-    async def update_user_talk_style(self, user_id: str, talk_style: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                await cur.execute(
-                    "UPDATE users SET talk_style = %s WHERE id = %s",
-                    (talk_style, user_id),
-                )
+    async def update_user_alarm(self, id: str, type: str, value: bool) -> bool:
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (user_id,),
-                )
+        await self.user_repository.update_user_alarm(id, type, value)
 
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return True
-
-    async def update_user_alarm(
-        self,
-        id: str,
-        type: str,
-        value: bool,
-    ) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-
-                column_map = {
-                    "marketing_agree": "marketing_agree",
-                    "personal_chat": "personal_chat_alarm_agree",
-                    "group_chat": "group_chat_alarm_agree",
-                    "post_comment": "post_comment_alarm_agree",
-                    "post_like": "post_like_alarm_agree",
-                    "night_agree": "night_agree",
-                    "profile_agree": "profile_alarm_agree",
-                    "secret_agree": "secret_alarm_agree",
-                }
-
-                if type not in column_map:
-                    raise HTTPException(status_code=400, detail="Invalid alarm type")
-                column_name = column_map[type]
-                await cur.execute(
-                    f"UPDATE users SET {column_name} = %s WHERE id = %s", (value, id)
-                )
-
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
-
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return True
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
+        return True
 
     async def update_user_self_introduction(
-        self,
-        user_id: str,
-        user_self_introduction: str,
+        self, id: str, user_self_introduction: str
     ) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        user = await self.user_repository.fetch_active_user(id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute(
-                    "UPDATE users SET self_introduction = %s WHERE id = %s",
-                    (user_self_introduction, user_id),
-                )
+        await self.user_repository.update_user_self_introduction(
+            id, user_self_introduction
+        )
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (user_id,),
-                )
-
-                await cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return True
+        user_row, columns = await self.user_repository.get_user_row(id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
+        return True
 
     async def update_user_bdsm_type(self, user_id: str, bdsm_type: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute(
-                    "UPDATE users SET bdsm_type = %s WHERE id = %s",
-                    (bdsm_type, user_id),
-                )
+        await self.user_repository.update_user_bdsm_type(user_id, bdsm_type)
+        user_row, columns = await self.user_repository.get_user_row(user_id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
+        return True
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (user_id,),
-                )
-
-                await cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return True
-
-    async def check_user_block(self, user_id: str, opponent_id: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                block_query = """
-                SELECT 1
-                FROM user_block_list
-                WHERE blocked_user_id = %s AND block_user_id = %s
-                """
-                await cur.execute(block_query, (user_id, opponent_id))
-                result = await cur.fetchone()
-                return result is not None
+    async def check_user_block(self, user_id: str, target_user_id: str) -> bool:
+        return await self.user_repository.check_user_block(user_id, target_user_id)
 
     async def fetch_user_profile(
         self, user_id: str, viewer_id: Optional[str]
     ) -> UserDetailResponse | None:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                user_query = """
-                SELECT
-                        id, fcm, nickname, birthday, relation, position,
-                        country, age, height, weight, hashtags, self_introduction,
-                        bdsm_type, talk_style, leaved, secret_yn,
-                        personal_chat_alarm_agree, group_chat_alarm_agree,
-                        post_comment_alarm_agree, post_like_alarm_agree,
-                        last_connected_at,
-                        latitude, longitude
-                FROM users
-                WHERE id = %s AND leaved = FALSE
-                """
-                await cur.execute(user_query, (user_id,))
-                user_row = await cur.fetchone()
+        try:
+            # 유저 정보 가져오기
+            user_row = await self.user_repository.fetch_user_profile(user_id)
+            if not user_row:
+                return {}
+            # 차단 목록 가져오기
+            block_user_list = await self.user_repository.fetch_user_block_list(user_id)
 
-                if not user_row:
-                    return {}
-
-                (
-                    id,
-                    fcm,
-                    nickname,
-                    birthday,
-                    relation,
-                    position,
-                    country,
-                    age,
-                    height,
-                    weight,
-                    hashtags_json,
-                    self_introduction,
-                    bdsm_type,
-                    talk_style,
-                    leaved,
-                    secret_yn,
-                    personal_chat_alarm,
-                    group_chat_alarm,
-                    post_comment_alarm,
-                    post_like_alarm,
-                    last_connected_at,
-                    latitude,
-                    longitude,
-                ) = user_row
-
-                hashtags = Hashtags.parse_raw(hashtags_json)
-
-                # 차단된 사용자 목록 조회
-                block_user_query = """
-                SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
-                """
-                await cur.execute(block_user_query, (user_id,))
-                block_user_list = [row[0] for row in await cur.fetchall()]
-
-                if viewer_id is None:
-                    is_blocked = False
-                    today_view_count = 0
-                    total_view_count = 0
-                else:
-                    is_blocked = await self.fetch_user_blocked(user_id, viewer_id)
-                    today_query = """
-                        SELECT COUNT(*)
-                        FROM users_profile_view_log
-                        WHERE user_id = %s AND viewer_id = %s
-                            AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
-                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
-                    """
-                    await cur.execute(today_query, (viewer_id, user_id))
-                    today_view_count_row = await cur.fetchone()
-                    today_view_count = (
-                        today_view_count_row[0] if today_view_count_row else 0
-                    )
-
-                    total_query = """
-                        SELECT view_count
-                        FROM users_profile_view
-                        WHERE user_id = %s AND viewer_id = %s
-                    """
-                    await cur.execute(total_query, (viewer_id, user_id))
-                    total_view_count_row = await cur.fetchone()
-                    total_view_count = (
-                        total_view_count_row[0] if total_view_count_row else 0
-                    )
-
-                # 프로필 이미지 조회
-                image_query = """
-                    SELECT
-                        `index`, url
-                    FROM user_images
-                    WHERE 
-                        user_id = %s and use_yn = TRUE
-                    ORDER BY `index`
-                """
-
-                await cur.execute(image_query, (user_id,))
-                images = await cur.fetchall()
-                profile_images = [row[1] for row in images]
-
-                secret_images = []
-                if secret_yn:
-                    secret_image_query = """
-                    SELECT url
-                    FROM user_secret_images 
-                    WHERE user_id = %s AND use_yn = TRUE
-                    ORDER BY `index`
-                    """
-                    await cur.execute(secret_image_query, (user_id,))
-                    secret_images = [row[0] for row in await cur.fetchall()]
-
-                return UserDetailResponse(
-                    id=id,
-                    fcm=fcm,
-                    nickname=nickname,
-                    birthday=birthday,
-                    relation=relation,
-                    position=position,
-                    country=country,
-                    age=age,
-                    height=height,
-                    weight=weight,
-                    hashtags=hashtags,
-                    selfIntroduction=self_introduction,
-                    bdsmType=bdsm_type,
-                    talkStyle=talk_style,
-                    secretYn=secret_yn,
-                    secretImages=secret_images,
-                    profileImages=profile_images,
-                    leaved=leaved,
-                    personalChatAlarm=personal_chat_alarm,
-                    groupChatAlarm=group_chat_alarm,
-                    postCommentAlarm=post_comment_alarm,
-                    postLikeAlarm=post_like_alarm,
-                    blockUserList=block_user_list,
-                    lastConnectedAt=last_connected_at,
-                    latitude=latitude,
-                    longitude=longitude,
-                    isBlocked=is_blocked,
-                    todayViewCount=today_view_count,
-                    totalViewCount=total_view_count,
+            # 차단 여부 및 조회수 가져오기
+            if viewer_id is None:
+                is_blocked = False
+                today_view_count = 0
+                total_view_count = 0
+            else:
+                is_blocked = await self.check_user_block(user_id, viewer_id)
+                today_view_count = await self.user_repository.fetch_today_view_count(
+                    user_id, viewer_id
                 )
+                total_view_count = await self.user_repository.fetch_total_view_count(
+                    user_id, viewer_id
+                )
+            # 이미지 가져오기
+            profile_images = await self.user_repository.fetch_profile_images(user_id)
+            secret_images = (
+                await self.user_repository.fetch_secret_images(user_id)
+                if user_row.secret_yn
+                else []
+            )
+
+            return UserDetailResponse(
+                id=user_row.id,
+                fcm=user_row.fcm,
+                nickname=user_row.nickname,
+                birthday=user_row.birthday,
+                relation=user_row.relation,
+                position=user_row.position,
+                country=user_row.country,
+                age=user_row.age,
+                height=user_row.height,
+                weight=user_row.weight,
+                hashtags=Hashtags.parse_raw(user_row.hashtags),
+                selfIntroduction=user_row.self_introduction,
+                bdsmType=user_row.bdsm_type,
+                talkStyle=user_row.talk_style,
+                secretYn=user_row.secret_yn,
+                secretImages=secret_images,
+                profileImages=profile_images,
+                leaved=user_row.leaved,
+                personalChatAlarm=user_row.personal_chat_alarm_agree,
+                groupChatAlarm=user_row.group_chat_alarm_agree,
+                postCommentAlarm=user_row.post_comment_alarm_agree,
+                postLikeAlarm=user_row.post_like_alarm_agree,
+                blockUserList=block_user_list,
+                lastConnectedAt=user_row.last_connected_at,
+                latitude=user_row.latitude,
+                longitude=user_row.longitude,
+                isBlocked=is_blocked,
+                todayViewCount=today_view_count,
+                totalViewCount=total_view_count,
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"유저 정보 조회 실패: {str(e)}"
+            )
 
     async def block_user(self, id: str, user_id: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        active_user = await self.user_repository.fetch_active_user(id)
+        if not active_user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="Blocked user not found"
-                    )
+        target_user = await self.user_repository.fetch_active_user(user_id)
+        if not target_user:
+            raise HTTPException(status_code=404, detail="Blocked user not found")
 
-                await cur.execute(
-                    "INSERT INTO user_block_list (block_user_id, blocked_user_id) VALUES (%s, %s)",
-                    (id, user_id),
-                )
-
-                # user_block_list_log에 기록
-                await cur.execute(
-                    "INSERT INTO user_block_list_log (block_user_id, blocked_user_id, block_type) VALUES (%s, %s, 'BLOCK')",
-                    (id, user_id),
-                )
-
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
-
-                await conn.commit()
-                return True
+        await self.user_repository.block_user(id, user_id)
+        return True
 
     async def report_user(
         self, chatId: str, reportUserId: str, reportedUserId: str, reason: str
     ) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (reportUserId,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="Reporting user not found"
-                    )
+        reporter = await self.user_repository.fetch_active_user(reportUserId)
+        if not reporter:
+            raise HTTPException(status_code=404, detail="Reporting user not found")
 
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (reportedUserId,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="Reported user not found"
-                    )
+        reported = await self.user_repository.fetch_active_user(reportedUserId)
+        if not reported:
+            raise HTTPException(status_code=404, detail="Reported user not found")
 
-                await cur.execute(
-                    """
-                    INSERT INTO user_reports (chat_id, report_user_id, reported_user_id, reason)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (chatId, reportUserId, reportedUserId, reason),
-                )
+        await self.user_repository.report_user(
+            chatId, reportUserId, reportedUserId, reason
+        )
+        return True
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (reportUserId,),
-                )
-
-                await conn.commit()
-                return True
-
-    # TODO : 쿼리문 IN구문 별로 좋다고 하지 않으셨는데, 쿼리문 나중에 짤때 최적화 잘해야함.
     async def fetch_user_list(
-        self, user_id, user_id_list: List[str]
+        self, user_id: str, user_id_list: List[str]
     ) -> List[UserListResponse]:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                if not user_id_list:
-                    return []
+        if not user_id_list:
+            return []
+        user_rows = await self.user_repository.fetch_user_list(user_id_list, user_id)
+        user_profiles: List[UserListResponse] = []
+        for user_row in user_rows:
 
-                placeholders = ", ".join(["%s"] * len(user_id_list))
+            block_user_list = await self.user_repository.fetch_user_block_list(
+                user_row.id
+            )
+            is_blocked = await self.user_repository.check_user_block(
+                user_row.id, user_id
+            )
 
-                query = f"""
-                    SELECT 
-                        id, fcm, nickname, birthday, age, height, weight, 
-                        relation, position, country, hashtags, self_introduction, 
-                        bdsm_type, leaved, talk_style, secret_yn,
-                        personal_chat_alarm_agree, group_chat_alarm_agree,
-                        post_comment_alarm_agree, post_like_alarm_agree,
-                        last_connected_at,
-                        latitude, longitude
-                    FROM users
-                    WHERE id IN ({placeholders}) 
-                        AND leaved = FALSE
-                        AND NOT EXISTS (
-                            SELECT 1 
-                            FROM user_block_list ubl
-                            WHERE ubl.block_user_id = %s
-                                AND ubl.blocked_user_id = users.id
-                        )
-                """
-                await cur.execute(query, tuple(user_id_list) + (user_id,))
-                rows = await cur.fetchall()
-                user_profiles = []
+            profile_images = await self.user_repository.fetch_profile_images(
+                user_row.id
+            )
+            secret_images = (
+                await self.user_repository.fetch_secret_images(user_row.id)
+                if user_row.secret_yn
+                else []
+            )
+            user_profiles.append(
+                UserListResponse(
+                    id=user_row.id,
+                    fcm=user_row.fcm,
+                    nickname=user_row.nickname,
+                    birthday=user_row.birthday,
+                    age=user_row.age,
+                    height=user_row.height,
+                    weight=user_row.weight,
+                    relation=user_row.relation,
+                    position=user_row.position,
+                    country=user_row.country,
+                    hashtags=Hashtags.parse_raw(user_row.hashtags),
+                    selfIntroduction=user_row.self_introduction,
+                    bdsmType=user_row.bdsm_type,
+                    talkStyle=user_row.talk_style,
+                    secretYn=user_row.secret_yn,
+                    secretImages=secret_images,
+                    profileImages=profile_images,
+                    leaved=user_row.leaved,
+                    personalChatAlarm=user_row.personal_chat_alarm_agree,
+                    groupChatAlarm=user_row.group_chat_alarm_agree,
+                    postCommentAlarm=user_row.post_comment_alarm_agree,
+                    postLikeAlarm=user_row.post_like_alarm_agree,
+                    blockUserList=block_user_list,
+                    lastConnectedAt=user_row.last_connected_at,
+                    isBlocked=is_blocked,
+                    latitude=user_row.latitude,
+                    longitude=user_row.longitude,
+                )
+            )
+        return user_profiles
 
-                for row in rows:
-                    (
-                        id,
-                        fcm,
-                        nickname,
-                        birthday,
-                        age,
-                        height,
-                        weight,
-                        relation,
-                        position,
-                        country,
-                        hashtags_json,
-                        self_introduction,
-                        bdsm_type,
-                        leaved,
-                        talk_style,
-                        secret_yn,
-                        personal_chat_alarm,
-                        group_chat_alarm,
-                        post_comment_alarm,
-                        post_like_alarm,
-                        last_connected_at,
-                        latitude,
-                        longitude,
-                    ) = row
-
-                    hashtags = Hashtags.parse_raw(hashtags_json)
-
-                    # blockUserList 조회
-                    block_user_query = """
-                        SELECT blocked_user_id FROM user_block_list WHERE block_user_id = %s
-                    """
-                    await cur.execute(block_user_query, (id,))
-                    block_user_list = [row[0] for row in await cur.fetchall()]
-
-                    if user_id:
-                        is_blocked = await self.fetch_user_blocked(id, user_id)
-                    else:
-                        is_blocked = False
-
-                    # 프로필 이미지 조회
-                    image_query = """
-                        SELECT
-                            `index`, url
-                        FROM user_images
-                        WHERE 
-                            user_id = %s and use_yn = TRUE
-                        ORDER BY `index`
-                        """
-                    await cur.execute(image_query, (id,))
-                    images = await cur.fetchall()
-                    profile_images = [row[1] for row in images]
-
-                    secret_image_query = """
-                        SELECT
-                            `index`, url
-                        FROM user_secret_images
-                        WHERE
-                            user_id = %s and use_yn = TRUE
-                        ORDER BY `index`
-                    """
-                    await cur.execute(secret_image_query, (id,))
-                    secret_image = await cur.fetchall()
-                    secret_images = [row[1] for row in secret_image]
-
-                    user_profiles.append(
-                        UserListResponse(
-                            id=id,
-                            fcm=fcm,
-                            nickname=nickname,
-                            birthday=birthday,
-                            age=age,
-                            height=height,
-                            weight=weight,
-                            relation=relation,
-                            position=position,
-                            country=country,
-                            hashtags=hashtags,
-                            selfIntroduction=self_introduction,
-                            bdsmType=bdsm_type,
-                            talkStyle=talk_style,
-                            secretYn=secret_yn,
-                            secretImages=secret_images,
-                            profileImages=profile_images,
-                            leaved=leaved,
-                            personalChatAlarm=personal_chat_alarm,
-                            groupChatAlarm=group_chat_alarm,
-                            postCommentAlarm=post_comment_alarm,
-                            postLikeAlarm=post_like_alarm,
-                            blockUserList=block_user_list,
-                            lastConnectedAt=last_connected_at,
-                            isBlocked=is_blocked,
-                            latitude=latitude,
-                            longitude=longitude,
-                        )
-                    )
-                return user_profiles
-
-    # TODO : 쿼리문 걸리는 WHERE절에 index를 거는게 좋아보인다고함. 나중에라도 걸어보세요.
     async def fetch_user_id_list(
         self,
         user_id: str,
@@ -1225,129 +467,10 @@ class UserService:
         talk_style: str,
         age: str,
         secret: bool,
-    ) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                # relation, talk_style 파싱
-                position = [p.strip() for p in position.split(",")] if position else []
-                relation = [r.strip() for r in relation.split(",")] if relation else []
-                bdsm_type = (
-                    [b.strip() for b in bdsm_type.split(",")] if bdsm_type else []
-                )
-                talk_style = (
-                    [t.strip() for t in talk_style.split(",")] if talk_style else []
-                )
-                age = [a.strip() for a in age.split(",")] if age else []
-
-                query = """
-                    SELECT id
-                    FROM users
-                    WHERE leaved = FALSE
-                """
-
-                # query문을 execute하기 위한 arguments와 필터링을 수행할 filters 리스트
-                arguments = []
-                filters = []
-
-                # position이 존재한다면, FIND_IN_SET을 사용한 position 필터링
-                if position:
-                    position_filter = []
-                    for p in position:
-                        position_filter.append("FIND_IN_SET(%s, position)")
-                        arguments.append(p)
-                    # position이 여러개일 경우 OR 조건인 한 문장으로 filters에 추가
-                    # 예: FIND_IN_SET(%s, position) OR FIND_IN_SET(%s, position)
-                    filters.append(f"({' OR '.join(position_filter)})")
-
-                # relation이 존재한다면, FIND_IN_SET을 사용한 relation 필터링
-                if relation:
-                    relation_filter = []
-                    for r in relation:
-                        relation_filter.append("FIND_IN_SET(%s, relation)")
-                        arguments.append(r)
-                    # relation이 여러개일 경우 OR 조건인 한 문장으로 filters에 추가
-                    # 예: FIND_IN_SET(%s, relation) OR FIND_IN_SET(%s, relation)
-                    filters.append(f"({' OR '.join(relation_filter)})")
-
-                # talk_style이 존재한다면, talk_style 필터링
-                if talk_style:
-                    talk_style_filter = []
-                    for t in talk_style:
-                        talk_style_filter.append("talk_style = %s")
-                        arguments.append(t)
-                    # talk_style이 여러개일 경우 OR 조건인 한 문장으로 filters에 추가
-                    # 예: talk_style = %s OR talk_style = %s
-                    filters.append(f"({' OR '.join(talk_style_filter)})")
-
-                # bdsm_type이 존재한다면, FIND_IN_SET을 사용한 bdsm_type 필터링
-                if bdsm_type:
-                    bdsm_type_filter = []
-                    for b in bdsm_type:
-                        bdsm_type_filter.append("FIND_IN_SET(%s, bdsm_type)")
-                        arguments.append(b)
-                    filters.append(f"({' OR '.join(bdsm_type_filter)})")
-
-                # age가 제대로 들어온다면, between 필터링
-                if len(age) == 2:
-                    filters.append(
-                        """
-                        TIMESTAMPDIFF(
-                            YEAR,
-                            STR_TO_DATE(birthday, '%%Y%%m%%d'),
-                            CURDATE()
-                        ) BETWEEN %s AND %s
-                        """
-                    )
-                    arguments.extend(age)
-
-                if secret is not None:
-                    # secret이 True 라면
-                    if secret is True:
-                        filters.append(
-                            """
-                            EXISTS (
-                                SELECT 1 
-                                FROM user_secret_images si 
-                                WHERE si.user_id = users.id 
-                                AND si.use_yn = TRUE
-                            )
-                            """
-                        )
-                    # 시크릿 앨범이 없다면
-                    else:
-                        filters.append(
-                            """
-                            NOT EXISTS (
-                                SELECT 1 
-                                FROM user_secret_images si 
-                                WHERE si.user_id = users.id 
-                                AND si.use_yn = TRUE
-                            )
-                            """
-                        )
-
-                if user_id:
-                    filters.append(
-                        """
-                        NOT EXISTS (
-                            SELECT 1
-                            FROM user_block_list ubl
-                            WHERE 
-                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
-                                OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
-                        )
-                        """
-                    )
-                    arguments.extend([user_id, user_id])
-
-                # 전부 존재한다면 AND (FIND_IN_SET(%s, relation)) AND (talk_style = %s)
-                if filters:
-                    query += " AND " + " AND ".join(filters)
-
-                await cur.execute(query, arguments)
-                rows = await cur.fetchall()
-                user_id_list = [row[0] for row in rows]
-                return user_id_list
+    ) -> List[str]:
+        return await self.user_repository.fetch_user_id_list(
+            user_id, position, relation, bdsm_type, talk_style, age, secret
+        )
 
     async def fetch_near_user_id_list(
         self,
@@ -1358,343 +481,29 @@ class UserService:
         bdsm_type: str,
         talk_style: str,
         secret: bool,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
+    ) -> List[str]:
+        return await self.user_repository.fetch_near_user_id_list(
+            user_id, age, position, relation, bdsm_type, talk_style, secret
+        )
 
-                # relation, talk_style 파싱
-                position = [p.strip() for p in position.split(",")] if position else []
-                relation = [r.strip() for r in relation.split(",")] if relation else []
-                bdsm_type = (
-                    [b.strip() for b in bdsm_type.split(",")] if bdsm_type else []
-                )
-                talk_style = (
-                    [t.strip() for t in talk_style.split(",")] if talk_style else []
-                )
-                age = [a.strip() for a in age.split(",")] if age else []
+    async def fetch_user_fcm_list(self, user_id_list: List[str]) -> List[str]:
+        if not user_id_list:
+            return []
 
-                # 1. 사용자가 존재하는지, 존재한다면 위도와 경도값이 있는지 -> 없으면 return False
-                await cur.execute(
-                    """
-                    SELECT 1 
-                    FROM users 
-                    WHERE id = %s AND leaved = FALSE
-                    """,
-                    (user_id,),
-                )
+        return await self.user_repository.fetch_user_fcm_list(user_id_list)
 
-                result = await cur.fetchone()
+    async def leave_user(self, user_id: str, reason: str) -> bool:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-                # 사용자가 없으면
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="탈퇴하거나 존재하지 않는 사용자입니다."
-                    )
+        await self.user_repository.leave_user(user_id, reason)
 
-                # 2. 가져온 user_id를 가지고 위도와 경도값을 가져온다.
-                await cur.execute(
-                    """
-                    SELECT latitude, longitude 
-                    FROM users 
-                    WHERE id = %s
-                    """,
-                    (user_id,),
-                )
+        user_row, columns = await self.user_repository.get_user_row(user_id)
+        if user_row and columns:
+            await self.user_repository.insert_user_history(user_row, columns)
 
-                user_location = await cur.fetchone()
-
-                # 사용자의 위도와 경도값이 없으면 빈 리스트를 반환
-                if not user_location or None in user_location:
-                    return []
-
-                lat, lng = user_location
-
-                # 3. 위도 경도값이 없는 사용자를 제외한 사용자와의 거리를 계산해 가까운 순으로 정렬한다.
-                # 3-1. 만약 필터링이 있다면, 필터링을 적용해서 정렬한다.
-                query = """
-                    SELECT id,
-                        (6371 * acos(
-                            cos(radians(%s)) * cos(radians(latitude)) *
-                            cos(radians(longitude) - radians(%s)) +
-                            sin(radians(%s)) * sin(radians(latitude))
-                        )) AS distance
-                    FROM users
-                    WHERE leaved = FALSE
-                        AND latitude IS NOT NULL 
-                        AND longitude IS NOT NULL
-                        AND id != %s
-                """
-                arguments = [lat, lng, lat, user_id]
-                filters = []
-
-                if position:
-                    position_filter = []
-                    for p in position:
-                        position_filter.append("FIND_IN_SET(%s, position)")
-                        arguments.append(p)
-                    filters.append(f"({' OR '.join(position_filter)})")
-
-                if relation:
-                    relation_filter = []
-                    for r in relation:
-                        relation_filter.append("FIND_IN_SET(%s, relation)")
-                        arguments.append(r)
-                    filters.append(f"({' OR '.join(relation_filter)})")
-
-                if talk_style:
-                    talk_style_filter = []
-                    for t in talk_style:
-                        talk_style_filter.append("talk_style = %s")
-                        arguments.append(t)
-                    filters.append(f"({' OR '.join(talk_style_filter)})")
-
-                if bdsm_type:
-                    bdsm_type_filter = []
-                    for b in bdsm_type:
-                        bdsm_type_filter.append("FIND_IN_SET(%s, bdsm_type)")
-                        arguments.append(b)
-                    filters.append(f"({' OR '.join(bdsm_type_filter)})")
-
-                if len(age) == 2:
-                    filters.append(
-                        """
-                        TIMESTAMPDIFF(
-                            YEAR,
-                            STR_TO_DATE(birthday, '%%Y%%m%%d'),
-                            CURDATE()
-                        ) BETWEEN %s AND %s
-                        """
-                    )
-                    arguments.extend(age)
-
-                if secret is not None:
-                    # secret이 True 라면
-                    if secret is True:
-                        filters.append(
-                            """
-                            EXISTS (
-                                SELECT 1 
-                                FROM user_secret_images si 
-                                WHERE si.user_id = users.id 
-                                AND si.use_yn = TRUE
-                            )
-                            """
-                        )
-                    # 시크릿 앨범이 없다면
-                    else:
-                        filters.append(
-                            """
-                            NOT EXISTS (
-                                SELECT 1 
-                                FROM user_secret_images si 
-                                WHERE si.user_id = users.id 
-                                AND si.use_yn = TRUE
-                            )
-                            """
-                        )
-
-                if user_id:
-                    filters.append(
-                        """
-                        NOT EXISTS (
-                            SELECT 1
-                            FROM user_block_list ubl
-                            WHERE 
-                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
-                                OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
-                        )
-                        """
-                    )
-                    arguments.extend([user_id, user_id])
-
-                if filters:
-                    query += " AND " + " AND ".join(filters)
-                # 거리를 기준으로 오름차순 정렬
-                query += " ORDER BY distance"
-
-                await cur.execute(query, arguments)
-                rows = await cur.fetchall()
-
-                # response는 {"userId": user_id, "distance": distance, 소수점 7자리까지}
-                distance_user_list = [row[0] for row in rows]
-
-                # 4. 위치 정보 없는 사용자를 추가한 list
-
-                # latitude와 longitude가 null인 사용자를 가져오는 쿼리문
-                null_query = """
-                    SELECT id
-                    FROM users
-                    WHERE leaved = FALSE
-                        AND (latitude IS NULL OR longitude IS NULL)
-                        AND id != %s
-                """
-
-                null_arguments = [user_id]
-                null_filters = []
-
-                # 기존의 필터링 그대로
-
-                if position:
-                    null_position_filter = []
-                    for p in position:
-                        null_position_filter.append("FIND_IN_SET(%s, position)")
-                        null_arguments.append(p)
-                    null_filters.append(f"({' OR '.join(null_position_filter)})")
-
-                if relation:
-                    null_relation_filter = []
-                    for r in relation:
-                        null_relation_filter.append("FIND_IN_SET(%s, relation)")
-                        null_arguments.append(r)
-                    null_filters.append(f"({' OR '.join(null_relation_filter)})")
-
-                if talk_style:
-                    null_talk_style_filter = []
-                    for t in talk_style:
-                        null_talk_style_filter.append("talk_style = %s")
-                        null_arguments.append(t)
-                    null_filters.append(f"({' OR '.join(null_talk_style_filter)})")
-
-                if bdsm_type:
-                    null_bdsm_type_filter = []
-                    for b in bdsm_type:
-                        null_bdsm_type_filter.append("FIND_IN_SET(%s, bdsm_type)")
-                        null_arguments.append(b)
-                    null_filters.append(f"({' OR '.join(null_bdsm_type_filter)})")
-
-                if age:
-                    if len(age) == 2:
-                        null_filters.append(
-                            """
-                            TIMESTAMPDIFF(
-                                YEAR,
-                                STR_TO_DATE(birthday, '%%Y%%m%%d'),
-                                CURDATE()
-                            ) BETWEEN %s AND %s
-                            """
-                        )
-                        null_arguments.extend(age)
-
-                if secret is not None:
-                    # secret이 True 라면
-                    if secret is True:
-                        null_filters.append(
-                            """
-                            EXISTS (
-                                SELECT 1 
-                                FROM user_secret_images si 
-                                WHERE si.user_id = users.id 
-                                AND si.use_yn = TRUE
-                            )
-                            """
-                        )
-                    # 시크릿 앨범이 없다면
-                    else:
-                        null_filters.append(
-                            """
-                            NOT EXISTS (
-                                SELECT 1 
-                                FROM user_secret_images si 
-                                WHERE si.user_id = users.id 
-                                AND si.use_yn = TRUE
-                            )
-                            """
-                        )
-
-                if user_id:
-                    null_filters.append(
-                        """
-                        NOT EXISTS (
-                            SELECT 1
-                            FROM user_block_list ubl
-                            WHERE 
-                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
-                                OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
-                        )
-                        """
-                    )
-                    null_arguments.extend([user_id, user_id])
-
-                if null_filters:
-                    null_query += " AND " + " AND ".join(null_filters)
-
-                await cur.execute(null_query, null_arguments)
-                null_rows = await cur.fetchall()
-
-                # null_rows에서 userId와 None 거리를 가진 리스트 생성, {"userId": user_id, "distance": null}
-                null_user_list = [row[0] for row in null_rows]
-
-                # 두개의 리스트를 합해서 반환, 거리가 있는 것 우선
-                return distance_user_list + null_user_list
-
-    async def fetch_user_fcm_list(self, user_id: List[str]) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                if not user_id:
-                    return []
-
-                placeholders = ", ".join(["%s"] * len(user_id))
-                query = f"""
-                    SELECT id, fcm
-                    FROM users
-                    WHERE id IN ({placeholders}) AND leaved = FALSE
-                """
-
-                await cur.execute(query, tuple(user_id))
-                rows = await cur.fetchall()
-
-                user_fcm_list = [row[1] for row in rows if row[1]]
-
-                return user_fcm_list
-
-    async def leave_user(self, id: str, reason: str) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-
-                await cur.execute("UPDATE users SET leaved = TRUE WHERE id = %s", (id,))
-
-                await cur.execute(
-                    "INSERT INTO leaved_users (user_id, reason) VALUES (%s, %s)",
-                    (id, reason),
-                )
-
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (id,),
-                )
-
-                await cur.execute("SELECT * FROM users WHERE id = %s", (id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
-
-                if user_row:
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-
-                # Firebase Authentication에서 사용자 삭제
-                try:
-                    auth.delete_user(id)
-                    logger.info(f"Firebase user {id} deleted successfully.")
-                except auth.UserNotFoundError:
-                    logger.warning(f"Firebase user {id} not found (already deleted).")
-                except Exception as e:
-                    logger.error(f"Firebase deletion failed: {e}")
-
-                return True
+        return True
 
     async def user_health_check(
         self,
@@ -1702,32 +511,14 @@ class UserService:
         user_latitude: Optional[float],
         user_longitude: Optional[float],
     ) -> bool:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                query = """
-                    SELECT 1 FROM users
-                    WHERE id = %s AND leaved = FALSE
-                """
-                await cur.execute(query, (user_id,))
-                result = await cur.fetchone()
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않는 유저입니다."
-                    )
-
-                health_query = """
-                    UPDATE users
-                    SET last_connected_at = CURRENT_TIMESTAMP,
-                        latitude = %s,
-                        longitude = %s
-                    WHERE id = %s
-                """
-                await cur.execute(
-                    health_query, (user_latitude, user_longitude, user_id)
-                )
-                await conn.commit()
-                return True
+        await self.user_repository.user_health_check(
+            user_id, user_latitude, user_longitude
+        )
+        return True
 
     async def update_user_images(
         self,
@@ -1735,1511 +526,548 @@ class UserService:
         image_index: Optional[List[str]] = None,
         image: Optional[List[UploadFile]] = None,
     ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    "SELECT url FROM user_images WHERE user_id = %s AND use_yn = TRUE ORDER BY `index`",
-                    (user_id,),
-                )
-                rows = await cur.fetchall()
-                origin_image_urls = [r[0] for r in rows]
+        # 현재 이미지 목록 조회
+        origin_images = await self.user_repository.fetch_profile_images(user_id)
 
-                if image_index:
-                    if len(image_index) == 1 and "," in image_index[0]:
-                        image_index = image_index[0].split(",")
-                else:
-                    image_index = []
-                image_index = [url.strip() for url in image_index]
+        # 이미지 정리
+        if image_index:
+            if len(image_index) == 1 and "," in image_index[0]:
+                image_index = image_index[0].split(",")
+        else:
+            image_index = []
+        image_index = [url.strip() for url in image_index]
 
-                keep_images = [url for url in image_index if url in origin_image_urls]
-                remove_images = [
-                    url for url in origin_image_urls if url not in image_index
-                ]
+        keep_images = [url for url in image_index if url in origin_images]
+        remove_images = [url for url in origin_images if url not in image_index]
 
-                if remove_images:
-                    for url in remove_images:
-                        await cur.execute(
-                            """
-                            UPDATE user_images
-                            SET use_yn = FALSE
-                            WHERE user_id = %s AND url = %s
-                            """,
-                            (user_id, url),
-                        )
+        uploaded_urls = []
+        if image:
+            start_index = len(keep_images)
+            for idx, file in enumerate(image):
+                now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
+                ext = file.filename.split(".")[-1] or "jpg"
+                filename = f"{now}.{ext}"
+                s3_key = f"user_profile/{user_id}/"
 
-                for idx, url in enumerate(keep_images):
-                    await cur.execute(
-                        """
-                        UPDATE user_images
-                        SET `index` = %s
-                        WHERE user_id = %s AND url = %s
-                        """,
-                        (idx, user_id, url),
-                    )
-
-                start_index = len(keep_images)
-                if image:
-                    for idx, file in enumerate(image):
-                        now = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
-                        extension = file.filename.split(".")[-1] or "jpg"
-                        filename = f"{now}.{extension}"
-                        s3_key = f"user_profile/{user_id}/"
-
-                        file.file.seek(0)
-                        if not upload_file_to_s3(file.file, s3_key, filename):
-                            raise HTTPException(
-                                status_code=500,
-                                detail=f"Failed to upload image {file.filename} to S3",
-                            )
-
-                        image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
-                        await cur.execute(
-                            """
-                            INSERT INTO user_images (user_id, `index`, url, use_yn)
-                            VALUES (%s, %s, %s, %s)
-                            """,
-                            (user_id, start_index + idx, image_url, True),
-                        )
-
-                image_query = """
-                    SELECT url 
-                    FROM user_images 
-                    WHERE user_id = %s AND use_yn = TRUE
-                    ORDER BY `index`
-                """
-                await cur.execute(image_query, (user_id,))
-                rows = await cur.fetchall()
-                image_url_list = [row[0] for row in rows]
-                if not image_url_list:
+                file.file.seek(0)
+                if not upload_file_to_s3(file.file, s3_key, filename):
                     raise HTTPException(
-                        status_code=404, detail="No images found for user"
+                        status_code=500, detail=f"S3 업로드 실패: {file.filename}"
                     )
 
-                # updated_at 필드 업데이트
-                await cur.execute(
-                    "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                    (user_id,),
-                )
+                image_url = f"{CLOUDFRONT_URL}/{s3_key}{filename}"
+                uploaded_urls.append(image_url)
 
-                await cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-                user_row = await cur.fetchone()
-                columns = [col[0] for col in cur.description]
+        all_images = await self.user_repository.update_user_images(
+            user_id=user_id,
+            keep_images=keep_images,
+            remove_images=remove_images,
+            uploaded_urls=uploaded_urls,
+        )
 
-                if user_row:
-                    columns.append("image_list")
-                    user_row = list(user_row) + [",".join(image_url_list)]
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    columns_sql = ", ".join(columns)
-                    insert_history = f"""
-                    INSERT INTO users_history ({columns_sql})
-                    VALUES ({placeholders})
-                    """
-                    await cur.execute(insert_history, user_row)
-
-                await conn.commit()
-                return image_url_list
-
-    # push 작업을 위한 user의 fcm 가져오기
-    async def fetch_user_fcm(self, user_id: str) -> str:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT fcm
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
-                        AND fcm IS NOT NULL
-                    LIMIT 1
-                    """,
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                return result[0] if result else None
-
-    # push 작업을 위한 user의 nickname 가져오기
-    async def fetch_user_nickname(self, user_id: str) -> str:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT nickname
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
-                    LIMIT 1
-                    """,
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                return result[0] if result else None
-
-    # push 작업을 위한 user의 no가져오기
-    async def fetch_user_no(self, user_id: str) -> int:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT user_no
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
-                    LIMIT 1
-                    """,
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                return result[0]
+        return all_images
 
     async def fetch_user_push_list(
-        self, push_type: str, page: int, user_id: str
+        self, push_type: Optional[str], page: int, user_id: str
     ) -> List[dict]:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                offset = (page - 1) * 20
-                await cur.execute(
-                    """
-                    SELECT user_no
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
-                    LIMIT 1
-                    """,
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                user_no = result[0]
+        user_no = await self.user_repository.fetch_user_no(user_id)
+        if not user_no:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                if push_type == "userAction":
-                    await cur.execute(
-                        """
-                        SELECT token, payload, delivered_at, opened_at
-                        FROM push_user_log
-                        WHERE user_no = %s
-                            AND status IN ('SUCCESS', 'OPENED')
-                            AND push_type IN ('profile', 'postLike', 'postComment', 'secret')
-                        ORDER BY delivered_at DESC
-                        LIMIT 20 OFFSET %s
-                        """,
-                        (user_no, offset),
-                    )
-                elif push_type:
-                    await cur.execute(
-                        """
-                        SELECT token, payload, delivered_at, opened_at
-                        FROM push_user_log
-                        WHERE user_no = %s
-                            AND status IN ('SUCCESS', 'OPENED')
-                            AND push_type = %s
-                        ORDER BY delivered_at DESC
-                        LIMIT 20 OFFSET %s
-                        """,
-                        (user_no, push_type, offset),
-                    )
-                else:
-                    await cur.execute(
-                        """
-                        SELECT token, payload, delivered_at, opened_at
-                        FROM push_user_log
-                        WHERE user_no = %s
-                            AND status = 'SUCCESS'
-                        ORDER BY delivered_at DESC
-                        LIMIT 20 OFFSET %s
-                        """,
-                        (user_no, offset),
-                    )
+        push_rows = await self.user_repository.fetch_push_user_logs(
+            user_no=user_no, push_type=push_type, page=page
+        )
 
-                result = await cur.fetchall()
-                if not result:
-                    return []
-                push_list = []
+        push_list = [
+            {
+                "token": row[0],
+                "payload": row[1],
+                "deliveredAt": row[2],
+                "openedAt": row[3],
+            }
+            for row in push_rows
+        ]
 
-                for token, payload, delivered_at, opened_at in result:
-                    push_list.append(
-                        {
-                            "token": token,
-                            "payload": payload,
-                            "deliveredAt": delivered_at,
-                            "openedAt": opened_at,
-                        }
-                    )
-                return push_list
+        return push_list
 
-    async def receive_user_push(
-        self,
-        push_id: str,
-        user_id: str,
-    ) -> None:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT user_no
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
-                    LIMIT 1
-                    """,
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                user_no = result[0]
+    async def receive_user_push(self, push_id: str, user_id: str) -> bool:
+        user_no = await self.user_repository.fetch_user_no(user_id)
+        if not user_no:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    UPDATE push_user_log
-                    SET delivery_state = 'OPENED', opened_at = CURRENT_TIMESTAMP
-                    WHERE user_no = %s
-                        AND push_id = %s
-                        AND status = 'SUCCESS'
-                    """,
-                    (user_no, push_id),
-                )
-                await conn.commit()
-                return True
+        updated = await self.user_repository.update_push_opened_state(user_no, push_id)
+        if not updated:
+            raise HTTPException(status_code=404, detail="푸시 로그를 찾을 수 없습니다.")
 
-    async def receive_all_user_push(self, user_id: str) -> None:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT user_no
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
-                    LIMIT 1
-                    """,
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                user_no = result[0]
+        return True
 
-                await cur.execute(
-                    """
-                    UPDATE push_user_log
-                    SET delivery_state = 'OPENED', opened_at = CURRENT_TIMESTAMP
-                    WHERE user_no = %s
-                        AND status = 'SUCCESS'
-                    """,
-                    (user_no,),
-                )
-                await conn.commit()
-                return True
+    async def receive_all_user_push(self, user_id: str) -> bool:
+        user_no = await self.user_repository.fetch_user_no(user_id)
+        if not user_no:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-    async def fetch_user_blocked(self, user_id: str, opponent_id: str):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_block_list
-                    WHERE block_user_id = %s AND blocked_user_id = %s
-                    """,
-                    (user_id, opponent_id),
-                )
-                result = await cur.fetchone()
-                return bool(result)
+        updated = await self.user_repository.update_all_push_opened_state(user_no)
+        if not updated:
+            raise HTTPException(status_code=404, detail="읽을 푸시 로그가 없습니다.")
 
-    async def insert_user_profile_view(self, user_id: str, viewer_id: str):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
+        return True
 
-                # 1. users_profile_view에 이미 존재하는지, 존재한다면 count만, 존재하지 않으면 insert
-                await cur.execute(
-                    """
-                    SELECT viewer_id
-                    FROM users_profile_view
-                    WHERE user_id = %s AND viewer_id = %s
-                    """,
-                    (user_id, viewer_id),
-                )
+    async def insert_user_profile_view(self, user_id: str, viewer_id: str) -> bool:
+        is_active = await self.user_repository.fetch_active_user(user_id)
+        if not is_active:
+            raise HTTPException(status_code=404, detail="존재하지 않는 사용자입니다.")
 
-                is_viewed = await cur.fetchone()
+        is_viewer_active = await self.user_repository.fetch_active_user(viewer_id)
+        if not is_viewer_active:
+            raise HTTPException(status_code=404, detail="존재하지 않는 조회자입니다.")
 
-                if is_viewed:
-                    await cur.execute(
-                        """
-                        UPDATE users_profile_view
-                        SET updated_at = CURRENT_TIMESTAMP,
-                            view_count = view_count + 1
-                        WHERE user_id = %s AND viewer_id = %s
-                        """,
-                        (user_id, viewer_id),
-                    )
+        try:
+            await self.user_repository.insert_user_profile_view(user_id, viewer_id)
+            return True
 
-                else:
-                    await cur.execute(
-                        """
-                        INSERT INTO users_profile_view (user_id, viewer_id, type, created_at, view_count)
-                        VALUES (%s, %s, 'view', CURRENT_TIMESTAMP, 1)
-                        """,
-                        (user_id, viewer_id),
-                    )
-
-                # 2. users_profile_view_log에 로그 남기기
-                await cur.execute(
-                    """
-                    INSERT INTO users_profile_view_log (user_id, viewer_id, created_at)
-                    VALUES( %s, %s, CURRENT_TIMESTAMP)
-                    """,
-                    (user_id, viewer_id),
-                )
-
-                await conn.commit()
+        except Exception:
+            raise HTTPException(status_code=500, detail="프로필 조회 로그 저장 실패")
 
     # 상대가 나를 차단했어도 안보이게(놔두도록 한다. 상대방의 행동이 나에게 오지만 않으면 될것).
-    async def fetch_user_profile_view(self, page: int, user_id: str):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                offset = (page - 1) * 20
-                await cur.execute(
-                    """
-                    SELECT upv.viewer_id, upv.updated_at, upv.view_count, COALESCE(today_views.today_count, 0) AS today_view_count
-                    FROM users_profile_view upv
-                    JOIN users u
-                        ON upv.viewer_id = u.id
-                    LEFT JOIN (
-                        SELECT user_id, viewer_id, COUNT(*) AS today_count
-                        FROM users_profile_view_log
-                        WHERE created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
-                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
-                        GROUP BY user_id, viewer_id
-                    ) today_views
-                        ON upv.user_id = today_views.user_id
-                        AND upv.viewer_id = today_views.viewer_id
-                    WHERE upv.user_id = %s
-                        AND upv.updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
-                        AND u.leaved = FALSE
-                        AND NOT EXISTS (
-                                SELECT 1
-                                FROM user_block_list ubl
-                                WHERE 
-                                    (ubl.block_user_id = %s AND ubl.blocked_user_id = upv.viewer_id)
-                            )
-                    ORDER BY upv.updated_at DESC
-                    LIMIT 20 OFFSET %s
-                    """,
-                    (user_id, user_id, offset),
-                )
+    async def fetch_user_profile_view(self, page: int, user_id: str) -> list[dict]:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                rows = await cur.fetchall()
-                view_list = [
-                    {
-                        "id": row[0],
-                        "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
-                        "viewCount": row[2],
-                        "todayViewCount": row[3],
-                    }
-                    for row in rows
-                ]
+        try:
+            view_list = await self.user_repository.fetch_user_profile_view(
+                page, user_id
+            )
+            user_no = await self.user_repository.fetch_user_no(user_id)
+            if user_no:
+                await self.user_repository.mark_profile_push_read(user_no)
 
-                # push_list에서 profile태그가 붙은 푸시들은 전부 읽음처리 되게 한다
-                await cur.execute(
-                    """
-                    SELECT user_no
-                    FROM users
-                    WHERE id = %s
-                    """,
-                    (user_id,),
-                )
-                user_row = await cur.fetchone()
-                if user_row:
-                    user_no = user_row[0]
-                    await cur.execute(
-                        """
-                        UPDATE push_user_log
-                        SET delivery_state = 'OPENED', opened_at = CURRENT_TIMESTAMP
-                        WHERE user_no = %s
-                            AND push_type = 'profile'
-                            AND status = 'SUCCESS'
-                            AND delivery_state = 'DELIVERED'
-                        """,
-                        (user_no,),
-                    )
+            return view_list
 
-                await conn.commit()
-                return view_list
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail="프로필 조회 목록 조회 실패, " + str(e)
+            )
 
-    async def insert_user_secret_images_view(self, user_id: str, target_user_id: str):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT viewer_id
-                    FROM users_secret_view
-                    WHERE user_id = %s AND viewer_id = %s
-                    """,
-                    (target_user_id, user_id),
-                )
+    async def insert_user_secret_images_view(
+        self, user_id: str, target_user_id: str
+    ) -> bool:
+        is_active = await self.user_repository.fetch_active_user(user_id)
+        if not is_active:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                is_viewed = await cur.fetchone()
+        is_target_active = await self.user_repository.fetch_active_user(target_user_id)
+        if not is_target_active:
+            raise HTTPException(
+                status_code=404, detail="존재하지 않는 상대 유저입니다."
+            )
 
-                if is_viewed:
-                    await cur.execute(
-                        """
-                        UPDATE users_secret_view
-                        SET updated_at = CURRENT_TIMESTAMP,
-                            view_count = view_count + 1
-                        WHERE user_id = %s AND viewer_id = %s
-                        """,
-                        (target_user_id, user_id),
-                    )
-                else:
-                    await cur.execute(
-                        """
-                        INSERT INTO users_secret_view (user_id, viewer_id, type, created_at, view_count)
-                        VALUES (%s, %s, 'view', CURRENT_TIMESTAMP, 1)
-                        """,
-                        (target_user_id, user_id),
-                    )
+        try:
+            await self.user_repository.insert_user_secret_images_view(
+                user_id, target_user_id
+            )
+            return True
 
-                await cur.execute(
-                    """
-                    INSERT INTO users_secret_view_log (user_id, viewer_id, created_at)
-                    VALUES( %s, %s, CURRENT_TIMESTAMP)
-                    """,
-                    (target_user_id, user_id),
-                )
-                await conn.commit()
+        except Exception:
+            raise HTTPException(
+                status_code=500, detail="시크릿 이미지 열람 기록 저장 실패"
+            )
 
     # TODO : 프로필 카운트로 선회.
-    async def fetch_user_secret_list(
-        self,
-        user_id: str,
-        page: int,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+    async def fetch_user_secret_list(self, user_id: str, page: int) -> list[dict]:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                offset = (page - 1) * 20
+        try:
+            secret_list = await self.user_repository.fetch_user_secret_list(
+                page, user_id
+            )
+            user_no = await self.user_repository.fetch_user_no(user_id)
+            if user_no:
+                await self.user_repository.mark_secret_push_as_read(user_no)
 
-                await cur.execute(
-                    """
-                    SELECT usv.viewer_id, usv.updated_at, upv.view_count, COALESCE(today_views.today_count, 0) AS today_view_count
-                    FROM users_secret_view usv
-                    JOIN users u
-                        ON usv.viewer_id = u.id
-                    LEFT JOIN user_block_list ubl
-                        ON usv.user_id = ubl.block_user_id
-                        AND usv.viewer_id = ubl.blocked_user_id
-                    LEFT JOIN users_profile_view upv
-                        ON usv.user_id = upv.user_id
-                        AND usv.viewer_id = upv.viewer_id
-                    LEFT JOIN (
-                        SELECT user_id, viewer_id, COUNT(*) AS today_count
-                        FROM users_profile_view_log
-                        WHERE created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
-                            AND created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
-                        GROUP BY user_id, viewer_id
-                    ) today_views
-                        ON usv.user_id = today_views.user_id
-                        AND usv.viewer_id = today_views.viewer_id
-                    WHERE usv.user_id = %s
-                        AND usv.updated_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 YEAR)
-                        AND u.leaved = FALSE
-                        AND ubl.id IS NULL
-                    ORDER BY usv.updated_at DESC
-                    LIMIT 20 OFFSET %s
-                    """,
-                    (user_id, offset),
-                )
+            return secret_list
 
-                rows = await cur.fetchall()
-                secret_list = [
-                    {
-                        "viewerId": row[0],
-                        "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
-                        "viewCount": row[2],
-                        "todayViewCount": row[3],
-                    }
-                    for row in rows
-                ]
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"시크릿 앨범 조회 목록 조회 실패. str{e}"
+            )
 
-                # push_list에서 secret태그가 붙은 푸시들은 전부 읽음처리 되게 한다
-                await cur.execute(
-                    """
-                    SELECT user_no
-                    FROM users
-                    WHERE id = %s
-                    """,
-                    (user_id,),
-                )
-                user_row = await cur.fetchone()
-                if user_row:
-                    user_no = user_row[0]
-                    await cur.execute(
-                        """
-                        UPDATE push_user_log
-                        SET delivery_state = 'OPENED', opened_at = CURRENT_TIMESTAMP
-                        WHERE user_no = %s
-                            AND push_type = 'secret'
-                            AND status = 'SUCCESS'
-                            AND delivery_state = 'DELIVERED'
-                        """,
-                        (user_no,),
-                    )
+    async def fetch_user_secret_images(self, user_id: str, target_user_id: str) -> bool:
+        is_target_active = await self.user_repository.fetch_active_user(target_user_id)
+        if not is_target_active:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                return secret_list
+        has_target_secret = await self.user_repository.has_secret_images(target_user_id)
+        if not has_target_secret:
+            raise HTTPException(
+                status_code=404, detail="상대방의 시크릿 앨범이 존재하지 않습니다."
+            )
 
-    async def fetch_user_secret_images(self, user_id: str, target_user_id: str):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (target_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않은 유저입니다"
-                    )
+        has_my_secret = await self.user_repository.has_secret_images(user_id)
+        if not has_my_secret:
+            raise HTTPException(
+                status_code=404, detail="본인의 시크릿 앨범이 존재하지 않습니다."
+            )
 
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_secret_images
-                    WHERE user_id = %s AND use_yn = TRUE
-                    """,
-                    (target_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="시크릿 앨범이 존재하지 않습니다"
-                    )
+        already_requested = await self.user_repository.has_pending_secret_request(
+            target_user_id, user_id
+        )
+        if already_requested:
+            raise HTTPException(status_code=400, detail="이미 요청한 상태입니다.")
+        try:
+            await self.user_repository.insert_secret_request(target_user_id, user_id)
+            return True
 
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_secret_images
-                    WHERE user_id = %s AND use_yn = TRUE
-                    """,
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="본인의 시크릿 앨범이 존재하지 않습니다"
-                    )
-
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_secret_requests
-                    WHERE user_id = %s AND request_id = %s AND approve_status = 'PENDING'
-                    """,
-                    (target_user_id, user_id),
-                )
-                existing_request = await cur.fetchone()
-                if existing_request:
-                    raise HTTPException(
-                        status_code=400, detail="이미 요청한 상태입니다"
-                    )
-
-                if not existing_request:
-                    await cur.execute(
-                        """
-                        INSERT INTO user_secret_requests (user_id, request_id, approve_status)
-                        VALUES (%s, %s, 'PENDING')
-                        """,
-                        (target_user_id, user_id),
-                    )
-                    await conn.commit()
+        except Exception:
+            raise HTTPException(status_code=500, detail="시크릿 앨범 요청 저장 실패")
 
     async def insert_user_credit_secret_list(
-        self,
-        user_id: str,
-        secret_user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT secret_yn FROM users WHERE id = %s AND leaved = FALSE",
-                    (secret_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result or result[0] == 0:
-                    logger.error(f"{user_id}님의 시크릿 앨범이 존재하지 않습니다.")
-                    return False
+        self, user_id: str, secret_user_id: str
+    ) -> bool:
+        secret_yn = await self.user_repository.fetch_secret_album_status(secret_user_id)
+        if not secret_yn:
+            raise HTTPException(
+                status_code=404, detail="상대방의 시크릿 앨범이 존재하지 않습니다."
+            )
+        try:
+            await self.user_repository.insert_user_credit_secret_view(
+                user_id, secret_user_id
+            )
+            return True
 
-                await cur.execute(
-                    """
-                    INSERT INTO user_credit_secret_view(user_id, viewed_id, created_at)
-                    VALUES (%s, %s, CURRENT_TIMESTAMP)
-                    """,
-                    (user_id, secret_user_id),
-                )
-                await conn.commit()
-                return True
+        except Exception:
+            raise HTTPException(
+                status_code=500, detail="시크릿 앨범 열람 기록 저장 실패"
+            )
 
-    async def fetch_user_credit_secret_view(self, page: int, user_id: str):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+    async def fetch_user_credit_secret_view(
+        self, page: int, user_id: str
+    ) -> list[dict]:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                offset = (page - 1) * 20
-                await cur.execute(
-                    """
-                    SELECT
-                        ucsv.viewed_id,
-                        MAX(ucsv.created_at) AS viewed_at
-                    FROM user_credit_secret_view ucsv
-                    JOIN users u
-                        ON ucsv.user_id = u.id
-                    WHERE ucsv.user_id = %s
-                        AND u.leaved = FALSE
-                        AND ucsv.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
-                        AND NOT EXISTS (
-                        SELECT 1
-                        FROM user_block_list ubl
-                        WHERE 
-                            ubl.block_user_id = %s AND ubl.blocked_user_id = ucsv.viewed_id
-                    )
-                    GROUP BY ucsv.viewed_id
-                    ORDER BY viewed_at DESC
-                    LIMIT 20 OFFSET %s
-                    """,
-                    (user_id, user_id, offset),
-                )
-                rows = await cur.fetchall()
-                credet_secret_list = [
-                    {
-                        "viewedId": row[0],
-                        "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
-                    }
-                    for row in rows
-                ]
-                return credet_secret_list
+        try:
+            credit_secret_list = (
+                await self.user_repository.fetch_credit_secret_view_list(page, user_id)
+            )
+            return credit_secret_list
 
-    async def accept_user_secret_images(self, user_id: str, target_user_id: str):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (target_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않은 유저입니다"
-                    )
+        except Exception:
+            raise HTTPException(status_code=500, detail="시크릿 열람 내역 조회 실패")
 
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_secret_requests
-                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
-                    """,
-                    (target_user_id, user_id),
-                )
-                existing_request = await cur.fetchone()
-                if not existing_request:
-                    raise HTTPException(
-                        status_code=400, detail="요청이 존재하지 않습니다"
-                    )
+    async def accept_user_secret_images(
+        self, user_id: str, target_user_id: str
+    ) -> bool:
+        user = await self.user_repository.fetch_active_user(target_user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    UPDATE user_secret_requests
-                    SET approve_status = 'APPROVE'
-                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
-                    """,
-                    (target_user_id, user_id),
-                )
-                await conn.commit()
+        try:
+            exists = await self.user_repository.has_pending_secret_request(
+                target_user_id, user_id
+            )
+            if not exists:
+                raise HTTPException(status_code=400, detail="요청이 존재하지 않습니다.")
+
+            await self.user_repository.approve_secret_request(target_user_id, user_id)
+            return True
+
+        except Exception:
+            raise HTTPException(status_code=500, detail="시크릿 앨범 승인 처리 실패")
 
     async def reject_user_secret_images(
-        self,
-        user_id: str,
-        target_user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (target_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않은 유저입니다"
-                    )
+        self, user_id: str, target_user_id: str
+    ) -> bool:
+        user = await self.user_repository.fetch_active_user(target_user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_secret_requests
-                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
-                    """,
-                    (target_user_id, user_id),
-                )
-                existing_request = await cur.fetchone()
-                if not existing_request:
-                    raise HTTPException(
-                        status_code=400, detail="요청이 존재하지 않습니다"
-                    )
+        try:
+            exists = await self.user_repository.has_pending_secret_request(
+                target_user_id, user_id
+            )
+            if not exists:
+                raise HTTPException(status_code=400, detail="요청이 존재하지 않습니다.")
 
-                await cur.execute(
-                    """
-                    UPDATE user_secret_requests
-                    SET approve_status = 'REJECT'
-                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
-                    """,
-                    (target_user_id, user_id),
-                )
-                await conn.commit()
+            await self.user_repository.reject_secret_request(target_user_id, user_id)
+            return True
 
-    async def fetch_my_secret_requests(
-        self,
-        user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        except Exception:
+            raise HTTPException(status_code=500, detail="시크릿 앨범 거절 처리 실패")
 
-                await cur.execute(
-                    """
-                    SELECT user_id, request_id, approve_status, created_at
-                    FROM user_secret_requests
-                    WHERE request_id = %s
-                    ORDER BY created_at DESC
-                    """,
-                    (user_id,),
-                )
-                row = await cur.fetchall()
-                requests = [
-                    UserSecretResponse(
-                        userId=r[0],
-                        requestId=r[1],
-                        approveStatus=r[2],
-                        createdAt=r[3],
-                    )
-                    for r in row
-                ]
-                return requests
+    async def fetch_my_secret_requests(self, user_id: str) -> list[UserSecretResponse]:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
+
+        try:
+            requests = await self.user_repository.fetch_my_secret_requests(user_id)
+            return requests
+        except Exception:
+            raise HTTPException(status_code=500, detail="내 시크릿 요청 목록 조회 실패")
 
     async def fetch_opponent_secret_requests(
-        self,
-        user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        self, user_id: str
+    ) -> list[UserSecretResponse]:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    SELECT user_id, request_id, approve_status, created_at
-                    FROM user_secret_requests
-                    WHERE user_id = %s
-                    ORDER BY created_at DESC
-                    """,
-                    (user_id,),
-                )
-                rows = await cur.fetchall()
-                accepts = [
-                    UserSecretResponse(
-                        userId=r[0],
-                        requestId=r[1],
-                        approveStatus=r[2],
-                        createdAt=r[3],
-                    )
-                    for r in rows
-                ]
-                return accepts
+        try:
+            requests = await self.user_repository.fetch_opponent_secret_requests(
+                user_id
+            )
+            return requests
+        except Exception:
+            raise HTTPException(
+                status_code=500, detail="상대 시크릿 요청 목록 조회 실패"
+            )
 
-    async def cancel_my_secret_request(
-        self,
-        user_id: str,
-        target_user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (target_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않은 유저입니다"
-                    )
+    async def cancel_my_secret_request(self, user_id: str, target_user_id: str) -> bool:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_secret_requests
-                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
-                    """,
-                    (user_id, target_user_id),
-                )
-                existing_request = await cur.fetchone()
-                if not existing_request:
-                    raise HTTPException(
-                        status_code=400, detail="요청이 존재하지 않습니다"
-                    )
+        try:
+            exists = await self.user_repository.has_pending_secret_request(
+                target_user_id, user_id
+            )
+            if not exists:
+                raise HTTPException(status_code=400, detail="요청이 존재하지 않습니다.")
 
-                await cur.execute(
-                    """
-                    UPDATE user_secret_requests
-                    SET approve_status = 'CANCEL'
-                    WHERE request_id = %s AND user_id = %s AND approve_status = 'PENDING'
-                    """,
-                    (user_id, target_user_id),
-                )
-                await conn.commit()
+            await self.user_repository.cancel_secret_request(target_user_id, user_id)
+            return True
+        except Exception:
+            raise HTTPException(status_code=500, detail="시크릿 요청 취소 실패")
 
-    async def fetch_my_secret_images(
-        self,
-        user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+    async def fetch_my_secret_images(self, user_id: str) -> list[str] | None:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    SELECT url 
-                    FROM user_secret_images
-                    WHERE user_id = %s AND use_yn = TRUE
-                    ORDER BY `index`
-                    """,
-                    (user_id,),
-                )
-                rows = await cur.fetchall()
-                image_url_list = [r[0] for r in rows]
-                if not image_url_list:
-                    return None
-                return image_url_list
+        try:
+            return await self.user_repository.fetch_my_secret_images(user_id)
+        except Exception:
+            raise HTTPException(status_code=500, detail="시크릿 앨범 조회 실패")
 
     async def cancel_accept_my_secret_request(
-        self,
-        user_id: str,
-        target_user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (target_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않은 유저입니다"
-                    )
+        self, user_id: str, target_user_id: str
+    ) -> bool:
+        target = await self.user_repository.fetch_active_user(target_user_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_secret_requests
-                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
-                    """,
-                    (user_id, target_user_id),
-                )
-                existing_request = await cur.fetchone()
-                if not existing_request:
-                    raise HTTPException(
-                        status_code=400, detail="요청이 존재하지 않습니다"
-                    )
+        try:
+            exists = await self.user_repository.has_approved_secret_request(
+                user_id, target_user_id
+            )
+            if not exists:
+                raise HTTPException(status_code=400, detail="요청이 존재하지 않습니다.")
 
-                await cur.execute(
-                    """
-                    UPDATE user_secret_requests
-                    SET approve_status = 'CANCEL'
-                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
-                    """,
-                    (user_id, target_user_id),
-                )
-                await conn.commit()
+            await self.user_repository.cancel_approved_secret_request(
+                user_id, target_user_id
+            )
+            return True
+
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=500, detail="시크릿 요청 승인 취소 실패")
 
     async def fetch_accepted_secret_images(
-        self,
-        user_id: str,
-        target_user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (target_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않은 유저입니다"
-                    )
+        self, user_id: str, target_user_id: str
+    ) -> list[str] | None:
+        target = await self.user_repository.fetch_active_user(target_user_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM user_secret_requests
-                    WHERE user_id = %s AND request_id = %s AND approve_status = 'APPROVE'
-                    """,
-                    (target_user_id, user_id),
-                )
-                existing_request = await cur.fetchone()
-                if not existing_request:
-                    raise HTTPException(
-                        status_code=400, detail="요청이 승인되지 않았습니다"
-                    )
-
-                await cur.execute(
-                    """
-                    SELECT url 
-                    FROM user_secret_images
-                    WHERE user_id = %s AND use_yn = TRUE
-                    ORDER BY `index`
-                    """,
-                    (target_user_id,),
-                )
-                rows = await cur.fetchall()
-                image_url_list = [r[0] for r in rows]
-                if not image_url_list:
-                    return None
-                return image_url_list
-
-    async def give_user_credit(
-        self,
-        user_id: str,
-        type: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE", (user_id,)
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="사용자를 찾을 수 없습니다."
-                    )
-
-                # type은 추후 추가 예정
-                type_map = {
-                    "history_reward": (1, "광고 시청 보상"),
-                }
-
-                if type not in type_map:
-                    raise HTTPException(
-                        status_code=400, detail="고래 코인 타입이 올바르지 않습니다."
-                    )
-
-                credit, reason = type_map[type]
-                await cur.execute(
-                    """
-                    UPDATE users
-                    SET credit = credit + %s
-                    WHERE id = %s
-                    """,
-                    (credit, user_id),
-                )
-                await cur.execute(
-                    """
-                    INSERT INTO credit_history (user_id, amount, description, created_at)
-                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
-                    """,
-                    (user_id, credit, reason),
-                )
-                await conn.commit()
-                return credit
-
-    async def consume_user_credit(
-        self,
-        user_id: str,
-        type: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT credit FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="사용자를 찾을 수 없습니다."
-                    )
-                current_credit = result[0]
-                type_map = {
-                    "history_view": (1, "프로필 조회"),
-                    "secret_view": (5, "시크릿 앨범 조회"),
-                    "bypass_secret_view": (10, "우회한 시크릿 앨범 조회"),
-                }
-                if not type in type_map:
-                    raise HTTPException(
-                        status_code=400, detail="고래 코인 타입이 올바르지 않습니다"
-                    )
-                credit, reason = type_map[type]
-                if current_credit < credit:
-                    raise HTTPException(
-                        status_code=400, detail="고래 코인이 부족합니다"
-                    )
-
-                await cur.execute(
-                    """
-                    UPDATE users
-                    SET credit = credit - %s
-                    WHERE id = %s
-                    """,
-                    (credit, user_id),
+        try:
+            # 승인 상태 확인
+            is_approved = await self.user_repository.has_approved_secret_request(
+                target_user_id, user_id
+            )
+            if not is_approved:
+                raise HTTPException(
+                    status_code=400, detail="요청이 승인되지 않았습니다."
                 )
 
-                await cur.execute(
-                    """
-                    INSERT INTO credit_history (user_id, amount, description, created_at)
-                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
-                    """,
-                    (user_id, -credit, reason),
-                )
+            # 승인된 시크릿 이미지 가져오기
+            return await self.user_repository.fetch_secret_images(target_user_id)
 
-                await conn.commit()
-                return credit
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=500, detail="승인된 시크릿 앨범 조회 실패")
+
+    async def give_user_credit(self, user_id: str, type: str) -> int:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+        type_map = {
+            "history_reward": (1, "광고 시청 보상"),
+        }
+
+        if type not in type_map:
+            raise HTTPException(
+                status_code=400, detail="고래 코인 타입이 올바르지 않습니다."
+            )
+
+        try:
+            credit, reason = type_map[type]
+            await self.user_repository.add_user_credit(user_id, credit, reason)
+            return credit
+
+        except Exception:
+            raise HTTPException(status_code=500, detail="고래 코인 지급 실패")
+
+    async def consume_user_credit(self, user_id: str, type: str) -> int:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+        type_map = {
+            "history_view": (1, "프로필 조회"),
+            "secret_view": (5, "시크릿 앨범 조회"),
+            "bypass_secret_view": (10, "우회한 시크릿 앨범 조회"),
+        }
+
+        if type not in type_map:
+            raise HTTPException(
+                status_code=400, detail="고래 코인 타입이 올바르지 않습니다."
+            )
+
+        try:
+            credit, reason = type_map[type]
+            current_credit = await self.user_repository.fetch_user_credit(user_id)
+            if current_credit < credit:
+                raise HTTPException(status_code=400, detail="고래 코인이 부족합니다.")
+            await self.user_repository.deduct_user_credit(user_id, credit, reason)
+            return credit
+
+        except Exception:
+            raise HTTPException(status_code=500, detail="고래 코인 차감 실패")
 
     async def add_user_credit_profile_view(
-        self,
-        viewer_id: str,
-        viewed_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (viewer_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않는 사용자입니다."
-                    )
+        self, viewer_id: str, viewed_id: str
+    ) -> bool:
+        viewer = await self.user_repository.fetch_active_user(viewer_id)
+        if not viewer:
+            raise HTTPException(status_code=404, detail="존재하지 않는 사용자입니다.")
 
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (viewed_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="상대방을 찾을 수 없습니다."
-                    )
+        target = await self.user_repository.fetch_active_user(viewed_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="상대방을 찾을 수 없습니다.")
 
-                await cur.execute(
-                    "SELECT 1 FROM user_credit_profile_view WHERE user_id = %s AND viewed_id = %s",
-                    (viewer_id, viewed_id),
-                )
-
-                await cur.execute(
-                    """
-                    INSERT INTO user_credit_profile_view (user_id, viewed_id, created_at)
-                    VALUES (%s, %s, CURRENT_TIMESTAMP)
-                    """,
-                    (viewer_id, viewed_id),
-                )
-                await conn.commit()
-                return True
+        try:
+            await self.user_repository.insert_credit_profile_view(viewer_id, viewed_id)
+            return True
+        except Exception:
+            raise HTTPException(
+                status_code=500, detail="프로필 크레딧 조회 기록 저장 실패"
+            )
 
     async def fetch_user_credit_profile_view(
-        self,
-        user_id: str,
-        page: int,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
+        self, user_id: str, page: int
+    ) -> list[dict]:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 사용자입니다.")
 
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
+        try:
+            view_list = await self.user_repository.fetch_credit_profile_view_list(
+                user_id, page
+            )
+            return view_list
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"크레딧 프로필 조회 목록 조회 실패, str{e}"
+            )
 
-                offset = (page - 1) * 20
+    async def fetch_user_block_list(self, user_id: str, page: int) -> list[str]:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await cur.execute(
-                    """
-                    SELECT 
-                        ucpv.viewed_id,
-                        MAX(ucpv.created_at) AS created_at,
-                        COALESCE(upv.view_count, 0) AS view_count,
-                        COALESCE(today_views.today_count, 0) AS today_count
-                    FROM user_credit_profile_view ucpv
-                    JOIN users u
-                        ON ucpv.viewed_id = u.id
-                    LEFT JOIN users_profile_view upv
-                        ON upv.user_id = %s
-                        AND upv.viewer_id = ucpv.viewed_id
-                    LEFT JOIN (
-                        SELECT user_id, viewer_id, COUNT(*) AS today_count
-                        FROM users_profile_view_log
-                        WHERE user_id = %s
-                            AND created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
-                            AND created_at <  CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
-                        GROUP BY user_id, viewer_id
-                    ) today_views
-                        ON today_views.user_id = %s
-                        AND today_views.viewer_id = ucpv.viewed_id
-                    WHERE ucpv.user_id = %s
-                        AND u.leaved = FALSE
-                        AND NOT EXISTS (
-                            SELECT 1
-                            FROM user_block_list ubl
-                            WHERE 
-                                ubl.block_user_id = %s AND ubl.blocked_user_id = ucpv.viewed_id
-                        )
-                    GROUP BY ucpv.viewed_id, upv.view_count, today_views.today_count
-                    ORDER BY created_at DESC
-                    LIMIT 20 OFFSET %s
-                    """,
-                    (user_id, user_id, user_id, user_id, user_id, offset),
-                )
-                rows = await cur.fetchall()
-                view_list = [
-                    {
-                        "viewerId": row[0],
-                        "viewedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
-                        "viewCount": row[2],
-                        "todayViewCount": row[3],
-                    }
-                    for row in rows
-                ]
-                return view_list
+        try:
+            block_list = await self.user_repository.fetch_user_block_list_page(
+                user_id, page
+            )
+            return block_list
+        except Exception:
+            raise HTTPException(status_code=500, detail="차단 목록 조회 실패")
 
-    async def fetch_user_block_list(
-        self,
-        user_id: str,
-        page: int,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    logger.error(f"유저를 찾을 수 없습니다: {user_id}")
-                    raise HTTPException(status_code=404, detail="User not found")
+    async def unblock_user(self, user_id: str, target_user_id: str) -> bool:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                offset = (page - 1) * 20
-                await cur.execute(
-                    """
-                    SELECT ubl.blocked_user_id, ubl.created_at
-                    FROM user_block_list ubl
-                    JOIN users u
-                        ON ubl.blocked_user_id = u.id
-                    WHERE ubl.block_user_id = %s
-                        AND u.leaved = FALSE
-                    ORDER BY ubl.created_at DESC
-                    LIMIT 20 OFFSET %s
-                    """,
-                    (user_id, offset),
-                )
-                rows = await cur.fetchall()
-                block_list = [row[0] for row in rows]
+        opponent = await self.user_repository.fetch_active_user(target_user_id)
+        if not opponent:
+            raise HTTPException(status_code=404, detail="상대방을 찾을 수 없습니다.")
 
-                return block_list
+        try:
+            await self.user_repository.delete_block_user(user_id, target_user_id)
+            return True
+        except Exception:
+            raise HTTPException(status_code=500, detail="차단 해제 실패")
 
-    async def unblock_user(
-        self,
-        user_id: str,
-        opponent_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    logger.error(f"유저를 찾을 수 없습니다: {user_id}")
-                    raise HTTPException(status_code=404, detail="User not found")
+    async def poke_user(self, user_id: str, target_user_id: str) -> bool:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 사용자입니다.")
 
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (opponent_id,),
-                )
-                opponent_result = await cur.fetchone()
-                if not opponent_result:
-                    logger.error(
-                        f"차단 해제할 상대방을 찾을 수 없습니다: {opponent_id}"
-                    )
-                    raise HTTPException(
-                        status_code=404, detail="상대방을 찾을 수 없습니다"
-                    )
+        target_user = await self.user_repository.fetch_active_user(target_user_id)
+        if not target_user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 상대방입니다.")
 
-                await cur.execute(
-                    """
-                    DELETE FROM user_block_list
-                    WHERE block_user_id = %s AND blocked_user_id = %s
-                    """,
-                    (user_id, opponent_id),
-                )
+        try:
+            await self.user_repository.poke_user(user_id, target_user_id)
+            return True
+        except Exception:
+            raise HTTPException(status_code=500, detail="찌르기 처리 실패")
 
-                # user_block_list_log에 기록
-                await cur.execute(
-                    "INSERT INTO user_block_list_log (block_user_id, blocked_user_id, block_type) VALUES (%s, %s, 'UNBLOCK')",
-                    (user_id, opponent_id),
-                )
+    async def fetch_my_poke_list(self, user_id: str, page: int) -> list[dict]:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
 
-                await conn.commit()
-                return True
+        try:
+            poke_list = await self.user_repository.fetch_my_poke_list(user_id, page)
+            return poke_list
+        except Exception:
+            raise HTTPException(status_code=500, detail="찌르기 목록 조회 실패")
 
-    # TOBE: 아직 구체화가 더 필요.
-    async def poke_user(
-        self,
-        user_id: str,
-        target_user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않는 사용자입니다."
-                    )
+    async def favorite_user(self, user_id: str, target_user_id: str) -> bool:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 사용자입니다.")
 
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (target_user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않는 상대방입니다."
-                    )
+        target_user = await self.user_repository.fetch_active_user(target_user_id)
+        if not target_user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 상대방입니다.")
 
-                await cur.execute(
-                    """
-                    SELECT pocker_id
-                    FROM users_poke_list
-                    WHERE pocker_id = %s AND user_id = %s
-                    """,
-                    (user_id, target_user_id),
-                )
+        try:
+            is_favorited = await self.user_repository.favorite_user(
+                user_id, target_user_id
+            )
+            return is_favorited
+        except Exception:
+            raise HTTPException(status_code=500, detail="즐겨찾기 처리 실패")
 
-                is_pocked = await cur.fetchone()
-                if is_pocked:
-                    await cur.execute(
-                        """
-                        UPDATE users_poke_list
-                        SET updated_at = CURRENT_TIMESTAMP,
-                            poke_count = poke_count + 1
-                        WHERE pocker_id = %s AND user_id = %s
-                        """,
-                        (user_id, target_user_id),
-                    )
-                else:
-                    await cur.execute(
-                        """
-                        INSERT INTO users_poke_list (user_id, pocker_id, type, created_at, poke_count)
-                        VALUES (%s, %s, 'poke', CURRENT_TIMESTAMP, 1)
-                        """,
-                        (target_user_id, user_id),
-                    )
-                    # 2. users_profile_view_log에 로그 남기기
+    async def fetch_user_unlock_count(self, user_id: str) -> dict:
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="존재하지 않는 사용자입니다.")
 
-                await cur.execute(
-                    """
-                    INSERT INTO users_poke_list_log (user_id, pocker_id, created_at)
-                    VALUES( %s, %s, CURRENT_TIMESTAMP)
-                    """,
-                    (user_id, target_user_id),
-                )
-
-                await conn.commit()
-                return True
-
-    # TOBE: 아직 구체화가 더 필요.
-    # TODO: 내가 읽지 않은 찌르기 목록 fetch_my_profile에 넣어두기.
-    # TODO: push 목록을 볼때 필터링 어떻게 할지 상의하기.
-    # TODO: 즐겨찾기는 fetch_my_profile에 즐겨찾기한 목록 오면 되는지?
-    async def fetch_my_poke_list(
-        self,
-        user_id: str,
-        page: int,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                offset = (page - 1) * 20
-                await cur.execute(
-                    """
-                    SELECT up.pocker_id, up.updated_at, up.poke_count
-                    FROM users_poke_list up
-                    JOIN users u
-                        ON up.pocker_id = u.id
-                    LEFT JOIN user_block_list ubl
-                        ON up.user_id = ubl.block_user_id
-                        AND up.pocker_id = ubl.blocked_user_id
-                    WHERE up.user_id = %s
-                        AND u.leaved = FALSE
-                        AND ubl.id IS NULL
-                    ORDER BY up.updated_at DESC
-                    LIMIT 20 OFFSET %s
-                    """,
-                    (user_id, offset),
-                )
-                rows = await cur.fetchall()
-                poke_list = [
-                    {
-                        "pockerId": row[0],
-                        "pokedAt": row[1].strftime("%Y-%m-%d %H:%M:%S"),
-                        "pokeCount": row[2],
-                    }
-                    for row in rows
-                ]
-                return poke_list
-
-    async def favorite_user(
-        self,
-        user_id: str,
-        target_user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
-                    (user_id,),
-                )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(
-                        status_code=404, detail="존재하지 않는 사용자입니다."
-                    )
-
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM users_favorite_list
-                    WHERE user_id = %s AND favorite_user_id = %s
-                    """,
-                    (user_id, target_user_id),
-                )
-                is_favorited = await cur.fetchone()
-                if is_favorited:
-                    # 이미 즐겨찾기 되어있는 경우 즐겨찾기를 삭제
-                    await cur.execute(
-                        """
-                        DELETE FROM users_favorite_list
-                        WHERE user_id = %s AND favorite_user_id = %s
-                        """,
-                        (user_id, target_user_id),
-                    )
-
-                    await cur.execute(
-                        "INSERT INTO users_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'UNFAVORITE')",
-                        (user_id, target_user_id),
-                    )
-                else:
-                    # 즐겨찾기 목록에 없는 경우 즐겨찾기 추가.
-                    await cur.execute(
-                        """
-                        INSERT INTO users_favorite_list (user_id, favorite_user_id, created_at)
-                        VALUES (%s, %s, CURRENT_TIMESTAMP)
-                        """,
-                        (user_id, target_user_id),
-                    )
-
-                    await cur.execute(
-                        "INSERT INTO users_favorite_list_log (user_id, favorite_user_id, favorite_type) VALUES (%s, %s, 'FAVORITE')",
-                        (user_id, target_user_id),
-                    )
-
-                await conn.commit()
-                return is_favorited
-
-    async def fetch_user_unlock_count(
-        self,
-        user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT 
-                    (
-                        SELECT COUNT(DISTINCT ucpv.viewed_id) 
-                        FROM user_credit_profile_view ucpv
-                        WHERE ucpv.user_id = %s
-                        AND NOT EXISTS (
-                            SELECT 1
-                            FROM user_block_list ubl
-                            WHERE ubl.block_user_id = %s
-                                AND ubl.blocked_user_id = ucpv.viewed_id
-                        )
-                    ) AS profile_count,
-                    (
-                        SELECT COUNT(DISTINCT ucsv.viewed_id) 
-                        FROM user_credit_secret_view ucsv
-                        WHERE ucsv.user_id = %s
-                        AND ucsv.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
-                        AND NOT EXISTS (
-                            SELECT 1
-                            FROM user_block_list ubl
-                            WHERE ubl.block_user_id = %s
-                                AND ubl.blocked_user_id = ucsv.viewed_id
-                        )
-                    ) AS secret_count
-                    """,
-                    (user_id, user_id, user_id, user_id),
-                )
-                row = await cur.fetchone()
-                profile_count = row[0]
-                secret_count = row[1]
-                return {
-                    "profileCount": profile_count,
-                    "secretCount": secret_count,
-                }
+        try:
+            return await self.user_repository.fetch_user_unlock_count(user_id)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"열람 통계 조회 실패, str{e}")

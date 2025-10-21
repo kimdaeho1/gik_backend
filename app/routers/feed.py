@@ -7,7 +7,6 @@ from app.db.feed import (
     CreateFeedRequest,
     UpdateFeedRequest,
     ReportFeedRequest,
-    BlockFeedRequest,
 )
 from app.services.feed_service import FeedService
 
@@ -15,17 +14,27 @@ oauth2_scheme = JWTBearer(auto_error=False)
 router = APIRouter(prefix="/v1/gik-backend/feed", tags=["Feed"])
 
 
-# 피드는 사진, 글 둘중에 하나만 컨텐츠가 등록되어도 됨
+# 피드 수정/등록 API는 이미지 업로드가 포함되어 있기 때문에, 요청형식이 multipart/form-data가 된다.
+# FastAPI에서는 JSON Body와 파일을 동시에 받을 수 없어서, 텍스트 필드는 Form으로, 이미지는 File로 받는다.
+# 따라서, CreateFeedRequest와 UpdateFeedRequest의 모델에 @classmethod를 정의하고 라우터에서 Depend로 받기.
 # 피드 등록
 @router.post("", status_code=status.HTTP_201_CREATED)
 @inject
 async def create_feed(
-    create_feed_request: CreateFeedRequest,
+    create_feed_request: CreateFeedRequest = Depends(
+        CreateFeedRequest.create_feed_request
+    ),
     feed_images: Optional[List[UploadFile]] = File(default=[]),
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.create_feed(create_feed_request, feed_images, token)
+    result = await feed_service.create_feed(
+        token,
+        create_feed_request.content,
+        create_feed_request.secretStatus,
+        create_feed_request.status,
+        feed_images,
+    )
     return {"success": result, "message": "피드가 성공적으로 게시되었습니다."}
 
 
@@ -34,11 +43,31 @@ async def create_feed(
 @inject
 async def update_feed(
     feed_id: str,
-    update_feed_request: UpdateFeedRequest,
+    update_feed_request: UpdateFeedRequest = Depends(
+        UpdateFeedRequest.update_feed_request
+    ),
+    update_feed_images: Optional[List[UploadFile]] = File(default=[]),
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.update_feed()
+    """
+    유저 피드 업데이트
+    - feed_id: 수정할 피드의 ID
+    - content: 피드 내용 (선택 사항)
+    - imageUrl: 수정하지 않을 이미지 URL 리스트 (선택 사항)
+    - status: 피드 공개 여부
+    - secretStatus: 피드 비밀 여부
+    - update_feed_images: 새로 추가할 이미지 파일 리스트 (선택 사항)
+    """
+    result = await feed_service.update_feed(
+        token,
+        feed_id,
+        update_feed_request.content,
+        update_feed_request.imageUrl,
+        update_feed_request.status,
+        update_feed_request.secretStatus,
+        update_feed_images,
+    )
     return {"success": result, "message": "피드가 성공적으로 수정되었습니다."}
 
 
@@ -50,8 +79,28 @@ async def delete_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.delete_feed()
+    result = await feed_service.delete_feed(token, feed_id)
     return {"success": result, "message": "피드가 성공적으로 삭제되었습니다."}
+
+
+# 내가 차단한사람의 피드와, 내가 차단한 피드는 둘다 보이지 않아야 한다.
+# 피드 리스트 가져오기 - redis와 같은 캐싱을 사용해서 5개씩 가져오고, 로직 생각해보기.
+@router.get("/list", status_code=status.HTTP_200_OK)
+@inject
+async def get_feed_list(
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    service: FeedService = Depends(Provide[Container.feed_service]),
+):
+    result = await service.get_feed_list(
+        token,
+        page,
+    )
+    return {
+        "success": True,
+        "message": "피드 리스트를 성공적으로 가져왔습니다.",
+        "feeds": result,
+    }
 
 
 # 피드 조회하기
@@ -62,7 +111,7 @@ async def get_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.get_feed()
+    result = await feed_service.get_feed(token, feed_id)
     return {
         "success": True,
         "message": "피드 조회에 성공했습니다.",
@@ -79,7 +128,12 @@ async def report_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.report_feed()
+    result = await feed_service.report_feed(
+        token,
+        feed_id,
+        report_feed_request.reportedUserId,
+        report_feed_request.reason,
+    )
     return {"success": result, "message": "피드가 성공적으로 신고되었습니다."}
 
 
@@ -88,11 +142,13 @@ async def report_feed(
 @inject
 async def block_feed(
     feed_id: str,
-    block_feed_request: BlockFeedRequest,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.block_feed()
+    result = await feed_service.block_feed(
+        token,
+        feed_id,
+    )
     return {"success": result, "message": "피드가 성공적으로 차단되었습니다."}
 
 
@@ -104,7 +160,7 @@ async def like_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.like_feed()
+    result = await feed_service.like_feed(token, feed_id)
     return {"success": result, "message": "피드 좋아요가 성공적으로 처리되었습니다."}
 
 
@@ -116,7 +172,7 @@ async def unlike_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.unlike_feed()
+    result = await feed_service.unlike_feed(token, feed_id)
     return {
         "success": result,
         "message": "피드 좋아요 취소가 성공적으로 처리되었습니다.",
@@ -131,25 +187,9 @@ async def get_my_feed_list(
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await service.get_my_feed_list()
+    result = await service.get_my_feed_list(token, page)
     return {
         "success": True,
         "message": "내 피드 리스트를 성공적으로 가져왔습니다.",
-        "feeds": result,
-    }
-
-
-# 피드 리스트 가져오기 - redis와 같은 캐싱을 사용해서 5개씩 가져오고, 로직 생각해보기.
-@router.get("/list", status_code=status.HTTP_200_OK)
-@inject
-async def get_feed_list(
-    page: int = Query(...),
-    token: str = Depends(oauth2_scheme),
-    service: FeedService = Depends(Provide[Container.feed_service]),
-):
-    result = await service.get_feed_list()
-    return {
-        "success": True,
-        "message": "피드 리스트를 성공적으로 가져왔습니다.",
         "feeds": result,
     }

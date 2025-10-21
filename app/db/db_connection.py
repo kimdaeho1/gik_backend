@@ -24,8 +24,8 @@ class Database:
             password=DB_PASSWORD,
             db=DB_NAME,
             minsize=5,
-            maxsize=20,
-            autocommit=True
+            maxsize=30,
+            autocommit=True,
         )
 
     async def close(self):
