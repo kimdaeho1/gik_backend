@@ -99,7 +99,6 @@ class FeedService:
         # 지울 이미지의 리스트
         remove_images = [url for url in origin_images if url not in keep_images]
 
-        print(keep_images, remove_images)
         # 이미지 업로드
         uploaded_urls = []
         if feed_images and len(feed_images) > 0:
@@ -131,6 +130,8 @@ class FeedService:
         feed = await self.feed_repository.get_feed(feed_id)
         images = await self.feed_repository.get_feed_images(feed_id)
         like_count = await self.feed_repository.get_feed_like_count(feed_id)
+        is_liked = await self.feed_repository.is_liked_feed(feed_id, user_id)
+
         return FeedDetailResponse(
             feedId=feed[0],
             userId=feed[1],
@@ -139,6 +140,7 @@ class FeedService:
             status=feed[3],
             secretStatus=feed[4],
             likeCount=like_count,
+            isLiked=is_liked,
             createdAt=feed[5],
         )
 
@@ -190,6 +192,7 @@ class FeedService:
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
+            isLiked = await self.feed_repository.is_liked_feed(feed[0], user_id)
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -199,6 +202,7 @@ class FeedService:
                     status=feed[3],
                     secretStatus=feed[4],
                     likeCount=like_count,
+                    isLiked=isLiked,
                     createdAt=feed[5],
                 )
             )
@@ -213,6 +217,7 @@ class FeedService:
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
+            is_liked = await self.feed_repository.is_liked_feed(feed[0], user_id)
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -222,6 +227,7 @@ class FeedService:
                     status=feed[3],
                     secretStatus=feed[4],
                     likeCount=like_count,
+                    isLiked=is_liked,
                     createdAt=feed[5],
                 )
             )

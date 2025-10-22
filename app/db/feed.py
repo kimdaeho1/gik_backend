@@ -62,4 +62,5 @@ class FeedDetailResponse(BaseModel):
     status: bool
     secretStatus: bool
     likeCount: int
+    isLiked: bool
     createdAt: datetime
