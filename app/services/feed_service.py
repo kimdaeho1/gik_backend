@@ -132,6 +132,7 @@ class FeedService:
         images = await self.feed_repository.get_feed_images(feed_id)
         like_count = await self.feed_repository.get_feed_like_count(feed_id)
         return FeedDetailResponse(
+            feedId=feed[0],
             userId=feed[1],
             content=feed[2],
             images=images,
@@ -191,6 +192,7 @@ class FeedService:
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
             feed_list.append(
                 FeedDetailResponse(
+                    feedId=feed[0],
                     userId=feed[1],
                     content=feed[2],
                     images=images,
@@ -202,7 +204,7 @@ class FeedService:
             )
         return feed_list
 
-    # redis 캐칭 추가 예정
+    # redis 캐싱 추가 예정
     async def get_feed_list(self, token: str, page: int):
         user_id = await get_user_id_from_token(token)
         feeds = await self.feed_repository.get_feed_list(user_id, page)
@@ -213,6 +215,7 @@ class FeedService:
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
             feed_list.append(
                 FeedDetailResponse(
+                    feedId=feed[0],
                     userId=feed[1],
                     content=feed[2],
                     images=images,

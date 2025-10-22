@@ -55,6 +55,7 @@ class ReportFeedRequest(BaseModel):
 # fetch_my_profile 할때 피드 차단 리스트를 들고올지, 여기서 들고올지?
 # 피드 리스트를 들고올때, List[FeedDetailResponse] 형태로 들고옴, 내 피드 리스트를 불러올때도 마찬가지.
 class FeedDetailResponse(BaseModel):
+    feedId: str
     userId: str
     content: Optional[str]
     images: Optional[List[str]]
