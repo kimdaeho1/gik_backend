@@ -12,6 +12,7 @@ from app.db.user import (
     UserListRow,
     ViewCountRow,
     CountRow,
+    ProfileViewRow,
 )
 
 logger = get_logger(__name__)
@@ -1372,7 +1373,7 @@ class UserRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT upv.viewer_id AS viewerId,
+                    SELECT upv.viewer_id AS id,
                            upv.updated_at AS viewedAt,
                            upv.view_count AS viewCount,
                            COALESCE(today_views.today_count, 0) AS todayViewCount
@@ -1405,7 +1406,7 @@ class UserRepository:
 
                 rows = await cur.fetchall()
                 columns = [col[0] for col in cur.description]
-                return [ViewCountRow(**dict(zip(columns, row))) for row in rows]
+                return [ProfileViewRow(**dict(zip(columns, row))) for row in rows]
 
     async def mark_profile_push_read(self, user_no: int) -> None:
         """

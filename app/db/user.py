@@ -423,6 +423,13 @@ class UserListRow(BaseModel):
     longitude: Optional[float]
 
 
+class ProfileViewRow(BaseModel):
+    id: str
+    viewedAt: datetime
+    viewCount: int
+    todayViewCount: int
+
+
 class ViewCountRow(BaseModel):
     viewerId: str
     viewedAt: datetime
