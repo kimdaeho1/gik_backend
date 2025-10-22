@@ -176,20 +176,10 @@ class FeedService:
 
         already_like = await self.feed_repository.exist_like_feed(user_id, feed_id)
         if already_like:
-            logger.error("이미 좋아요를 누른 피드입니다.")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="이미 좋아요를 누른 피드입니다.",
-            )
-
+            await self.feed_repository.unlike_feed(user_id, feed_id)
+            return "unlike_feed"
         await self.feed_repository.like_feed(user_id, feed_id)
-        return True
-
-    async def unlike_feed(self, token: str, feed_id: str):
-        user_id = await get_user_id_from_token(token)
-
-        await self.feed_repository.unlike_feed(user_id, feed_id)
-        return True
+        return "like_feed"
 
     async def get_my_feed_list(self, token: str, page: int):
         user_id = await get_user_id_from_token(token)
@@ -215,7 +205,7 @@ class FeedService:
     # redis 캐칭 추가 예정
     async def get_feed_list(self, token: str, page: int):
         user_id = await get_user_id_from_token(token)
-        feeds = await self.feed_repository.get_feed_list(page)
+        feeds = await self.feed_repository.get_feed_list(user_id, page)
 
         feed_list: List[FeedDetailResponse] = []
         for feed in feeds:

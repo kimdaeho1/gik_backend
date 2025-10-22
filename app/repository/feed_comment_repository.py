@@ -57,8 +57,8 @@ class FeedCommentRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    INSERT INTO feed_comment_blocks (blocked_comment_id, user_id)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO feed_comment_blocks (blocked_comment_id, block_user_id)
+                    VALUES (%s, %s)
                     """,
                     (
                         comment_id,
@@ -74,22 +74,33 @@ class FeedCommentRepository:
                 await cur.execute(
                     """
                     INSERT INTO feed_comment_reports (report_user_id, reported_user_id, reported_comment_id, reason)
-                    VALUES (%s, %s, %s)
+                    VALUES (%s, %s, %s, %s)
                     """,
                     (user_id, reported_user_id, comment_id, reason),
                 )
 
-    async def get_feed_comment_list(self, feed_id: str):
+    async def get_feed_comment_list(self, feed_id: str, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
                     SELECT id, user_id, content, created_at
                     FROM feed_comments
-                    WHERE feed_id = %s AND deleted = %s
+                    WHERE feed_id = %s
+                    AND deleted = %s
+                    AND id NOT IN (
+                        SELECT blocked_comment_id
+                        FROM feed_comment_blocks
+                        WHERE block_user_id = %s
+                    )
+                    AND user_id NOT IN (
+                        SELECT blocked_user_id
+                        FROM user_block_list
+                        WHERE block_user_id = %s
+                    )
                     ORDER BY created_at DESC
                     """,
-                    (feed_id, False),
+                    (feed_id, False, user_id, user_id),
                 )
                 comments = await cur.fetchall()
                 return comments

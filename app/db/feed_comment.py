@@ -16,7 +16,8 @@ class ReportFeedCommentRequest(BaseModel):
     reason: str
 
 
-class FeedCommentListResponse(BaseModel):
+class FeedCommentResponse(BaseModel):
+    commentId: int
     userId: str
     content: str
     createdAt: datetime
