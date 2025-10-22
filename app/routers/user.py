@@ -651,7 +651,7 @@ async def update_user_images(
     }
 
 
-@router.get("/push/list", status_code=status.HTTP_200_OK)
+@router.get("/user/push/list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_push_list(
     push_type: Optional[str] = Query(None),

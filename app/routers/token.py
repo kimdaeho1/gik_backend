@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.user_service import UserService
+from app.repository.user_repository import UserRepository
 from app.services.token_service import TokenService
 from dependency_injector.wiring import inject, Provide
 from app.core.container import Container
@@ -49,7 +50,7 @@ async def refresh_token(
 @inject
 async def generate_user_token(
     user_id: str,
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    user_repository: UserRepository = Depends(Provide[Container.user_service]),
     token_service: TokenService = Depends(Provide[Container.token_service]),
 ):
     """
@@ -57,7 +58,7 @@ async def generate_user_token(
     user_id : 발급받는 유저의 ID
     """
     # 유저가 존재하는지 확인
-    user = await user_service.fetch_active_user(user_id)
+    user = await user_repository.fetch_active_user(user_id)
     if not user:
         return {
             "success": False,
