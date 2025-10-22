@@ -184,27 +184,3 @@ async def get_my_feed_list(
         "message": "내 피드 리스트를 성공적으로 가져왔습니다.",
         "feeds": result,
     }
-
-
-@router.post("/migrate/data", status_code=status.HTTP_200_OK)
-@inject
-async def migrate_feed_data(
-    feed_service: FeedService = Depends(Provide[Container.feed_service]),
-):
-    await feed_service.migrate_feed_data()
-    return {
-        "success": True,
-        "message": "피드 데이터 마이그레이션이 성공적으로 완료되었습니다.",
-    }
-
-
-@router.post("/migrate/secret-data", status_code=status.HTTP_200_OK)
-@inject
-async def migrate_secret_feed_data(
-    feed_service: FeedService = Depends(Provide[Container.feed_service]),
-):
-    await feed_service.migrate_secret_feed_data()
-    return {
-        "success": True,
-        "message": "비밀 피드 데이터 마이그레이션이 성공적으로 완료되었습니다.",
-    }
