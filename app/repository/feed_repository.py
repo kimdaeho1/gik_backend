@@ -318,7 +318,7 @@ class FeedRepository:
                     ORDER BY created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (user_id, False, 20, offset),
+                    (user_id, False, 5, offset),
                 )
                 feeds = await cur.fetchall()
                 return feeds
@@ -345,7 +345,7 @@ class FeedRepository:
                     ORDER BY created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (False, user_id, user_id, 20, offset),
+                    (False, user_id, user_id, 5, offset),
                 )
                 feeds = await cur.fetchall()
                 return feeds
