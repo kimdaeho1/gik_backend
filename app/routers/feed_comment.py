@@ -9,7 +9,6 @@ from app.db.feed_comment import (
     CreateFeedCommentRequest,
     UpdateFeedCommentRequest,
     ReportFeedCommentRequest,
-    BlockFeedCommentRequest,
 )
 
 oauth2_scheme = JWTBearer(auto_error=False)
@@ -55,15 +54,12 @@ async def update_feed_comment(
 @inject
 async def delete_feed_comment(
     comment_id: int,
-    delete_feed_comment_request: UpdateFeedCommentRequest,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
         Provide[Container.feed_comment_service]
     ),
 ):
-    result = await feed_comment_service.delete_feed_comment(
-        comment_id, delete_feed_comment_request.content, token
-    )
+    result = await feed_comment_service.delete_feed_comment(comment_id, token)
     return {"success": result, "message": "피드 댓글이 성공적으로 삭제되었습니다."}
 
 
@@ -72,15 +68,12 @@ async def delete_feed_comment(
 @inject
 async def block_feed_comment(
     comment_id: int,
-    block_feed_comment_request: BlockFeedCommentRequest,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
         Provide[Container.feed_comment_service]
     ),
 ):
-    result = await feed_comment_service.block_feed_comment(
-        comment_id, block_feed_comment_request.blockedUserId, token
-    )
+    result = await feed_comment_service.block_feed_comment(comment_id, token)
     return {"success": result, "message": "피드 댓글이 성공적으로 차단되었습니다."}
 
 

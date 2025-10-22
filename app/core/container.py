@@ -35,9 +35,9 @@ class Container(containers.DeclarativeContainer):
     # 레포지토리 컨테이너
     feed_repository = providers.Factory(FeedRepository, db=database)
     feed_comment_repository = providers.Factory(FeedCommentRepository, db=database)
+    user_repository = providers.Factory(UserRepository, db=database)
 
     # 서비스 컨테이너
-    user_repository = providers.Factory(UserRepository, db=database)
     image_service = providers.Factory(ImageService, db=database)
     user_service = providers.Factory(
         UserService, user_repository=user_repository, image_service=image_service
@@ -51,11 +51,10 @@ class Container(containers.DeclarativeContainer):
         FeedService,
         feed_repository=feed_repository,
     )
-    feed_comment_service = (
-        providers.Factory(
-            FeedCommentService,
-            feed_comment_repository=feed_comment_repository,
-        ),
+    feed_comment_service = providers.Factory(
+        FeedCommentService,
+        feed_comment_repository=feed_comment_repository,
+        user_repository=user_repository,
     )
 
     # 나중에 레포지토리 추가할떄 추가하기

@@ -50,7 +50,7 @@ async def refresh_token(
 @inject
 async def generate_user_token(
     user_id: str,
-    user_repository: UserRepository = Depends(Provide[Container.user_service]),
+    user_repository: UserRepository = Depends(Provide[Container.user_repository]),
     token_service: TokenService = Depends(Provide[Container.token_service]),
 ):
     """

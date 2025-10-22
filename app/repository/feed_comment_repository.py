@@ -21,19 +21,18 @@ class FeedCommentRepository:
                     """
                     INSERT INTO feed_comments (user_id, feed_id, content)
                     VALUES (%s, %s, %s)
-                    RETURNING comment_id
                     """,
                     (user_id, feed_id, content),
                 )
 
-    async def update_feed_comment(self, comment_id: int, content: str):
+    async def update_feed_comment(self, content: str, comment_id: int):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
                     UPDATE feed_comments
                     SET content = %s, updated_at = NOW()
-                    WHERE comment_id = %s
+                    WHERE id = %s
                     """,
                     (content, comment_id),
                 )
@@ -45,7 +44,7 @@ class FeedCommentRepository:
                     """
                     UPDATE feed_comments
                     SET deleted = %s, updated_at = NOW()
-                    WHERE comment_id = %s
+                    WHERE id = %s
                     """,
                     (
                         True,
@@ -53,28 +52,31 @@ class FeedCommentRepository:
                     ),
                 )
 
-    async def block_feed_comment(
-        self, comment_id: int, user_id: str, blocked_user_id: str
+    async def block_feed_comment(self, comment_id: int, user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO feed_comment_blocks (blocked_comment_id, user_id)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (
+                        comment_id,
+                        user_id,
+                    ),
+                )
+
+    async def report_feed_comment(
+        self, comment_id: int, user_id: str, reported_user_id, reason: str
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    INSERT INTO feed_comment_blocks (comment_id, user_id, blocked_user_id)
+                    INSERT INTO feed_comment_reports (report_user_id, reported_user_id, reported_comment_id, reason)
                     VALUES (%s, %s, %s)
                     """,
-                    (comment_id, user_id, blocked_user_id),
-                )
-
-    async def report_feed_comment(self, comment_id: int, user_id: str, reason: str):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    INSERT INTO feed_comment_reports (comment_id, user_id, reason)
-                    VALUES (%s, %s, %s)
-                    """,
-                    (comment_id, user_id, reason),
+                    (user_id, reported_user_id, comment_id, reason),
                 )
 
     async def get_feed_comment_list(self, feed_id: str):
@@ -82,7 +84,7 @@ class FeedCommentRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT comment_id, user_id, content, created_at
+                    SELECT id, user_id, content, created_at
                     FROM feed_comments
                     WHERE feed_id = %s AND deleted = %s
                     ORDER BY created_at DESC
@@ -91,3 +93,19 @@ class FeedCommentRepository:
                 )
                 comments = await cur.fetchall()
                 return comments
+
+    async def fetch_feed_comment_by_id(self, comment_id: int):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT user_id
+                    FROM feed_comments
+                    WHERE id = %s
+                    """,
+                    (comment_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+                return None

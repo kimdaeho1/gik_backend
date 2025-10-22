@@ -24,7 +24,7 @@ async def create_feed(
     create_feed_request: CreateFeedRequest = Depends(
         CreateFeedRequest.create_feed_request
     ),
-    feed_images: Optional[List[UploadFile]] = File(default=[]),
+    feedImages: Optional[List[UploadFile]] = File(default=[]),
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
@@ -33,7 +33,7 @@ async def create_feed(
         create_feed_request.content,
         create_feed_request.secretStatus,
         create_feed_request.status,
-        feed_images,
+        feed_images=feedImages,
     )
     return {"success": result, "message": "피드가 성공적으로 게시되었습니다."}
 

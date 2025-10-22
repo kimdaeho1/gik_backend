@@ -11,10 +11,6 @@ class UpdateFeedCommentRequest(BaseModel):
     content: str
 
 
-class BlockFeedCommentRequest(BaseModel):
-    blockedUserId: str
-
-
 class ReportFeedCommentRequest(BaseModel):
     reportedUserId: str
     reason: str
