@@ -17,7 +17,7 @@ class FeedCommentService:
         self.user_repository = user_repository
 
     async def create_feed_comment(self, feed_id: str, content: str, token: str):
-        user_id = get_user_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
         user = await self.user_repository.fetch_active_user(user_id)
         if not user:
             logger.error("사용자가 없습니다.")
@@ -32,8 +32,10 @@ class FeedCommentService:
             content=content,
         )
 
+        return True
+
     async def update_feed_comment(self, comment_id, content, token):
-        user_id = get_user_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
         user = await self.user_repository.fetch_active_user(user_id)
         if not user:
             logger.error("사용자가 없습니다.")
@@ -56,7 +58,7 @@ class FeedCommentService:
         )
 
     async def delete_feed_comment(self, comment_id, content, token):
-        user_id = get_user_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
         user = await self.user_repository.fetch_active_user(user_id)
         if not user:
             logger.error("사용자가 없습니다.")
@@ -77,8 +79,8 @@ class FeedCommentService:
             comment_id=comment_id,
         )
 
-    async def block_feed_comment(self, comment_id, block_feed_comment, token):
-        user_id = get_user_id_from_token(token)
+    async def block_feed_comment(self, comment_id, token):
+        user_id = await get_user_id_from_token(token)
         user = await self.user_repository.fetch_active_user(user_id)
         if not user:
             logger.error("사용자가 없습니다.")
@@ -89,11 +91,10 @@ class FeedCommentService:
         await self.feed_comment_repository.block_feed_comment(
             comment_id=comment_id,
             user_id=user_id,
-            blocked_user_id=block_feed_comment,
         )
 
     async def report_feed_comment(self, comment_id, reported_user_id, reason, token):
-        user_id = get_user_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
         user = await self.user_repository.fetch_active_user(user_id)
         if not user:
             logger.error("사용자가 없습니다.")
@@ -103,12 +104,13 @@ class FeedCommentService:
 
         await self.feed_comment_repository.report_feed_comment(
             comment_id=comment_id,
+            user_id=user_id,
             reported_user_id=reported_user_id,
             reason=reason,
         )
 
     async def get_feed_comment_list(self, feed_id, token):
-        user_id = get_user_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
         user = await self.user_repository.fetch_active_user(user_id)
         if not user:
             logger.error("사용자가 없습니다.")
