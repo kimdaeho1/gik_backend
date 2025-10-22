@@ -133,7 +133,7 @@ class FeedService:
         is_liked = await self.feed_repository.is_liked_feed(feed_id, user_id)
 
         return FeedDetailResponse(
-            feedId=feed_id,
+            feedId=feed[0],
             userId=feed[1],
             content=feed[2],
             images=images,
