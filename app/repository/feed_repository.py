@@ -307,7 +307,7 @@ class FeedRepository:
         user_id: str,
         page: int,
     ):
-        offset = (page - 1) * 20
+        offset = (page - 1) * 5
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
@@ -323,11 +323,8 @@ class FeedRepository:
                 feeds = await cur.fetchall()
                 return feeds
 
-    async def get_feed_list(
-        self,
-        page: int,
-    ):
-        offset = (page - 1) * 20
+    async def get_feed_list(self, user_id: str, page: int):
+        offset = (page - 1) * 5
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
@@ -335,10 +332,20 @@ class FeedRepository:
                     SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
                     FROM feeds
                     WHERE deleted = %s
+                    AND user_id NOT IN (
+                        SELECT blocked_user_id 
+                        FROM user_block_list 
+                        WHERE block_user_id = %s
+                    )
+                    AND feed_id NOT IN (
+                        SELECT blocked_feed_id 
+                        FROM feed_blocks 
+                        WHERE block_user_id = %s
+                    )
                     ORDER BY created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (False, 20, offset),
+                    (False, user_id, user_id, 20, offset),
                 )
                 feeds = await cur.fetchall()
                 return feeds

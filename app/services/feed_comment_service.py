@@ -1,9 +1,8 @@
+from typing import List
 from fastapi import HTTPException, status
 from datetime import datetime
 from app.utils.s3_upload import upload_file_to_s3, generate_filename
-from app.db.feed import (
-    FeedDetailResponse,
-)
+from app.db.feed_comment import FeedCommentResponse
 
 from app.utils.logging_config import get_logger
 from app.utils.token import get_user_id_from_token
@@ -57,7 +56,7 @@ class FeedCommentService:
             content=content,
         )
 
-    async def delete_feed_comment(self, comment_id, content, token):
+    async def delete_feed_comment(self, comment_id, token):
         user_id = await get_user_id_from_token(token)
         user = await self.user_repository.fetch_active_user(user_id)
         if not user:
@@ -120,5 +119,16 @@ class FeedCommentService:
 
         comments = await self.feed_comment_repository.get_feed_comment_list(
             feed_id=feed_id,
+            user_id=user_id,
         )
-        return comments
+        comment_list: List[FeedCommentResponse] = []
+        for comment in comments:
+            comment_list.append(
+                FeedCommentResponse(
+                    commentId=comment[0],
+                    userId=comment[1],
+                    content=comment[2],
+                    createdAt=comment[3],
+                )
+            )
+        return comment_list

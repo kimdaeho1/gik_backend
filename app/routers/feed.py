@@ -35,7 +35,7 @@ async def create_feed(
         create_feed_request.status,
         feed_images=feedImages,
     )
-    return {"success": result, "message": "피드가 성공적으로 게시되었습니다."}
+    return {"success": True, "message": "피드가 성공적으로 게시되었습니다."}
 
 
 # 피드 수정
@@ -68,7 +68,7 @@ async def update_feed(
         update_feed_request.secretStatus,
         update_feed_images,
     )
-    return {"success": result, "message": "피드가 성공적으로 수정되었습니다."}
+    return {"success": True, "message": "피드가 성공적으로 수정되었습니다."}
 
 
 # 피드 삭제
@@ -80,7 +80,7 @@ async def delete_feed(
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
     result = await feed_service.delete_feed(token, feed_id)
-    return {"success": result, "message": "피드가 성공적으로 삭제되었습니다."}
+    return {"success": True, "message": "피드가 성공적으로 삭제되었습니다."}
 
 
 # 내가 차단한사람의 피드와, 내가 차단한 피드는 둘다 보이지 않아야 한다.
@@ -134,7 +134,7 @@ async def report_feed(
         report_feed_request.reportedUserId,
         report_feed_request.reason,
     )
-    return {"success": result, "message": "피드가 성공적으로 신고되었습니다."}
+    return {"success": True, "message": "피드가 성공적으로 신고되었습니다."}
 
 
 # 피드 차단
@@ -149,10 +149,10 @@ async def block_feed(
         token,
         feed_id,
     )
-    return {"success": result, "message": "피드가 성공적으로 차단되었습니다."}
+    return {"success": True, "message": "피드가 성공적으로 차단되었습니다."}
 
 
-# 피드 좋아요
+# 피드 좋아요 / 좋아요 취소
 @router.post("/like/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def like_feed(
@@ -161,22 +161,13 @@ async def like_feed(
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
     result = await feed_service.like_feed(token, feed_id)
-    return {"success": result, "message": "피드 좋아요가 성공적으로 처리되었습니다."}
-
-
-# 피드 좋아요 취소
-@router.post("/unlike/{feed_id}", status_code=status.HTTP_200_OK)
-@inject
-async def unlike_feed(
-    feed_id: str,
-    token: str = Depends(oauth2_scheme),
-    feed_service: FeedService = Depends(Provide[Container.feed_service]),
-):
-    result = await feed_service.unlike_feed(token, feed_id)
-    return {
-        "success": result,
-        "message": "피드 좋아요 취소가 성공적으로 처리되었습니다.",
-    }
+    if result == "like_feed":
+        return {"success": True, "message": "피드 좋아요가 성공적으로 처리되었습니다."}
+    elif result == "unlike_feed":
+        return {
+            "success": True,
+            "message": "피드 좋아요 취소가 성공적으로 처리되었습니다.",
+        }
 
 
 # 내 피드 리스트 가져오기
