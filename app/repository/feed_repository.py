@@ -65,7 +65,6 @@ class FeedRepository:
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                print(feed_id, status, secret_status, content)
                 await cur.execute(
                     """
                     UPDATE feeds
@@ -349,3 +348,19 @@ class FeedRepository:
                 )
                 feeds = await cur.fetchall()
                 return feeds
+
+    async def is_liked_feed(self, feed_id: str, user_id: str) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM feed_likes
+                    WHERE feed_id = %s AND user_id = %s
+                    """,
+                    (feed_id, user_id),
+                )
+                count = await cur.fetchone()
+                if count[0] == 0:
+                    return False
+                return True
