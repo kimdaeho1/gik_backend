@@ -28,11 +28,19 @@ async def create_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
+    """
+    유저 피드 생성
+    - token: 사용자 인증 토큰
+    - content: 피드 내용 (선택 사항)
+    - status: 피드 공개 여부, true = 숨김, false = 숨기지 않음
+    - secretStatus: 시크릿 피드 여부, true = 시크릿, false = 시크릿이 아님
+    - feedImages: 업로드할 이미지 파일 리스트 (선택 사항)
+    """
     result = await feed_service.create_feed(
-        token,
-        create_feed_request.content,
-        create_feed_request.secretStatus,
-        create_feed_request.status,
+        token=token,
+        content=create_feed_request.content,
+        status=create_feed_request.status,
+        secret_status=create_feed_request.secretStatus,
         feed_images=feedImages,
     )
     return {"success": True, "message": "피드가 성공적으로 게시되었습니다."}
@@ -52,6 +60,7 @@ async def update_feed(
 ):
     """
     유저 피드 업데이트
+    - token: 사용자 인증 토큰
     - feed_id: 수정할 피드의 ID
     - content: 피드 내용 (선택 사항)
     - imageUrl: 수정하지 않을 이미지 URL 리스트 (선택 사항)
@@ -60,13 +69,13 @@ async def update_feed(
     - update_feed_images: 새로 추가할 이미지 파일 리스트 (선택 사항)
     """
     result = await feed_service.update_feed(
-        token,
-        feed_id,
-        update_feed_request.content,
-        update_feed_request.imageUrl,
-        update_feed_request.status,
-        update_feed_request.secretStatus,
-        update_feed_images,
+        token=token,
+        feed=feed_id,
+        content=update_feed_request.content,
+        image_urls=update_feed_request.imageUrl,
+        status=update_feed_request.status,
+        secret_status=update_feed_request.secretStatus,
+        feed_images=update_feed_images,
     )
     return {"success": True, "message": "피드가 성공적으로 수정되었습니다."}
 
@@ -79,7 +88,12 @@ async def delete_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.delete_feed(token, feed_id)
+    """
+    유저 피드 삭제
+    - token: 사용자 인증 토큰
+    - feed_id: 삭제할 피드의 ID
+    """
+    result = await feed_service.delete_feed(token=token, feed_id=feed_id)
     return {"success": True, "message": "피드가 성공적으로 삭제되었습니다."}
 
 
@@ -92,9 +106,14 @@ async def get_feed_list(
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
+    """
+    전체 피드 리스트 가져오기
+    - token: 사용자 인증 토큰
+    - page: 페이지 번호 (1부터 시작)
+    """
     result = await service.get_feed_list(
-        token,
-        page,
+        token=token,
+        page=page,
     )
     return {
         "success": True,
@@ -111,10 +130,16 @@ async def get_user_feed_list(
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
+    """
+    특정 유저의 피드 리스트 가져오기
+    - token: 사용자 인증 토큰
+    - user_id: 피드 리스트를 가져올 대상 유저의 ID
+    - page: 페이지 번호 (1부터 시작)
+    """
     result = await service.get_user_feed_list(
-        token=token,
         target_user_id=user_id,
         page=page,
+        token=token,
     )
     return {
         "success": True,
@@ -131,7 +156,12 @@ async def get_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.get_feed(token, feed_id)
+    """
+    피드 상세 조회하기
+    - token: 사용자 인증 토큰
+    - feed_id: 조회할 피드의 ID
+    """
+    result = await feed_service.get_feed(token=token, feed_id=feed_id)
     return {
         "success": True,
         "message": "피드 조회에 성공했습니다.",
@@ -148,11 +178,18 @@ async def report_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
+    """
+    피드 신고하기
+    - token: 사용자 인증 토큰
+    - feed_id: 신고할 피드의 ID
+    - reportedUserId: 신고당한 유저의 ID
+    - reason: 신고 사유
+    """
     result = await feed_service.report_feed(
-        token,
-        feed_id,
-        report_feed_request.reportedUserId,
-        report_feed_request.reason,
+        token=token,
+        feed_id=feed_id,
+        reported_user_id=report_feed_request.reportedUserId,
+        reason=report_feed_request.reason,
     )
     return {"success": True, "message": "피드가 성공적으로 신고되었습니다."}
 
@@ -165,9 +202,14 @@ async def block_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
+    """
+    피드 차단하기
+    - token: 사용자 인증 토큰
+    - feed_id: 차단할 피드의 ID
+    """
     result = await feed_service.block_feed(
-        token,
-        feed_id,
+        token=token,
+        feed_id=feed_id,
     )
     return {"success": True, "message": "피드가 성공적으로 차단되었습니다."}
 
@@ -180,7 +222,12 @@ async def like_feed(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.like_feed(token, feed_id)
+    """
+    피드 좋아요 / 좋아요 취소
+    - token: 사용자 인증 토큰
+    - feed_id: 좋아요/좋아요 취소할 피드의 ID
+    """
+    result = await feed_service.like_feed(token=token, feed_id=feed_id)
     if result == "like_feed":
         return {"success": True, "message": "피드 좋아요가 성공적으로 처리되었습니다."}
     elif result == "unlike_feed":
@@ -198,7 +245,12 @@ async def get_feed_like_list(
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await feed_service.get_feed_like_list(feed_id, token)
+    """
+    피드 좋아요 리스트 가져오기
+    - token: 사용자 인증 토큰
+    - feed_id: 좋아요 리스트를 가져올 피드의 ID
+    """
+    result = await feed_service.get_feed_like_list(token=token, feed_id=feed_id)
     return {
         "success": True,
         "message": "피드 좋아요 리스트를 성공적으로 가져왔습니다.",
@@ -211,10 +263,21 @@ async def get_feed_like_list(
 @inject
 async def get_my_feed_list(
     page: int = Query(...),
+    status: bool = Query(...),
+    secretStatus: bool = Query(...),
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
-    result = await service.get_my_feed_list(token, page)
+    """
+    내 피드 리스트 가져오기
+    - token: 사용자 인증 토큰
+    - page: 페이지 번호 (1부터 시작)
+    - status: 피드 공개 여부, true = 숨김, false = 숨기지 않음
+    - secretStatus: 시크릿 피드 여부, true = 시크릿, false = 시크릿이 아님
+    """
+    result = await service.get_my_feed_list(
+        token=token, page=page, status=status, secret_status=secretStatus
+    )
     return {
         "success": True,
         "message": "내 피드 리스트를 성공적으로 가져왔습니다.",

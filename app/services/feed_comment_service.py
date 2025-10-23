@@ -6,12 +6,18 @@ from app.db.feed_comment import FeedCommentResponse
 
 from app.utils.logging_config import get_logger
 from app.utils.token import get_user_id_from_token
+from app.repository.feed_comment_repository import FeedCommentRepository
+from app.repository.user_repository import UserRepository
 
 logger = get_logger(__name__)
 
 
 class FeedCommentService:
-    def __init__(self, feed_comment_repository, user_repository):
+    def __init__(
+        self,
+        feed_comment_repository=FeedCommentRepository,
+        user_repository=UserRepository,
+    ):
         self.feed_comment_repository = feed_comment_repository
         self.user_repository = user_repository
 
@@ -25,7 +31,7 @@ class FeedCommentService:
             )
 
         # 댓글 생성
-        comment_id = await self.feed_comment_repository.create_feed_comment(
+        await self.feed_comment_repository.create_feed_comment(
             user_id=user_id,
             feed_id=feed_id,
             content=content,
