@@ -156,6 +156,8 @@ class UserService:
                 postLikeAlarm=user_row.post_like_alarm_agree,
                 profileAlarm=user_row.profile_alarm_agree,
                 secretAlarm=user_row.secret_alarm_agree,
+                feedLikeAlarm=user_row.feed_like_alarm_agree,
+                feedCommentAlarm=user_row.feed_comment_alarm_agree,
                 pushRead=push_read,
                 profileRead=profile_read,
                 banned=user_row.banned,

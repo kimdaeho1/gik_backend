@@ -163,6 +163,8 @@ class UserProfileResponse(BaseModel):
     postLikeAlarm: bool
     profileAlarm: bool
     secretAlarm: bool
+    feedLikeAlarm: bool
+    feedCommentAlarm: bool
     pushRead: bool
     profileRead: bool
     banned: bool
@@ -365,6 +367,8 @@ class UserProfileRow(BaseModel):
     post_like_alarm_agree: bool
     profile_alarm_agree: bool
     secret_alarm_agree: bool
+    feed_like_alarm_agree: bool
+    feed_comment_alarm_agree: bool
     banned: bool
     unbanned_dt: Optional[datetime]
     last_connected_at: datetime

@@ -477,9 +477,14 @@ class FeedRepository:
                       AND f.deleted = FALSE
                       AND u.leaved = FALSE
                       AND f.feed_id NOT IN (
-                          SELECT blocked_feed_id 
-                          FROM feed_blocks 
-                          WHERE block_user_id = %s
+                            SELECT blocked_feed_id 
+                            FROM feed_blocks 
+                            WHERE block_user_id = %s
+                      )
+                      AND f.user_id NOT IN(
+                            SELECT blocked_user_id
+                            FROM user_block_list
+                            WHERE block_user_id = %s
                       )
                     ORDER BY f.created_at DESC
                     LIMIT %s OFFSET %s
