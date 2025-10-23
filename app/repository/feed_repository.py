@@ -360,7 +360,7 @@ class FeedRepository:
                     """
                     SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
                     FROM feeds
-                    WHERE user_id = %s AND deleted = FALSE
+                    WHERE user_id = %s AND secret_status = FALSE AND deleted = FALSE
                     AND feed_id NOT IN(
                         SELECT blocked_feed_id 
                         FROM feed_blocks 
