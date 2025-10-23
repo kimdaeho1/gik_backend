@@ -13,6 +13,7 @@ from app.db.db_connection import db
 from typing import List, Optional
 from app.utils.logging_config import get_logger
 from app.repository.user_repository import UserRepository
+from app.repository.feed_repository import FeedRepository
 from app.services.image_service import ImageService
 
 logger = get_logger(__name__)
@@ -23,11 +24,13 @@ class UserService:
     def __init__(
         self,
         user_repository: UserRepository,
+        feed_repository: FeedRepository,
         image_service: ImageService,
     ):
         self.db = db
         self.user_repository = user_repository
         self.image_service = image_service
+        self.feed_repository = feed_repository
 
     # form data는 JSON이 아니다. FastAPI가 Pydantic 모델에 자동으로 변환해주지 않음.
     # 이 데이터 형식은 multipart/form-data가 되는데 Pydantic 모델을 Form 입력값으로 감싸서 생성하는 팩토리 메서드로
@@ -121,6 +124,9 @@ class UserService:
             )
             # 광고 시청 횟수
             today_ad_count = await self.user_repository.fetch_today_ads(user_id)
+            is_secret_feed = await self.feed_repository.fetch_secret_feed_status(
+                user_id
+            )
             return UserProfileResponse(
                 id=user_row.id,
                 nickname=user_row.nickname,
@@ -161,6 +167,7 @@ class UserService:
                 lastConnectedAt=user_row.last_connected_at,
                 latitude=user_row.latitude,
                 longitude=user_row.longitude,
+                isSecretFeed=is_secret_feed,
             )
 
         except HTTPException:

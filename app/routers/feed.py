@@ -68,7 +68,7 @@ async def update_feed(
     - secretStatus: 피드 비밀 여부
     - update_feed_images: 새로 추가할 이미지 파일 리스트 (선택 사항)
     """
-    await feed_service.update_feed(
+    result = await feed_service.update_feed(
         token=token,
         feed_id=feed_id,
         content=update_feed_request.content,
@@ -77,6 +77,12 @@ async def update_feed(
         secret_status=update_feed_request.secretStatus,
         feed_images=update_feed_images,
     )
+
+    if result is False:
+        return {
+            "success": False,
+            "message": "피드 수정에 실패했습니다. 권한이 없거나 시크릿 피드입니다.",
+        }
     return {"success": True, "message": "피드가 성공적으로 수정되었습니다."}
 
 

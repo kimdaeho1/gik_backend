@@ -40,7 +40,10 @@ class Container(containers.DeclarativeContainer):
     # 서비스 컨테이너
     image_service = providers.Factory(ImageService, db=database)
     user_service = providers.Factory(
-        UserService, user_repository=user_repository, image_service=image_service
+        UserService,
+        user_repository=user_repository,
+        feed_repository=feed_repository,
+        image_service=image_service,
     )
     push_service = providers.Factory(
         PushService, db=database, user_repository=user_repository
