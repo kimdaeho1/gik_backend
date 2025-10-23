@@ -68,9 +68,9 @@ async def update_feed(
     - secretStatus: 피드 비밀 여부
     - update_feed_images: 새로 추가할 이미지 파일 리스트 (선택 사항)
     """
-    result = await feed_service.update_feed(
+    await feed_service.update_feed(
         token=token,
-        feed=feed_id,
+        feed_id=feed_id,
         content=update_feed_request.content,
         image_urls=update_feed_request.imageUrl,
         status=update_feed_request.status,
@@ -187,7 +187,7 @@ async def report_feed(
     - reportedUserId: 신고당한 유저의 ID
     - reason: 신고 사유
     """
-    result = await feed_service.report_feed(
+    await feed_service.report_feed(
         token=token,
         feed_id=feed_id,
         reported_user_id=report_feed_request.reportedUserId,
@@ -209,7 +209,7 @@ async def block_feed(
     - token: 사용자 인증 토큰
     - feed_id: 차단할 피드의 ID
     """
-    result = await feed_service.block_feed(
+    await feed_service.block_feed(
         token=token,
         feed_id=feed_id,
     )
