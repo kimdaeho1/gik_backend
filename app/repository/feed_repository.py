@@ -349,6 +349,28 @@ class FeedRepository:
                 feeds = await cur.fetchall()
                 return feeds
 
+    async def get_user_feed_list(self, user_id: str, target_user_id: str, page: int):
+        offset = (page - 1) * 5
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
+                    FROM feeds
+                    WHERE user_id = %s AND deleted = FALSE
+                    AND feed_id NOT IN(
+                        SELECT blocked_feed_id 
+                        FROM feed_blocks 
+                        WHERE block_user_id = %s
+                    )
+                    ORDER BY created_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (target_user_id, user_id, 5, offset),
+                )
+                feeds = await cur.fetchall()
+                return feeds
+
     async def is_liked_feed(self, feed_id: str, user_id: str) -> bool:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -364,3 +386,20 @@ class FeedRepository:
                 if count[0] == 0:
                     return False
                 return True
+
+    async def get_feed_like_list(self, feed_id: str) -> List[str]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT fl.user_id
+                    FROM feed_likes AS fl
+                    INNER JOIN users AS u
+                        ON fl.user_id = u.id
+                    WHERE fl.feed_id = %s
+                    AND u.leaved = FALSE
+                    """,
+                    (feed_id,),
+                )
+                users_list = await cur.fetchall()
+                return [user_list[0] for user_list in users_list]

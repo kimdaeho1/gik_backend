@@ -103,6 +103,26 @@ async def get_feed_list(
     }
 
 
+@router.get("/list/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def get_user_feed_list(
+    user_id: str,
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    service: FeedService = Depends(Provide[Container.feed_service]),
+):
+    result = await service.get_user_feed_list(
+        token=token,
+        target_user_id=user_id,
+        page=page,
+    )
+    return {
+        "success": True,
+        "message": "유저 피드 리스트를 성공적으로 가져왔습니다.",
+        "feeds": result,
+    }
+
+
 # 피드 조회하기
 @router.get("/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
@@ -170,6 +190,22 @@ async def like_feed(
         }
 
 
+# 피드 좋아요 리스트 가져오기
+@router.get("/like/user-list/{feed_id}", status_code=status.HTTP_200_OK)
+@inject
+async def get_feed_like_list(
+    feed_id: str,
+    token: str = Depends(oauth2_scheme),
+    feed_service: FeedService = Depends(Provide[Container.feed_service]),
+):
+    result = await feed_service.get_feed_like_list(feed_id, token)
+    return {
+        "success": True,
+        "message": "피드 좋아요 리스트를 성공적으로 가져왔습니다.",
+        "likeUsers": result,
+    }
+
+
 # 내 피드 리스트 가져오기
 @router.get("/my-feed/list", status_code=status.HTTP_200_OK)
 @inject
@@ -183,28 +219,4 @@ async def get_my_feed_list(
         "success": True,
         "message": "내 피드 리스트를 성공적으로 가져왔습니다.",
         "feeds": result,
-    }
-
-
-@router.post("/migrate/data", status_code=status.HTTP_200_OK)
-@inject
-async def migrate_feed_data(
-    feed_service: FeedService = Depends(Provide[Container.feed_service]),
-):
-    await feed_service.migrate_feed_data()
-    return {
-        "success": True,
-        "message": "피드 데이터 마이그레이션이 성공적으로 완료되었습니다.",
-    }
-
-
-@router.post("/migrate/secret-data", status_code=status.HTTP_200_OK)
-@inject
-async def migrate_secret_feed_data(
-    feed_service: FeedService = Depends(Provide[Container.feed_service]),
-):
-    await feed_service.migrate_secret_feed_data()
-    return {
-        "success": True,
-        "message": "비밀 피드 데이터 마이그레이션이 성공적으로 완료되었습니다.",
     }
