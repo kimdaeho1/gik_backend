@@ -123,6 +123,7 @@ class UserRepository:
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
                         profile_alarm_agree, secret_alarm_agree,
+                        feed_like_alarm_agree, feed_comment_alarm_agree,
                         banned, unbanned_dt, last_connected_at,
                         latitude, longitude
                     FROM users
