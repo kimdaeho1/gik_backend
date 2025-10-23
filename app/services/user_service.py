@@ -124,7 +124,7 @@ class UserService:
             )
             # 광고 시청 횟수
             today_ad_count = await self.user_repository.fetch_today_ads(user_id)
-            is_secret_feed = await self.feed_repository.fetch_secret_feed_status(
+            has_secret_feed = await self.feed_repository.fetch_secret_feed_status(
                 user_id
             )
             return UserProfileResponse(
@@ -167,7 +167,7 @@ class UserService:
                 lastConnectedAt=user_row.last_connected_at,
                 latitude=user_row.latitude,
                 longitude=user_row.longitude,
-                isSecretFeed=is_secret_feed,
+                hasSecretFeed=has_secret_feed,
             )
 
         except HTTPException:
