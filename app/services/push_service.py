@@ -161,7 +161,6 @@ class PushService:
         }
         # 사용자 푸시 동의 여부 확인
         if not await self.check_user_push_alarm(user_no):
-            print(data.get("type"), "no agree push")
             await self._insert_push_user_log(
                 user_no=user_no,
                 push_id=push_id,
