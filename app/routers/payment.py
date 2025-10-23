@@ -38,7 +38,9 @@ coin_map = {
     "gik_coin_30": 30,
     "gik_coin_55": 55,
     "gik_coin_120": 120,
+    # "gik_coin_240": 240,
     "gik_coin_250": 250,
+    # "gik_coin_500": 500,
     "gik_coin_700": 700,
     "gik_coin_1500": 1500,
 }

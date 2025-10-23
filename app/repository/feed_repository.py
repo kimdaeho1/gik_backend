@@ -94,20 +94,21 @@ class FeedRepository:
     async def get_feed_images(
         self,
         feed_id: str,
-    ):
+    ) -> List[str]:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
                     SELECT url
                     FROM feed_images
-                    WHERE feed_id = %s AND use_yn = True
+                    WHERE feed_id = %s AND use_yn = TRUE
                     ORDER BY `index` 
                     """,
                     (feed_id,),
                 )
                 images = await cur.fetchall()
-                return [image[0] for image in images]
+                feed_image_urls = [url for (url,) in images]
+                return feed_image_urls
 
     async def update_feed_images(
         self,
@@ -387,18 +388,39 @@ class FeedRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
-                    FROM feeds
-                    WHERE user_id = %s AND secret_status = %s AND deleted = FALSE
-                    AND feed_id NOT IN(
+                    SELECT 
+                        f.feed_id, f.user_id, f.feed_content, f.status, f.secret_status, f.created_at, f.updated_at
+                    FROM feeds f
+                    WHERE f.user_id = %s 
+                    AND f.secret_status = %s 
+                    AND f.deleted = FALSE
+                    AND f.feed_id NOT IN (
                         SELECT blocked_feed_id 
                         FROM feed_blocks 
                         WHERE block_user_id = %s
                     )
-                    ORDER BY created_at DESC
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM user_block_list ub
+                        WHERE 
+                            (ub.block_user_id = %s AND ub.blocked_user_id = %s)
+                            OR
+                            (ub.block_user_id = %s AND ub.blocked_user_id = %s)
+                    )
+                    ORDER BY f.created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (target_user_id, secret_status, user_id, 5, offset),
+                    (
+                        target_user_id,
+                        secret_status,
+                        user_id,
+                        user_id,
+                        target_user_id,
+                        target_user_id,
+                        user_id,
+                        5,
+                        offset,
+                    ),
                 )
                 feeds = await cur.fetchall()
                 return feeds

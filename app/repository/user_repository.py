@@ -408,6 +408,8 @@ class UserRepository:
             "night_agree": "night_agree",
             "profile_agree": "profile_alarm_agree",
             "secret_agree": "secret_alarm_agree",
+            "feed_like_agree": "feed_like_alarm_agree",
+            "feed_comment_agree": "feed_comment_alarm_agree",
         }
 
         if alarm_type not in column_map:
