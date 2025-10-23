@@ -81,19 +81,13 @@ class FeedService:
         is_owner = await self.feed_repository.is_owner(user_id=user_id, feed_id=feed_id)
         if not is_owner:
             logger.error("피드 수정 권한이 없습니다.")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="피드 수정권한이 없습니다.",
-            )
+            return False
 
         is_secret = await self.feed_repository.fetch_feed_secret_status(feed_id)
         print(is_secret)
         if is_secret:
             logger.error("시크릿 피드는 수정할 수 없습니다.")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="시크릿 피드는 수정할 수 없습니다.",
-            )
+            return False
 
         # 현재 이미지 목록 조회
         origin_images = await self.feed_repository.get_feed_images(feed_id)
@@ -137,7 +131,7 @@ class FeedService:
             secret_status=secret_status,
             content=content,
         )
-        return new_feed_images
+        return True
 
     async def get_feed(self, token: str, feed_id: str) -> FeedDetailResponse:
         user_id = await get_user_id_from_token(token)
@@ -147,6 +141,9 @@ class FeedService:
         like_count = await self.feed_repository.get_feed_like_count(feed_id)
         is_liked = await self.feed_repository.is_liked_feed(
             feed_id=feed_id, user_id=user_id
+        )
+        is_purchased = await self.feed_repository.fetch_purchase_secret_feed(
+            user_id=user_id, feed_id=feed_id
         )
 
         return FeedDetailResponse(
@@ -158,6 +155,7 @@ class FeedService:
             secretStatus=feed[4],
             likeCount=like_count,
             isLiked=is_liked,
+            isPurchased=is_purchased,
             createdAt=feed[5],
         )
 
@@ -222,6 +220,9 @@ class FeedService:
             isLiked = await self.feed_repository.is_liked_feed(
                 feed_id=feed[0], user_id=user_id
             )
+            is_purchased = await self.feed_repository.fetch_purchase_secret_feed(
+                user_id=user_id, feed_id=feed[0]
+            )
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -232,6 +233,7 @@ class FeedService:
                     secretStatus=feed[4],
                     likeCount=like_count,
                     isLiked=isLiked,
+                    isPurchased=is_purchased,
                     createdAt=feed[5],
                 )
             )
@@ -249,6 +251,9 @@ class FeedService:
             is_liked = await self.feed_repository.is_liked_feed(
                 feed_id=feed[0], user_id=user_id
             )
+            is_purchased = await self.feed_repository.fetch_purchase_secret_feed(
+                user_id=user_id, feed_id=feed[0]
+            )
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -259,6 +264,7 @@ class FeedService:
                     secretStatus=feed[4],
                     likeCount=like_count,
                     isLiked=is_liked,
+                    isPurchased=is_purchased,
                     createdAt=feed[5],
                 )
             )
@@ -281,6 +287,9 @@ class FeedService:
             is_liked = await self.feed_repository.is_liked_feed(
                 feed_id=feed[0], user_id=user_id
             )
+            is_purchased = await self.feed_repository.fetch_purchase_secret_feed(
+                user_id=user_id, feed_id=feed[0]
+            )
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -291,6 +300,7 @@ class FeedService:
                     secretStatus=feed[4],
                     likeCount=like_count,
                     isLiked=is_liked,
+                    isPurchased=is_purchased,
                     createdAt=feed[5],
                 )
             )
@@ -318,6 +328,9 @@ class FeedService:
             is_liked = await self.feed_repository.is_liked_feed(
                 feed_id=feed[0], user_id=user_id
             )
+            is_purchased = await self.feed_repository.fetch_purchase_secret_feed(
+                user_id=user_id, feed_id=feed[0]
+            )
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -328,6 +341,7 @@ class FeedService:
                     secretStatus=feed[4],
                     likeCount=like_count,
                     isLiked=is_liked,
+                    isPurchased=is_purchased,
                     createdAt=feed[5],
                 )
             )

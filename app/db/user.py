@@ -174,6 +174,7 @@ class UserProfileResponse(BaseModel):
     lastConnectedAt: datetime
     latitude: Optional[float]
     longitude: Optional[float]
+    hasSecretFeed: bool
 
 
 class UserDetailResponse(BaseModel):

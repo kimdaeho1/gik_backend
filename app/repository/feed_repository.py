@@ -510,3 +510,21 @@ class FeedRepository:
                 )
                 result = await cur.fetchone()
                 return result[0]
+
+    async def fetch_purchase_secret_feed(
+        self,
+        user_id: str,
+        feed_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM feed_purchase_list
+                    WHERE user_id = %s AND feed_id = %s
+                    """,
+                    (user_id, feed_id),
+                )
+                count = await cur.fetchone()
+                return count[0] > 0
