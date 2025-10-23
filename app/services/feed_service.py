@@ -86,6 +86,15 @@ class FeedService:
                 detail="피드 수정권한이 없습니다.",
             )
 
+        is_secret = await self.feed_repository.fetch_feed_secret_status(feed_id)
+        print(is_secret)
+        if is_secret:
+            logger.error("시크릿 피드는 수정할 수 없습니다.")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="시크릿 피드는 수정할 수 없습니다.",
+            )
+
         # 현재 이미지 목록 조회
         origin_images = await self.feed_repository.get_feed_images(feed_id)
         origin_images = [row[0] for row in origin_images]

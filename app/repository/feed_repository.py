@@ -493,3 +493,20 @@ class FeedRepository:
                     """,
                     (credit_amount, user_id),
                 )
+
+    async def fetch_feed_secret_status(
+        self,
+        feed_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT secret_status
+                    FROM feeds
+                    WHERE feed_id = %s AND deleted = FALSE
+                    """,
+                    (feed_id,),
+                )
+                result = await cur.fetchone()
+                return result[0]
