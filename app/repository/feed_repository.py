@@ -322,6 +322,7 @@ class FeedRepository:
                     (user_id, False, status, secret_status, 5, offset),
                 )
                 feeds = await cur.fetchall()
+
                 return feeds
 
     async def get_feed_list(self, user_id: str, page: int):
@@ -405,3 +406,88 @@ class FeedRepository:
                 )
                 users_list = await cur.fetchall()
                 return [user_list[0] for user_list in users_list]
+
+    async def fetch_secret_feed_status(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT feed_id
+                    FROM feeds
+                    WHERE user_id = %s AND secret_status = TRUE AND deleted = FALSE
+                    """,
+                    (user_id,),
+                )
+                secret_feeds = await cur.fetchall()
+                return len(secret_feeds) > 0
+
+    async def get_purchase_feed_list(
+        self,
+        user_id: str,
+        page: int,
+    ):
+        offset = (page - 1) * 5
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 
+                        f.feed_id, 
+                        f.user_id, 
+                        f.feed_content, 
+                        f.status, 
+                        f.secret_status, 
+                        f.created_at
+                    FROM feed_purchase_list p
+                    JOIN feeds f ON p.feed_id = f.feed_id
+                    WHERE p.user_id = %s
+                      AND f.deleted = FALSE
+                      AND f.feed_id NOT IN (
+                          SELECT blocked_feed_id 
+                          FROM feed_blocks 
+                          WHERE block_user_id = %s
+                      )
+                    ORDER BY f.created_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (user_id, user_id, 5, offset),
+                )
+                feeds = await cur.fetchall()
+                return feeds
+
+    async def purchase_secret_feed(
+        self,
+        user_id: str,
+        feed_id: str,
+        credit_amount: int,
+        credit_description: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO feed_purchase_list (user_id, feed_id)
+                    VALUES (%s, %s)
+                    """,
+                    (user_id, feed_id),
+                )
+
+                await cur.execute(
+                    """
+                    INSERT INTO credit_history (user_id, amount, description)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (user_id, credit_amount, credit_description),
+                )
+
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET credit = credit - %s
+                    WHERE id = %s
+                    """,
+                    (credit_amount, user_id),
+                )

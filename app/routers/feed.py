@@ -283,3 +283,46 @@ async def get_my_feed_list(
         "message": "내 피드 리스트를 성공적으로 가져왔습니다.",
         "feeds": result,
     }
+
+
+@router.get("/purchase/list", status_code=status.HTTP_200_OK)
+@inject
+async def get_purchase_feed_list(
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    service: FeedService = Depends(Provide[Container.feed_service]),
+):
+    """
+    구매한 피드 리스트 가져오기
+    - token: 사용자 인증 토큰
+    - page: 페이지 번호 (1부터 시작)
+    """
+    result = await service.get_purchase_feed_list(token=token, page=page)
+    return {
+        "success": True,
+        "message": "구매한 피드 리스트를 성공적으로 가져왔습니다.",
+        "feeds": result,
+    }
+
+
+# 해당 시크릿 피드 구매하기
+@router.post("/purchase/{feed_id}", status_code=status.HTTP_200_OK)
+@inject
+async def purchase_secret_feed(
+    feed_id: str,
+    token: str = Depends(oauth2_scheme),
+    service: FeedService = Depends(Provide[Container.feed_service]),
+):
+    """
+    해당 유저의 시크릿 피드 구매하기
+    - token: 사용자 인증 토큰
+    - user_id: 시크릿 피드를 구매할 대상 유저의 ID
+    """
+    await service.purchase_secret_feed(
+        token=token,
+        feed_id=feed_id,
+    )
+    return {
+        "success": True,
+        "message": "시크릿 피드 구매가 성공적으로 처리되었습니다.",
+    }

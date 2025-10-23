@@ -13,6 +13,7 @@ from app.db.feed import (
 from app.utils.token import get_user_id_from_token
 from app.utils.logging_config import get_logger
 from app.repository.feed_repository import FeedRepository
+from app.repository.user_repository import UserRepository
 import uuid
 
 
@@ -287,3 +288,58 @@ class FeedService:
         user_id = await get_user_id_from_token(token)
         feed_like_list = await self.feed_repository.get_feed_like_list(feed_id)
         return feed_like_list
+
+    async def get_purchase_feed_list(
+        self,
+        token: str,
+        page: int,
+    ):
+        user_id = await get_user_id_from_token(token)
+        feeds = await self.feed_repository.get_purchase_feed_list(
+            user_id=user_id,
+            page=page,
+        )
+        feed_list: List[FeedDetailResponse] = []
+        for feed in feeds:
+            images = await self.feed_repository.get_feed_images(feed[0])
+            like_count = await self.feed_repository.get_feed_like_count(feed[0])
+            is_liked = await self.feed_repository.is_liked_feed(
+                feed_id=feed[0], user_id=user_id
+            )
+            feed_list.append(
+                FeedDetailResponse(
+                    feedId=feed[0],
+                    userId=feed[1],
+                    content=feed[2],
+                    images=images,
+                    status=feed[3],
+                    secretStatus=feed[4],
+                    likeCount=like_count,
+                    isLiked=is_liked,
+                    createdAt=feed[5],
+                )
+            )
+        return feed_list
+
+    async def purchase_secret_feed(
+        self,
+        token: str,
+        feed_id: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        is_secret = await self.feed_repository.fetch_secret_feed_status(user_id)
+        if not is_secret:
+            credit_amount = 10
+            credit_description = "우회한 시크릿 피드 구매"
+        else:
+            credit_amount = 5
+            credit_description = "시크릿 피드 구매"
+
+        await self.feed_repository.purchase_secret_feed(
+            user_id=user_id,
+            feed_id=feed_id,
+            credit_amount=credit_amount,
+            credit_description=credit_description,
+        )
+        return True
