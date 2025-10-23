@@ -139,6 +139,7 @@ class FeedService:
         feed = await self.feed_repository.get_feed(feed_id)
         images = await self.feed_repository.get_feed_images(feed_id)
         like_count = await self.feed_repository.get_feed_like_count(feed_id)
+        comment_count = await self.feed_repository.get_feed_comment_count(feed_id)
         is_liked = await self.feed_repository.is_liked_feed(
             feed_id=feed_id, user_id=user_id
         )
@@ -154,6 +155,7 @@ class FeedService:
             status=feed[3],
             secretStatus=feed[4],
             likeCount=like_count,
+            commentCount=comment_count,
             isLiked=is_liked,
             isPurchased=is_purchased,
             createdAt=feed[5],
@@ -217,6 +219,7 @@ class FeedService:
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
+            comment_count = await self.feed_repository.get_feed_comment_count(feed[0])
             isLiked = await self.feed_repository.is_liked_feed(
                 feed_id=feed[0], user_id=user_id
             )
@@ -232,6 +235,7 @@ class FeedService:
                     status=feed[3],
                     secretStatus=feed[4],
                     likeCount=like_count,
+                    commentCount=comment_count,
                     isLiked=isLiked,
                     isPurchased=is_purchased,
                     createdAt=feed[5],
@@ -248,6 +252,7 @@ class FeedService:
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
+            comment_count = await self.feed_repository.get_feed_comment_count(feed[0])
             is_liked = await self.feed_repository.is_liked_feed(
                 feed_id=feed[0], user_id=user_id
             )
@@ -263,6 +268,7 @@ class FeedService:
                     status=feed[3],
                     secretStatus=feed[4],
                     likeCount=like_count,
+                    commentCount=comment_count,
                     isLiked=is_liked,
                     isPurchased=is_purchased,
                     createdAt=feed[5],
@@ -284,6 +290,7 @@ class FeedService:
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
+            comment_count = await self.feed_repository.get_feed_comment_count(feed[0])
             is_liked = await self.feed_repository.is_liked_feed(
                 feed_id=feed[0], user_id=user_id
             )
@@ -299,6 +306,7 @@ class FeedService:
                     status=feed[3],
                     secretStatus=feed[4],
                     likeCount=like_count,
+                    commentCount=comment_count,
                     isLiked=is_liked,
                     isPurchased=is_purchased,
                     createdAt=feed[5],
@@ -325,6 +333,7 @@ class FeedService:
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
+            comment_count = await self.feed_repository.get_feed_comment_count(feed[0])
             is_liked = await self.feed_repository.is_liked_feed(
                 feed_id=feed[0], user_id=user_id
             )
@@ -340,6 +349,7 @@ class FeedService:
                     status=feed[3],
                     secretStatus=feed[4],
                     likeCount=like_count,
+                    commentCount=comment_count,
                     isLiked=is_liked,
                     isPurchased=is_purchased,
                     createdAt=feed[5],
