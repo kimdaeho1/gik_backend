@@ -77,7 +77,6 @@ class FeedService:
         feed_images: Optional[List[UploadFile]] = File(default=[]),
     ):
         user_id = await get_user_id_from_token(token)
-
         is_owner = await self.feed_repository.is_owner(user_id=user_id, feed_id=feed_id)
         if not is_owner:
             logger.error("피드 수정 권한이 없습니다.")
@@ -90,7 +89,7 @@ class FeedService:
 
         # 현재 이미지 목록 조회
         origin_images = await self.feed_repository.get_feed_images(feed_id)
-        origin_images = [row[0] for row in origin_images]
+
         # 이미지 URL 파싱
         if image_urls:
             if len(image_urls) == 1 and "," in image_urls[0]:
