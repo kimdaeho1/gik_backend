@@ -1,9 +1,11 @@
 from typing import List, Optional
 from dependency_injector.wiring import inject, Provide
 
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, status, Depends, BackgroundTasks
 from app.core.container import Container
 from app.utils.token import get_user_id_from_token, JWTBearer
+from app.services.feed_service import FeedService
+from app.services.push_service import PushService
 from app.services.feed_comment_service import FeedCommentService
 from app.db.feed_comment import (
     CreateFeedCommentRequest,
@@ -21,13 +23,30 @@ router = APIRouter(prefix="/v1/gik-backend/feed/comment", tags=["Feed"])
 async def create_feed_comment(
     feed_id: str,
     create_feed_comment_request: CreateFeedCommentRequest,
+    background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
     feed_comment_service: FeedCommentService = Depends(
         Provide[Container.feed_comment_service]
     ),
+    feed_service: FeedService = Depends(Provide[Container.feed_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     await feed_comment_service.create_feed_comment(
         feed_id=feed_id, content=create_feed_comment_request.content, token=token
+    )
+
+    user_id = await get_user_id_from_token(token)
+
+    feed_user_id = await feed_service.get_feed_user_id(feed_id=feed_id)
+
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=feed_user_id,
+        target_user_id=user_id,
+        title_content="💭 새로운 댓글이 달렸어요!",
+        body_content="내 피드에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
+        data={"type": "feedComment", "feedId": feed_id},
+        collapse_key=f"feed_comment_{feed_id}",
     )
     return {"success": True, "message": "피드 댓글이 성공적으로 등록되었습니다."}
 

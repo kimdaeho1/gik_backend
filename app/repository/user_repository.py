@@ -1218,7 +1218,7 @@ class UserRepository:
                         FROM push_user_log
                         WHERE user_no = %s
                           AND status IN ('SUCCESS', 'OPENED')
-                          AND push_type IN ('profile', 'postLike', 'postComment', 'secret')
+                          AND push_type IN ('profile', 'postLike', 'postComment', 'secret', 'feedLike', 'feedComment')
                         ORDER BY delivered_at DESC
                         LIMIT 20 OFFSET %s
                         """,

@@ -5,11 +5,12 @@ from fastapi import HTTPException, BackgroundTasks
 from firebase_admin import messaging
 from app.utils.firebase_init import init_firebase_admin
 from app.db.db_connection import db
+from app.repository.user_repository import UserRepository
 import uuid
 
 
 class PushService:
-    def __init__(self, db, user_repository):
+    def __init__(self, db, user_repository: UserRepository):
         self.db = db
         self.user_repository = user_repository
         init_firebase_admin()
@@ -160,6 +161,7 @@ class PushService:
         }
         # 사용자 푸시 동의 여부 확인
         if not await self.check_user_push_alarm(user_no):
+            print(data.get("type"), "no agree push")
             await self._insert_push_user_log(
                 user_no=user_no,
                 push_id=push_id,
