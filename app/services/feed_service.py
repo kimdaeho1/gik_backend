@@ -370,6 +370,12 @@ class FeedService:
         else:
             credit_amount = 5
             credit_description = "시크릿 피드 구매"
+        purchased = await self.feed_repository.fetch_purchase_secret_feed(
+            user_id=user_id, feed_id=feed_id
+        )
+        if purchased:
+            logger.error("이미 구매한 시크릿 피드입니다.")
+            return False
 
         await self.feed_repository.purchase_secret_feed(
             user_id=user_id,
