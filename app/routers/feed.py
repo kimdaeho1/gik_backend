@@ -127,6 +127,7 @@ async def get_feed_list(
 async def get_user_feed_list(
     user_id: str,
     page: int = Query(...),
+    secretStatus: bool = Query(...),
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
@@ -140,36 +141,11 @@ async def get_user_feed_list(
         target_user_id=user_id,
         page=page,
         token=token,
+        secret_status=secretStatus,
     )
     return {
         "success": True,
         "message": "유저 피드 리스트를 성공적으로 가져왔습니다.",
-        "feeds": result,
-    }
-
-
-@router.get("/secret/list/{user_id}", status_code=status.HTTP_200_OK)
-@inject
-async def get_user_secret_feed_list(
-    user_id: str,
-    page: int = Query(...),
-    token: str = Depends(oauth2_scheme),
-    service: FeedService = Depends(Provide[Container.feed_service]),
-):
-    """
-    특정 유저의 시크릿 피드 리스트 가져오기
-    - token: 사용자 인증 토큰
-    - user_id: 시크릿 피드 리스트를 가져올 대상 유저의 ID
-    - page: 페이지 번호 (1부터 시작)
-    """
-    result = await service.get_user_secret_feed_list(
-        target_user_id=user_id,
-        page=page,
-        token=token,
-    )
-    return {
-        "success": True,
-        "message": "유저 시크릿 피드 리스트를 성공적으로 가져왔습니다.",
         "feeds": result,
     }
 

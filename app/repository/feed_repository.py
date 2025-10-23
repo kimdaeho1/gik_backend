@@ -352,33 +352,8 @@ class FeedRepository:
                 feeds = await cur.fetchall()
                 return feeds
 
-    async def get_user_feed_list(self, user_id: str, target_user_id: str, page: int):
-        offset = (page - 1) * 5
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
-                    FROM feeds
-                    WHERE user_id = %s AND secret_status = FALSE AND deleted = FALSE
-                    AND feed_id NOT IN(
-                        SELECT blocked_feed_id 
-                        FROM feed_blocks 
-                        WHERE block_user_id = %s
-                    )
-                    ORDER BY created_at DESC
-                    LIMIT %s OFFSET %s
-                    """,
-                    (target_user_id, user_id, 5, offset),
-                )
-                feeds = await cur.fetchall()
-                return feeds
-
-    async def get_user_secret_feed_list(
-        self,
-        user_id: str,
-        target_user_id: str,
-        page: int,
+    async def get_user_feed_list(
+        self, user_id: str, target_user_id: str, page: int, secret_status: bool
     ):
         offset = (page - 1) * 5
         async with self.db.get_connection() as conn:
@@ -387,7 +362,7 @@ class FeedRepository:
                     """
                     SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
                     FROM feeds
-                    WHERE user_id = %s AND secret_status = TRUE AND deleted = FALSE
+                    WHERE user_id = %s AND secret_status = %s AND deleted = FALSE
                     AND feed_id NOT IN(
                         SELECT blocked_feed_id 
                         FROM feed_blocks 
@@ -396,7 +371,7 @@ class FeedRepository:
                     ORDER BY created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (target_user_id, user_id, 5, offset),
+                    (target_user_id, secret_status, user_id, 5, offset),
                 )
                 feeds = await cur.fetchall()
                 return feeds
