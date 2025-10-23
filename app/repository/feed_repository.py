@@ -201,6 +201,24 @@ class FeedRepository:
                 count = query_count[0]
                 return count
 
+    async def get_feed_comment_count(
+        self,
+        feed_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM feed_comments
+                    WHERE feed_id = %s AND deleted = FALSE
+                    """,
+                    (feed_id,),
+                )
+                query_count = await cur.fetchone()
+                count = query_count[0]
+                return count
+
     async def delete_feed(
         self,
         feed_id: str,
