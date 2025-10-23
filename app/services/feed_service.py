@@ -284,6 +284,40 @@ class FeedService:
             )
         return feed_list
 
+    async def get_user_secret_feed_list(
+        self,
+        target_user_id: str,
+        page: int,
+        token: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+        feeds = await self.feed_repository.get_user_secret_feed_list(
+            user_id=user_id,
+            target_user_id=target_user_id,
+            page=page,
+        )
+        feed_list: List[FeedDetailResponse] = []
+        for feed in feeds:
+            images = await self.feed_repository.get_feed_images(feed[0])
+            like_count = await self.feed_repository.get_feed_like_count(feed[0])
+            is_liked = await self.feed_repository.is_liked_feed(
+                feed_id=feed[0], user_id=user_id
+            )
+            feed_list.append(
+                FeedDetailResponse(
+                    feedId=feed[0],
+                    userId=feed[1],
+                    content=feed[2],
+                    images=images,
+                    status=feed[3],
+                    secretStatus=feed[4],
+                    likeCount=like_count,
+                    isLiked=is_liked,
+                    createdAt=feed[5],
+                )
+            )
+        return feed_list
+
     async def get_feed_like_list(self, token: str, feed_id: str):
         user_id = await get_user_id_from_token(token)
         feed_like_list = await self.feed_repository.get_feed_like_list(feed_id)
