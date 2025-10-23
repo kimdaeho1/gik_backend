@@ -340,10 +340,15 @@ async def purchase_secret_feed(
     - token: 사용자 인증 토큰
     - user_id: 시크릿 피드를 구매할 대상 유저의 ID
     """
-    await service.purchase_secret_feed(
+    result = await service.purchase_secret_feed(
         token=token,
         feed_id=feed_id,
     )
+    # if result is False:
+    #     return {
+    #         "success": False,
+    #         "message": "이미 구매한 시크릿 피드입니다.",
+    #     }
     return {
         "success": True,
         "message": "시크릿 피드 구매가 성공적으로 처리되었습니다.",
