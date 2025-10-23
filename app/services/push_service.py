@@ -5,11 +5,12 @@ from fastapi import HTTPException, BackgroundTasks
 from firebase_admin import messaging
 from app.utils.firebase_init import init_firebase_admin
 from app.db.db_connection import db
+from app.repository.user_repository import UserRepository
 import uuid
 
 
 class PushService:
-    def __init__(self, db, user_repository):
+    def __init__(self, db, user_repository: UserRepository):
         self.db = db
         self.user_repository = user_repository
         init_firebase_admin()

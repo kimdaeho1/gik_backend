@@ -349,20 +349,29 @@ class FeedRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
-                    FROM feeds
-                    WHERE deleted = %s
-                    AND user_id NOT IN (
-                        SELECT blocked_user_id 
-                        FROM user_block_list 
-                        WHERE block_user_id = %s
-                    )
-                    AND feed_id NOT IN (
-                        SELECT blocked_feed_id 
-                        FROM feed_blocks 
-                        WHERE block_user_id = %s
-                    )
-                    ORDER BY created_at DESC
+                    SELECT 
+                        f.feed_id, 
+                        f.user_id, 
+                        f.feed_content, 
+                        f.status, 
+                        f.secret_status, 
+                        f.created_at, 
+                        f.updated_at
+                    FROM feeds f
+                    JOIN users u ON f.user_id = u.id
+                    WHERE f.deleted = %s
+                      AND u.leaved = FALSE
+                      AND f.user_id NOT IN (
+                          SELECT blocked_user_id 
+                          FROM user_block_list 
+                          WHERE block_user_id = %s
+                      )
+                      AND f.feed_id NOT IN (
+                          SELECT blocked_feed_id 
+                          FROM feed_blocks 
+                          WHERE block_user_id = %s
+                      )
+                    ORDER BY f.created_at DESC
                     LIMIT %s OFFSET %s
                     """,
                     (False, user_id, user_id, 5, offset),
@@ -463,8 +472,10 @@ class FeedRepository:
                         f.created_at
                     FROM feed_purchase_list p
                     JOIN feeds f ON p.feed_id = f.feed_id
+                    JOIN users u ON f.user_id = u.id
                     WHERE p.user_id = %s
                       AND f.deleted = FALSE
+                      AND u.leaved = FALSE
                       AND f.feed_id NOT IN (
                           SELECT blocked_feed_id 
                           FROM feed_blocks 
@@ -475,6 +486,7 @@ class FeedRepository:
                     """,
                     (user_id, user_id, 5, offset),
                 )
+
                 feeds = await cur.fetchall()
                 return feeds
 
@@ -546,3 +558,21 @@ class FeedRepository:
                 )
                 count = await cur.fetchone()
                 return count[0] > 0
+
+    async def get_feed_user_id(
+        self,
+        feed_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT user_id
+                    FROM feeds
+                    WHERE feed_id = %s
+                    """,
+                    (feed_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]

@@ -84,7 +84,6 @@ class FeedService:
             return False
 
         is_secret = await self.feed_repository.fetch_feed_secret_status(feed_id)
-        print(is_secret)
         if is_secret:
             logger.error("시크릿 피드는 수정할 수 없습니다.")
             return False
@@ -379,3 +378,7 @@ class FeedService:
             credit_description=credit_description,
         )
         return True
+
+    async def get_feed_user_id(self, feed_id: str) -> str:
+        user_id = await self.feed_repository.get_feed_user_id(feed_id=feed_id)
+        return user_id

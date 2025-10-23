@@ -1,6 +1,6 @@
 from typing import List, Optional
 from dependency_injector.wiring import inject, Provide
-from fastapi import APIRouter, status, Depends, File, UploadFile, Query
+from fastapi import APIRouter, status, Depends, File, UploadFile, Query, BackgroundTasks
 from app.core.container import Container
 from app.utils.token import get_user_id_from_token, JWTBearer
 from app.db.feed import (
@@ -9,6 +9,7 @@ from app.db.feed import (
     ReportFeedRequest,
 )
 from app.services.feed_service import FeedService
+from app.services.push_service import PushService
 
 oauth2_scheme = JWTBearer(auto_error=False)
 router = APIRouter(prefix="/v1/gik-backend/feed", tags=["Feed"])
@@ -227,8 +228,10 @@ async def block_feed(
 @inject
 async def like_feed(
     feed_id: str,
+    background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     피드 좋아요 / 좋아요 취소
@@ -236,7 +239,18 @@ async def like_feed(
     - feed_id: 좋아요/좋아요 취소할 피드의 ID
     """
     result = await feed_service.like_feed(token=token, feed_id=feed_id)
+    feed_user_id = await feed_service.get_feed_user_id(feed_id=feed_id)
+    user_id = await get_user_id_from_token(token)
     if result == "like_feed":
+        await push_service.send_push_to_user(
+            background_tasks=background_tasks,
+            user_id=feed_user_id,
+            target_user_id=user_id,
+            title_content="👍 좋아요를 받았어요!",
+            body_content="내 피드에 누군가 좋아요를 눌렀어요. 지금 확인해 보세요!",
+            data={"type": "feedLike", "feedId": feed_id},
+            collapse_key=f"feed_like_{feed_id}",
+        )
         return {"success": True, "message": "피드 좋아요가 성공적으로 처리되었습니다."}
     elif result == "unlike_feed":
         return {
@@ -271,8 +285,8 @@ async def get_feed_like_list(
 @inject
 async def get_my_feed_list(
     page: int = Query(...),
-    status: bool = Query(...),
-    secretStatus: bool = Query(...),
+    status: Optional[bool] = Query(...),
+    secretStatus: Optional[bool] = Query(...),
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
