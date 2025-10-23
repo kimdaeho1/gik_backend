@@ -127,6 +127,7 @@ async def get_feed_list(
 async def get_user_feed_list(
     user_id: str,
     page: int = Query(...),
+    secretStatus: bool = Query(...),
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
@@ -140,6 +141,7 @@ async def get_user_feed_list(
         target_user_id=user_id,
         page=page,
         token=token,
+        secret_status=secretStatus,
     )
     return {
         "success": True,

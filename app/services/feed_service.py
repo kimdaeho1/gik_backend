@@ -255,12 +255,15 @@ class FeedService:
             )
         return feed_list
 
-    async def get_user_feed_list(self, target_user_id: str, page: int, token: str):
+    async def get_user_feed_list(
+        self, target_user_id: str, page: int, token: str, secret_status: bool
+    ):
         user_id = await get_user_id_from_token(token)
         feeds = await self.feed_repository.get_user_feed_list(
             user_id=user_id,
             target_user_id=target_user_id,
             page=page,
+            secret_status=secret_status,
         )
         feed_list: List[FeedDetailResponse] = []
         for feed in feeds:
