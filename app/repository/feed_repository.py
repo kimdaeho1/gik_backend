@@ -305,6 +305,8 @@ class FeedRepository:
         self,
         user_id: str,
         page: int,
+        status: bool,
+        secret_status: bool,
     ):
         offset = (page - 1) * 5
         async with self.db.get_connection() as conn:
@@ -313,11 +315,11 @@ class FeedRepository:
                     """
                     SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
                     FROM feeds
-                    WHERE user_id = %s AND deleted = %s
+                    WHERE user_id = %s AND deleted = %s AND status = %s AND secret_status = %s
                     ORDER BY created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (user_id, False, 5, offset),
+                    (user_id, False, status, secret_status, 5, offset),
                 )
                 feeds = await cur.fetchall()
                 return feeds

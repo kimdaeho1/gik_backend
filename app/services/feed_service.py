@@ -51,13 +51,15 @@ class FeedService:
                 image_urls.append(f"{CLOUDFRONT_URL}/{s3_prefix}{filename}")
 
         if image_urls:
-            await self.feed_repository.insert_feed_images(feed_id, user_id, image_urls)
+            await self.feed_repository.insert_feed_images(
+                feed_id=feed_id, user_id=user_id, image_urls=image_urls
+            )
         await self.feed_repository.create_feed(
-            feed_id,
-            user_id,
-            status,
-            secret_status,
-            content,
+            feed_id=feed_id,
+            user_id=user_id,
+            status=status,
+            secret_status=secret_status,
+            content=content,
         )
 
         return True
@@ -75,7 +77,7 @@ class FeedService:
     ):
         user_id = await get_user_id_from_token(token)
 
-        is_owner = await self.feed_repository.is_owner(user_id, feed_id)
+        is_owner = await self.feed_repository.is_owner(user_id=user_id, feed_id=feed_id)
         if not is_owner:
             logger.error("피드 수정 권한이 없습니다.")
             raise HTTPException(
@@ -113,17 +115,17 @@ class FeedService:
                 uploaded_urls.append(f"{CLOUDFRONT_URL}/{s3_key}")
 
         new_feed_images = await self.feed_repository.update_feed_images(
-            feed_id,
-            user_id,
-            keep_images,
-            remove_images,
-            uploaded_urls,
+            feed_id=feed_id,
+            user_id=user_id,
+            keep_images=keep_images,
+            remove_images=remove_images,
+            uploaded_urls=uploaded_urls,
         )
         await self.feed_repository.update_feed(
-            feed_id,
-            status,
-            secret_status,
-            content,
+            feed_id=feed_id,
+            status=status,
+            secret_status=secret_status,
+            content=content,
         )
         return new_feed_images
 
@@ -133,7 +135,9 @@ class FeedService:
         feed = await self.feed_repository.get_feed(feed_id)
         images = await self.feed_repository.get_feed_images(feed_id)
         like_count = await self.feed_repository.get_feed_like_count(feed_id)
-        is_liked = await self.feed_repository.is_liked_feed(feed_id, user_id)
+        is_liked = await self.feed_repository.is_liked_feed(
+            feed_id=feed_id, user_id=user_id
+        )
 
         return FeedDetailResponse(
             feedId=feed[0],
@@ -150,7 +154,7 @@ class FeedService:
     async def delete_feed(self, token: str, feed_id: str):
         user_id = await get_user_id_from_token(token)
 
-        is_owner = await self.feed_repository.is_owner(user_id, feed_id)
+        is_owner = await self.feed_repository.is_owner(user_id=user_id, feed_id=feed_id)
         if not is_owner:
             logger.error("피드 삭제 권한이 없습니다.")
             raise HTTPException(
@@ -167,35 +171,47 @@ class FeedService:
         user_id = await get_user_id_from_token(token)
 
         await self.feed_repository.report_feed(
-            user_id, feed_id, reported_user_id, reason
+            user_id=user_id,
+            feed_id=feed_id,
+            reported_user_id=reported_user_id,
+            reason=reason,
         )
         return True
 
     async def block_feed(self, token: str, feed_id: str):
         user_id = await get_user_id_from_token(token)
 
-        await self.feed_repository.block_feed(user_id, feed_id)
+        await self.feed_repository.block_feed(user_id=user_id, feed_id=feed_id)
         return True
 
     async def like_feed(self, token: str, feed_id: str):
         user_id = await get_user_id_from_token(token)
 
-        already_like = await self.feed_repository.exist_like_feed(user_id, feed_id)
+        already_like = await self.feed_repository.exist_like_feed(
+            user_id=user_id, feed_id=feed_id
+        )
         if already_like:
-            await self.feed_repository.unlike_feed(user_id, feed_id)
+            await self.feed_repository.unlike_feed(user_id=user_id, feed_id=feed_id)
             return "unlike_feed"
-        await self.feed_repository.like_feed(user_id, feed_id)
+        await self.feed_repository.like_feed(user_id=user_id, feed_id=feed_id)
         return "like_feed"
 
-    async def get_my_feed_list(self, token: str, page: int):
+    async def get_my_feed_list(
+        self, token: str, page: int, status: bool, secret_status: bool
+    ):
         user_id = await get_user_id_from_token(token)
-        feeds = await self.feed_repository.get_my_feed_list(user_id, page)
+
+        feeds = await self.feed_repository.get_my_feed_list(
+            user_id=user_id, page=page, status=status, secret_status=secret_status
+        )
 
         feed_list: List[FeedDetailResponse] = []
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
-            isLiked = await self.feed_repository.is_liked_feed(feed[0], user_id)
+            isLiked = await self.feed_repository.is_liked_feed(
+                feed_id=feed[0], user_id=user_id
+            )
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -220,7 +236,9 @@ class FeedService:
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
-            is_liked = await self.feed_repository.is_liked_feed(feed[0], user_id)
+            is_liked = await self.feed_repository.is_liked_feed(
+                feed_id=feed[0], user_id=user_id
+            )
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -247,7 +265,9 @@ class FeedService:
         for feed in feeds:
             images = await self.feed_repository.get_feed_images(feed[0])
             like_count = await self.feed_repository.get_feed_like_count(feed[0])
-            is_liked = await self.feed_repository.is_liked_feed(feed[0], user_id)
+            is_liked = await self.feed_repository.is_liked_feed(
+                feed_id=feed[0], user_id=user_id
+            )
             feed_list.append(
                 FeedDetailResponse(
                     feedId=feed[0],
@@ -263,7 +283,7 @@ class FeedService:
             )
         return feed_list
 
-    async def get_feed_like_list(self, feed_id: str, token: str):
+    async def get_feed_like_list(self, token: str, feed_id: str):
         user_id = await get_user_id_from_token(token)
         feed_like_list = await self.feed_repository.get_feed_like_list(feed_id)
         return feed_like_list
