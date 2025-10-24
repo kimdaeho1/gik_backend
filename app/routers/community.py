@@ -253,6 +253,7 @@ async def like_post_with_push(
         body_content=f"회원님의 게시글이 좋아요 {like_count}개를 돌파했어요. 지금 확인해 보세요!",
         data={"type": "postLike", "postId": post_id_request.postId},
         collapse_key=f"post_like_{post_id_request.postId}",
+        activity_type="post_like",
     )
 
     return {"success": True, "message": "게시글 좋아요 성공"}
@@ -395,6 +396,7 @@ async def create_comment_with_push(
         body_content="내 글에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
         data={"type": "profile", "postId": comment_request.postId},
         collapse_key=f"post_comment_{comment_request.postId}",
+        activity_type="post_comment",
     )
     return {"success": success, "message": "댓글 작성 성공"}
 

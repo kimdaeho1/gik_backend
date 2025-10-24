@@ -47,6 +47,7 @@ async def create_feed_comment(
         body_content="내 피드에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
         data={"type": "feedComment", "feedId": feed_id},
         collapse_key=f"feed_comment_{feed_id}",
+        activity_type="feed_comment",
     )
     return {"success": True, "message": "피드 댓글이 성공적으로 등록되었습니다."}
 

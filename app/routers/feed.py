@@ -252,6 +252,7 @@ async def like_feed(
             body_content="내 피드에 누군가 좋아요를 눌렀어요. 지금 확인해 보세요!",
             data={"type": "feedLike", "feedId": feed_id},
             collapse_key=f"feed_like_{feed_id}",
+            activity_type="feed_like",
         )
         return {"success": True, "message": "피드 좋아요가 성공적으로 처리되었습니다."}
     elif result == "unlike_feed":
