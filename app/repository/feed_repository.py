@@ -7,6 +7,11 @@ from app.utils.firebase_init import init_firebase_admin
 from firebase_admin import auth
 from app.utils.logging_config import get_logger
 from app.db.db_connection import db
+import random
+from datetime import datetime, timedelta
+
+# 서버 내 전역 캐시 딕셔너리
+FEED_CACHE = {}
 
 logger = get_logger(__name__)
 
@@ -621,3 +626,82 @@ class FeedRepository:
                 )
                 count = await cur.fetchone()
                 return count[0] > 0
+
+    async def get_random_feed_list(self, user_id: str, page: int):
+        now = datetime.utcnow()
+        offset = (page - 1) * 5
+
+        # 캐시 확인.
+        # 유저의 아이디가 가지고있는 캐시 데이터가 있고, 만료 기간이 지나지 않았다면:
+        if user_id in FEED_CACHE and FEED_CACHE[user_id]["expires_at"] > now:
+            # 캐시에서 피드 ID 리스트를 가져오기
+            feed_ids = FEED_CACHE[user_id]["feeds"]
+        else:
+            # 캐시가 없거나 만료 기간이 지나버렸다면, 랜덤 피드 ID 리스트를 생성하기
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        """
+                        SELECT f.feed_id
+                        FROM feeds f
+                        JOIN users u ON f.user_id = u.id
+                        WHERE f.deleted = FALSE
+                          AND u.leaved = FALSE
+                          AND f.user_id NOT IN (
+                              SELECT blocked_user_id 
+                              FROM user_block_list 
+                              WHERE block_user_id = %s
+                          )
+                          AND f.feed_id NOT IN (
+                              SELECT blocked_feed_id 
+                              FROM feed_blocks 
+                              WHERE block_user_id = %s
+                          )
+                        """,
+                        (user_id, user_id),
+                    )
+                    query = await cur.fetchall()
+                    # 피드의 ID 리스트만 추출
+                    feed_ids = [row[0] for row in query]
+
+            # 랜덤으로 셔플해서 캐시에 저장하기
+            random.shuffle(feed_ids)
+            # 캐시에 저장할때는 피드의 Id리스트와 만료 시간을 같이 저장
+            FEED_CACHE[user_id] = {
+                "feeds": feed_ids,
+                "expires_at": now + timedelta(minutes=30),
+            }
+
+        # 페이지 단위로 피드 ID 추출하기
+        paging_ids = feed_ids[offset : offset + 5]
+
+        # 캐시 끝까지 도달 시 새로 생성 (끝으로 가면 피드가 없어짐)
+        if not paging_ids:
+            if user_id in FEED_CACHE:
+                del FEED_CACHE[user_id]
+            return await self.get_random_feed_list(user_id, 1)
+
+        # 실제 피드 데이터 가져오기
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                placeholders = ",".join(["%s"] * len(paging_ids))
+
+                query = (
+                    """
+                    SELECT 
+                        f.feed_id,
+                        f.user_id,
+                        f.feed_content,
+                        f.status,
+                        f.secret_status,
+                        f.created_at,
+                        f.updated_at
+                    FROM feeds f
+                    JOIN users u ON f.user_id = u.id
+                    WHERE f.feed_id IN ({})
+                    """
+                ).format(placeholders)
+
+                await cur.execute(query, tuple(paging_ids))
+                feeds = await cur.fetchall()
+                return feeds
