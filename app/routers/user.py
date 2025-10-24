@@ -419,6 +419,7 @@ async def fetch_user_profile_with_push(
         body_content="누군가가 내 프로필을 보고 갔어요. 지금 접속해서 확인해 보세요!",
         data={"type": "profile", "viewerId": viewer_id},
         collapse_key=f"profile-view-{user_id}",
+        activity_type="profile",
     )
 
     await user_service.insert_user_profile_view(user_id, viewer_id)
@@ -777,6 +778,7 @@ async def fetch_user_secret_images(
         body_content="누군가가 내 시크릿 앨범💋을 보고 갔어요. 지금 접속해서 확인해 보세요!",
         data={"type": "secret", "requestId": user_id},
         collapse_key=f"secret-view-{user_id}",
+        activity_type="secret",
     )
 
     await user_service.insert_user_secret_images_view(user_id, target_user_id)

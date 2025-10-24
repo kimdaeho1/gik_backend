@@ -2230,3 +2230,52 @@ class UserRepository:
                 rows = await cur.fetchone()
                 columns = [col[0] for col in cur.description]
                 return CountRow(**dict(zip(columns, rows)))
+
+    async def fetch_user_id(self, user_no: int) -> Optional[str]:
+        """
+        유저의 user_id를 가져오기
+        """
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT id
+                    FROM users
+                    WHERE user_no = %s
+                        AND leaved = FALSE
+                    LIMIT 1
+                    """,
+                    (user_no,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    return None
+                return result[0]
+
+    async def fetch_user_alarm_setting(self, user_id: str) -> dict:
+        """
+        유저의 알림 설정 상태 가져오기
+        """
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT profile_alarm_agree, feed_like_alarm_agree, feed_comment_alarm_agree,
+                            post_like_alarm_agree, post_comment_alarm_agree, secret_alarm_agree
+                    FROM users
+                    WHERE id = %s
+                    """,
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    return False
+                keys = [
+                    "profile",
+                    "feed_like",
+                    "feed_comment",
+                    "post_like",
+                    "post_comment",
+                    "secret",
+                ]
+                return dict(zip(keys, result))

@@ -320,6 +320,7 @@ class PushService:
         body_content: str,
         data: str,
         collapse_key=str,
+        activity_type=str,
     ):
         # 본인이 본인껄 보거나, 게시글에 좋아요를 누르는 경우는 보내지 않는다
         if user_id == target_user_id:
@@ -338,6 +339,17 @@ class PushService:
 
         # 푸시를 전송할 상대의 user_no가져오기
         target_user_no = await self.user_repository.fetch_user_no(user_id)
+
+        # 푸시를 전송할 상대의 user_no에서 user_id 가져오기
+        target_user_id = await self.user_repository.fetch_user_id(target_user_no)
+
+        # 푸시를 전송할 상대의 수신 동의 여부 가져오기
+        target_push_agree = await self.user_repository.fetch_user_alarm_setting(
+            target_user_id
+        )
+        if not target_push_agree.get(activity_type, False):
+            print("사용자가 해당 푸시 수신에 동의하지 않았습니다.")
+            return
 
         push_id = str(uuid.uuid4())
 
