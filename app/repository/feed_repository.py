@@ -493,11 +493,7 @@ class FeedRepository:
                 secret_feeds = await cur.fetchall()
                 return len(secret_feeds) > 0
 
-    async def get_purchase_feed_list(
-        self,
-        user_id: str,
-        page: int,
-    ):
+    async def get_purchase_feed_list(self, user_id: str, page: int):
         offset = (page - 1) * 5
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -514,22 +510,27 @@ class FeedRepository:
                     JOIN feeds f ON p.feed_id = f.feed_id
                     JOIN users u ON f.user_id = u.id
                     WHERE p.user_id = %s
-                      AND f.deleted = FALSE
-                      AND u.leaved = FALSE
-                      AND f.feed_id NOT IN (
-                            SELECT blocked_feed_id 
-                            FROM feed_blocks 
-                            WHERE block_user_id = %s
-                      )
-                      AND f.user_id NOT IN(
-                            SELECT blocked_user_id
-                            FROM user_block_list
-                            WHERE block_user_id = %s
-                      )
+                    AND f.deleted = FALSE
+                    AND u.leaved = FALSE
+                    AND f.user_id NOT IN (
+                        SELECT blocked_user_id
+                        FROM user_block_list
+                        WHERE block_user_id = %s
+                    )
+                    AND f.user_id NOT IN (
+                        SELECT block_user_id
+                        FROM user_block_list
+                        WHERE blocked_user_id = %s
+                    )
+                    AND f.feed_id NOT IN (
+                        SELECT blocked_feed_id 
+                        FROM feed_blocks 
+                        WHERE block_user_id = %s
+                    )
                     ORDER BY p.created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (user_id, user_id, user_id, 5, offset),
+                    (user_id, user_id, user_id, user_id, 5, offset),
                 )
 
                 feeds = await cur.fetchall()
