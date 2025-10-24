@@ -110,6 +110,7 @@ async def delete_feed(
 @inject
 async def get_feed_list(
     page: int = Query(...),
+    random: bool = Query(...),
     token: str = Depends(oauth2_scheme),
     service: FeedService = Depends(Provide[Container.feed_service]),
 ):
@@ -121,6 +122,7 @@ async def get_feed_list(
     result = await service.get_feed_list(
         token=token,
         page=page,
+        random=random,
     )
     return {
         "success": True,

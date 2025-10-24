@@ -242,9 +242,12 @@ class FeedService:
         return feed_list
 
     # redis 캐싱 추가 예정
-    async def get_feed_list(self, token: str, page: int):
+    async def get_feed_list(self, token: str, page: int, random: bool = False):
         user_id = await get_user_id_from_token(token)
-        feeds = await self.feed_repository.get_feed_list(user_id, page)
+        if random is True:
+            feeds = await self.feed_repository.get_random_feed_list(user_id, page)
+        else:
+            feeds = await self.feed_repository.get_feed_list(user_id, page)
 
         feed_list: List[FeedDetailResponse] = []
         for feed in feeds:
