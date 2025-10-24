@@ -317,7 +317,9 @@ class FeedService:
 
     async def get_feed_like_list(self, token: str, feed_id: str):
         user_id = await get_user_id_from_token(token)
-        feed_like_list = await self.feed_repository.get_feed_like_list(feed_id)
+        feed_like_list = await self.feed_repository.get_feed_like_list(
+            feed_id=feed_id, user_id=user_id
+        )
         return feed_like_list
 
     async def get_purchase_feed_list(

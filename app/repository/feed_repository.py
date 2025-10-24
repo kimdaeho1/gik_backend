@@ -366,21 +366,22 @@ class FeedRepository:
                     FROM feeds f
                     JOIN users u ON f.user_id = u.id
                     WHERE f.deleted = %s
-                      AND u.leaved = FALSE
-                      AND f.user_id NOT IN (
-                          SELECT blocked_user_id 
-                          FROM user_block_list 
-                          WHERE block_user_id = %s
-                      )
-                      AND f.feed_id NOT IN (
-                          SELECT blocked_feed_id 
-                          FROM feed_blocks 
-                          WHERE block_user_id = %s
-                      )
+                    AND u.leaved = FALSE
+                    AND NOT EXISTS (
+                        SELECT 1 FROM user_block_list ubl
+                        WHERE 
+                            (ubl.block_user_id = %s AND ubl.blocked_user_id = f.user_id)
+                            OR (ubl.block_user_id = f.user_id AND ubl.blocked_user_id = %s)
+                    )
+                    AND f.feed_id NOT IN (
+                        SELECT blocked_feed_id 
+                        FROM feed_blocks 
+                        WHERE block_user_id = %s
+                    )
                     ORDER BY f.created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (False, user_id, user_id, 5, offset),
+                    (False, user_id, user_id, user_id, 5, offset),
                 )
                 feeds = await cur.fetchall()
                 return feeds
@@ -446,7 +447,7 @@ class FeedRepository:
                     return False
                 return True
 
-    async def get_feed_like_list(self, feed_id: str) -> List[str]:
+    async def get_feed_like_list(self, feed_id: str, user_id: str) -> List[str]:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
@@ -457,8 +458,13 @@ class FeedRepository:
                         ON fl.user_id = u.id
                     WHERE fl.feed_id = %s
                     AND u.leaved = FALSE
+                    AND fl.user_id NOT IN (
+                        SELECT blocked_user_id
+                        FROM user_block_list
+                        WHERE block_user_id = %s
+                    )
                     """,
-                    (feed_id,),
+                    (feed_id, user_id),
                 )
                 users_list = await cur.fetchall()
                 return [user_list[0] for user_list in users_list]
@@ -646,22 +652,23 @@ class FeedRepository:
                         FROM feeds f
                         JOIN users u ON f.user_id = u.id
                         WHERE f.deleted = FALSE
-                          AND u.leaved = FALSE
-                          AND f.user_id NOT IN (
-                              SELECT blocked_user_id 
-                              FROM user_block_list 
-                              WHERE block_user_id = %s
-                          )
-                          AND f.feed_id NOT IN (
-                              SELECT blocked_feed_id 
-                              FROM feed_blocks 
-                              WHERE block_user_id = %s
-                          )
+                        AND u.leaved = FALSE
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl
+                            WHERE 
+                                (ubl.block_user_id = %s AND ubl.blocked_user_id = f.user_id)
+                                OR (ubl.block_user_id = f.user_id AND ubl.blocked_user_id = %s)
+                        )
+                        AND f.feed_id NOT IN (
+                            SELECT blocked_feed_id 
+                            FROM feed_blocks 
+                            WHERE block_user_id = %s
+                        )
                         """,
-                        (user_id, user_id),
+                        (user_id, user_id, user_id),
                     )
                     query = await cur.fetchall()
-                    # 피드의 ID 리스트만 추출
                     feed_ids = [row[0] for row in query]
 
             # 랜덤으로 셔플해서 캐시에 저장하기
