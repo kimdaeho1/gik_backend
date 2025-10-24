@@ -802,7 +802,7 @@ class UserRepository:
         secret: bool,
     ) -> List[str]:
         """
-        필터를 적용한 유저의 목록중 나와 가까운 사람들을 먼저 보여주기
+        필터를 적용한 유저의 목록 중 나와 가까운 사람들을 먼저 보여주기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -815,6 +815,7 @@ class UserRepository:
                     raise HTTPException(
                         status_code=404, detail="탈퇴하거나 존재하지 않는 사용자입니다."
                     )
+
                 lat, lng = location
                 if not lat or not lng:
                     return []
@@ -857,27 +858,27 @@ class UserRepository:
                             STR_TO_DATE(birthday, '%%Y%%m%%d'),
                             CURDATE()
                         ) BETWEEN %s AND %s
-                    """
+                        """
                     )
                     args.extend(age_list)
 
                 if secret is not None:
                     secret_exists = "EXISTS" if secret else "NOT EXISTS"
-                    query_template = """
+                    query_template = f"""
                         {secret_exists} (
-                            SELECT 1 
-                            FROM user_secret_images si 
-                            WHERE si.user_id = users.id 
+                            SELECT 1
+                            FROM user_secret_images si
+                            WHERE si.user_id = users.id
                             AND si.use_yn = TRUE
                         )
                     """
-                    filters.append(query_template.format(secret_exists=secret_exists))
+                    filters.append(query_template)
 
                 filters.append(
                     """
                     NOT EXISTS (
                         SELECT 1 FROM user_block_list ubl
-                        WHERE 
+                        WHERE
                             (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
                             OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
                     )
@@ -894,12 +895,11 @@ class UserRepository:
                         )) AS distance
                     FROM users
                     WHERE leaved = FALSE
-                        AND latitude IS NOT NULL 
+                        AND latitude IS NOT NULL
                         AND longitude IS NOT NULL
                         AND id != %s
                 """
                 query = query_template
-
                 if filters:
                     query += " AND " + " AND ".join(filters)
                 query += " ORDER BY distance"
@@ -907,7 +907,6 @@ class UserRepository:
                 await cur.execute(query, args)
                 near_rows = [row[0] for row in await cur.fetchall()]
 
-                # 위경도 없는 유저
                 null_query = """
                     SELECT id
                     FROM users
@@ -915,7 +914,12 @@ class UserRepository:
                         AND (latitude IS NULL OR longitude IS NULL)
                         AND id != %s
                 """
-                await cur.execute(null_query, (user_id,))
+                null_args = [user_id]
+                if filters:
+                    null_query += " AND " + " AND ".join(filters)
+                    null_args.extend(args[4:])
+
+                await cur.execute(null_query, null_args)
                 null_rows = [row[0] for row in await cur.fetchall()]
 
                 return near_rows + null_rows
