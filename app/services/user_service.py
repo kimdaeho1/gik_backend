@@ -478,21 +478,33 @@ class UserService:
         secret: bool,
     ) -> List[str]:
         return await self.user_repository.fetch_user_id_list(
-            user_id, position, relation, bdsm_type, talk_style, age, secret
+            user_id=user_id,
+            position=position,
+            relation=relation,
+            bdsm_type=bdsm_type,
+            talk_style=talk_style,
+            age=age,
+            secret=secret,
         )
 
     async def fetch_near_user_id_list(
         self,
         user_id: str,
-        age: str,
         position: str,
         relation: str,
         bdsm_type: str,
         talk_style: str,
         secret: bool,
+        age: str,
     ) -> List[str]:
         return await self.user_repository.fetch_near_user_id_list(
-            user_id, age, position, relation, bdsm_type, talk_style, secret
+            user_id=user_id,
+            position=position,
+            relation=relation,
+            bdsm_type=bdsm_type,
+            talk_style=talk_style,
+            age=age,
+            secret=secret,
         )
 
     async def fetch_user_fcm_list(self, user_id_list: List[str]) -> List[str]:

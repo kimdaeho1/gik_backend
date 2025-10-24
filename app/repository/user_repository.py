@@ -794,18 +794,21 @@ class UserRepository:
     async def fetch_near_user_id_list(
         self,
         user_id: str,
-        age: str,
         position: str,
         relation: str,
         bdsm_type: str,
         talk_style: str,
+        age: str,
         secret: bool,
     ) -> List[str]:
         """
-        필터를 적용한 유저의 목록 중 나와 가까운 사람들을 먼저 보여주기
+        필터를 적용한 유저의 목록 중
+        1) 위치 있는 유저는 거리순 정렬
+        2) 위치 없는 유저는 나중에 append
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+                # 내 위치 정보 조회
                 await cur.execute(
                     "SELECT latitude, longitude FROM users WHERE id = %s AND leaved = FALSE",
                     (user_id,),
@@ -817,40 +820,61 @@ class UserRepository:
                     )
 
                 lat, lng = location
-                if not lat or not lng:
-                    return []
 
-                def build_filters(args, filters, label):
-                    if label:
-                        clause = " OR ".join(
-                            ["FIND_IN_SET(%s, " + label + ")"] * len(label)
-                        )
-                        filters.append(f"({clause})")
-                        args.extend(label)
-
-                position_list = (
-                    [p.strip() for p in position.split(",")] if position else []
-                )
-                relation_list = (
-                    [r.strip() for r in relation.split(",")] if relation else []
-                )
-                bdsm_list = (
+                # 문자열 파싱
+                position = [p.strip() for p in position.split(",")] if position else []
+                relation = [r.strip() for r in relation.split(",")] if relation else []
+                bdsm_type = (
                     [b.strip() for b in bdsm_type.split(",")] if bdsm_type else []
                 )
-                talk_style_list = (
+                talk_style = (
                     [t.strip() for t in talk_style.split(",")] if talk_style else []
                 )
-                age_list = [a.strip() for a in age.split(",")] if age else []
+                age = [a.strip() for a in age.split(",")] if age else []
 
-                args = [lat, lng, lat, user_id]
-                filters = []
+                query = """
+                    SELECT id
+                    FROM users
+                    WHERE leaved = FALSE
+                      AND latitude IS NOT NULL
+                      AND longitude IS NOT NULL
+                      AND id != %s
+                """
+                filters, arguments = [], [user_id]
 
-                build_filters(args, filters, "position") if position_list else None
-                build_filters(args, filters, "relation") if relation_list else None
-                build_filters(args, filters, "bdsm_type") if bdsm_list else None
-                build_filters(args, filters, "talk_style") if talk_style_list else None
+                if position:
+                    filters.append(
+                        "("
+                        + " OR ".join(["FIND_IN_SET(%s, position)"] * len(position))
+                        + ")"
+                    )
+                    arguments.extend(position)
 
-                if len(age_list) == 2:
+                if relation:
+                    filters.append(
+                        "("
+                        + " OR ".join(["FIND_IN_SET(%s, relation)"] * len(relation))
+                        + ")"
+                    )
+                    arguments.extend(relation)
+
+                if talk_style:
+                    filters.append(
+                        "("
+                        + " OR ".join(["FIND_IN_SET(%s, talk_style)"] * len(talk_style))
+                        + ")"
+                    )
+                    arguments.extend(talk_style)
+
+                if bdsm_type:
+                    filters.append(
+                        "("
+                        + " OR ".join(["FIND_IN_SET(%s, bdsm_type)"] * len(bdsm_type))
+                        + ")"
+                    )
+                    arguments.extend(bdsm_type)
+
+                if len(age) == 2:
                     filters.append(
                         """
                         TIMESTAMPDIFF(
@@ -860,64 +884,60 @@ class UserRepository:
                         ) BETWEEN %s AND %s
                         """
                     )
-                    args.extend(age_list)
+                    arguments.extend(age)
 
                 if secret is not None:
                     secret_exists = "EXISTS" if secret else "NOT EXISTS"
                     query_template = f"""
                         {secret_exists} (
-                            SELECT 1
-                            FROM user_secret_images si
-                            WHERE si.user_id = users.id
+                            SELECT 1 
+                            FROM user_secret_images si 
+                            WHERE si.user_id = users.id 
                             AND si.use_yn = TRUE
                         )
                     """
                     filters.append(query_template)
 
-                filters.append(
-                    """
-                    NOT EXISTS (
-                        SELECT 1 FROM user_block_list ubl
-                        WHERE
-                            (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
-                            OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
+                if user_id:
+                    filters.append(
+                        """
+                        NOT EXISTS (
+                            SELECT 1 FROM user_block_list ubl
+                            WHERE 
+                                (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
+                                OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
+                        )
+                        """
                     )
-                    """
-                )
-                args.extend([user_id, user_id])
+                    arguments.extend([user_id, user_id])
 
-                query_template = """
-                    SELECT id,
-                        (6371 * acos(
-                            cos(radians(%s)) * cos(radians(latitude)) *
-                            cos(radians(longitude) - radians(%s)) +
-                            sin(radians(%s)) * sin(radians(latitude))
-                        )) AS distance
-                    FROM users
-                    WHERE leaved = FALSE
-                        AND latitude IS NOT NULL
-                        AND longitude IS NOT NULL
-                        AND id != %s
-                """
-                query = query_template
                 if filters:
                     query += " AND " + " AND ".join(filters)
-                query += " ORDER BY distance"
 
-                await cur.execute(query, args)
+                # 거리순 정렬 추가
+                query += f"""
+                    ORDER BY (6371 * acos(
+                        cos(radians({lat})) * cos(radians(latitude)) *
+                        cos(radians(longitude) - radians({lng})) +
+                        sin(radians({lat})) * sin(radians(latitude))
+                    ))
+                """
+
+                await cur.execute(query, arguments)
                 near_rows = [row[0] for row in await cur.fetchall()]
 
                 null_query = """
                     SELECT id
                     FROM users
                     WHERE leaved = FALSE
-                        AND (latitude IS NULL OR longitude IS NULL)
-                        AND id != %s
+                      AND (latitude IS NULL OR longitude IS NULL)
+                      AND id != %s
                 """
                 null_args = [user_id]
+
                 if filters:
                     null_query += " AND " + " AND ".join(filters)
-                    null_args.extend(args[4:])
+                    null_args.extend(arguments[1:])  # filters 인자 재활용
 
                 await cur.execute(null_query, null_args)
                 null_rows = [row[0] for row in await cur.fetchall()]
