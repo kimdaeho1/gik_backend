@@ -189,41 +189,48 @@ class FeedRepository:
                 feed = await cur.fetchone()
                 return feed
 
-    async def get_feed_like_count(
-        self,
-        feed_id: str,
-    ):
+    async def get_feed_like_count(self, feed_id: str, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
                     SELECT COUNT(*)
-                    FROM feed_likes
-                    WHERE feed_id = %s
+                    FROM feed_likes fl
+                    JOIN users u ON fl.user_id = u.id
+                    WHERE fl.feed_id = %s
+                    AND u.leaved = FALSE
+                    AND fl.user_id NOT IN (
+                        SELECT blocked_user_id
+                        FROM user_block_list
+                        WHERE block_user_id = %s
+                    )
                     """,
-                    (feed_id,),
+                    (feed_id, user_id),
                 )
                 query_count = await cur.fetchone()
-                count = query_count[0]
-                return count
+                return query_count[0]
 
-    async def get_feed_comment_count(
-        self,
-        feed_id: str,
-    ):
+    async def get_feed_comment_count(self, feed_id: str, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
                     SELECT COUNT(*)
-                    FROM feed_comments
-                    WHERE feed_id = %s AND deleted = FALSE
+                    FROM feed_comments fc
+                    JOIN users u ON fc.user_id = u.id
+                    WHERE fc.feed_id = %s
+                    AND fc.deleted = FALSE
+                    AND u.leaved = FALSE
+                    AND fc.user_id NOT IN (
+                        SELECT blocked_user_id
+                        FROM user_block_list
+                        WHERE block_user_id = %s
+                    )
                     """,
-                    (feed_id,),
+                    (feed_id, user_id),
                 )
                 query_count = await cur.fetchone()
-                count = query_count[0]
-                return count
+                return query_count[0]
 
     async def delete_feed(
         self,
@@ -519,7 +526,7 @@ class FeedRepository:
                             FROM user_block_list
                             WHERE block_user_id = %s
                       )
-                    ORDER BY f.created_at DESC
+                    ORDER BY p.created_at DESC
                     LIMIT %s OFFSET %s
                     """,
                     (user_id, user_id, user_id, 5, offset),

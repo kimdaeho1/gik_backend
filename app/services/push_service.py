@@ -327,9 +327,12 @@ class PushService:
             return
 
         # 차단되었는지 확인
+        # user_id = 푸시 받는사람
+        # target_user_id = 푸시 보내는사람
         is_blocked = await self.user_repository.check_user_block(
-            user_id, target_user_id
+            user_id=target_user_id, target_user_id=user_id
         )
+        print(user_id, target_user_id, is_blocked)
 
         if is_blocked:
             return
@@ -341,11 +344,11 @@ class PushService:
         target_user_no = await self.user_repository.fetch_user_no(user_id)
 
         # 푸시를 전송할 상대의 user_no에서 user_id 가져오기
-        target_user_id = await self.user_repository.fetch_user_id(target_user_no)
+        target_user_no_id = await self.user_repository.fetch_user_id(target_user_no)
 
         # 푸시를 전송할 상대의 수신 동의 여부 가져오기
         target_push_agree = await self.user_repository.fetch_user_alarm_setting(
-            target_user_id
+            target_user_no_id
         )
         if not target_push_agree.get(activity_type, False):
             print("사용자가 해당 푸시 수신에 동의하지 않았습니다.")
