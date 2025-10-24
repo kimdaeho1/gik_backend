@@ -989,12 +989,12 @@ class UserRepository:
                     await conn.commit()
                     # Firebase Authentication에서 사용자 삭제
                     try:
-                        auth.delete_user(id)
-                        logger.info(f"Firebase user {id} deleted successfully.")
+                        auth.delete_user(user_id)
+                        logger.info(f"Firebase user {user_id} deleted successfully.")
                     # 이미 삭제되어있는 경우
                     except auth.UserNotFoundError:
                         logger.warning(
-                            f"Firebase user {id} not found (already deleted)."
+                            f"Firebase user {user_id} not found (already deleted)."
                         )
                     # 그 외의 에러
                     except Exception as e:
