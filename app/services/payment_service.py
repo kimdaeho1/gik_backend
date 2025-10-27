@@ -67,13 +67,23 @@ class PaymentsService:
                     if credit_amount == 0:
                         logger.error(f"잘못된 product_id: {receipt.product_id}")
                         raise ValueError(f"잘못된 product_id: {receipt.product_id}")
-
-                    await credit_manager.change_credit(
-                        amount=int(credit_amount * receipt.quantity),
-                        description="고래 구입",
-                        increase=True,
-                        cur=cur,
-                    )
+                    if (
+                        receipt.product_id == "gik_coin_120"
+                        or receipt.product_id == "gik_coin_250"
+                    ):
+                        await credit_manager.change_credit(
+                            amount=int(credit_amount * receipt.quantity * 2),
+                            description="고래 구입",
+                            increase=True,
+                            cur=cur,
+                        )
+                    else:
+                        await credit_manager.change_credit(
+                            amount=int(credit_amount * receipt.quantity),
+                            description="고래 구입",
+                            increase=True,
+                            cur=cur,
+                        )
 
                     await conn.commit()
                     return True

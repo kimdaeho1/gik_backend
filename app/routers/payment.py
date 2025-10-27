@@ -159,11 +159,20 @@ async def android_verify_purchase_endpoint(
             logger.info(
                 f"구매 검증 완료: user_id={user_id}, order_id={receipt.order_id}"
             )
-            return {
-                "is_success": True,
-                "detail": "구매가 완료되었습니다.",
-                "coin": coin_map.get(receipt.product_id, 0),
-            }
+
+            coin = coin_map.get(receipt.product_id, 0)
+            if coin == 120 or coin == 250:
+                return {
+                    "is_success": True,
+                    "detail": "구매가 완료되었습니다.",
+                    "coin": 2 * coin,
+                }
+            else:
+                return {
+                    "is_success": True,
+                    "detail": "구매가 완료되었습니다.",
+                    "coin": coin_map.get(receipt.product_id, 0),
+                }
 
         elif receipt.purchase_state == 1:
             is_success = await payments_service.refund(user_id, receipt)
@@ -306,11 +315,19 @@ async def ios_verify_purchase_endpoint(
                     logger.info(
                         f"IOS 구매 검증 완료: user_id={user_id}, transaction_id={payments_info.transaction_id}"
                     )
-                    return {
-                        "is_success": True,
-                        "detail": "구매가 완료되었습니다.",
-                        "coin": coin_map.get(receipt.product_id, 0),
-                    }
+                    coin = coin_map.get(receipt.product_id, 0)
+                    if coin == 120 or coin == 250:
+                        return {
+                            "is_success": True,
+                            "detail": "구매가 완료되었습니다.",
+                            "coin": 2 * coin,
+                        }
+                    else:
+                        return {
+                            "is_success": True,
+                            "detail": "구매가 완료되었습니다.",
+                            "coin": coin_map.get(receipt.product_id, 0),
+                        }
                 else:
                     logger.warning(
                         f"예외적인 구매 상태: purchase_state={purchase_state}, user_id={user_id}"
