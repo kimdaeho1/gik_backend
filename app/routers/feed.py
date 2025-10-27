@@ -359,7 +359,7 @@ async def purchase_secret_feed(
         target_user_id=user_id,
         title_content=f"{purchased_user_nickname}님이 내 시크릿 피드를 보고 갔어요. 👀",
         body_content="그사람의 시크릿 피드를 둘러보세요.",
-        data={"type": "secret", "feedId": feed_id},
+        data={"type": "secret", "feedId": feed_id, "viewerId": user_id},
         collapse_key=f"secret_feed_{feed_id}",
         activity_type="secret",
     )
