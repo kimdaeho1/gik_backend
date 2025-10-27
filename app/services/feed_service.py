@@ -412,3 +412,7 @@ class FeedService:
     async def get_feed_user_id(self, feed_id: str) -> str:
         user_id = await self.feed_repository.get_feed_user_id(feed_id=feed_id)
         return user_id
+
+    async def get_feed_user_nickname(self, user_id: str) -> str:
+        nickname = await self.feed_repository.get_feed_user_nickname(user_id=user_id)
+        return nickname

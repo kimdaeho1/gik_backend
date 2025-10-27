@@ -623,6 +623,24 @@ class FeedRepository:
                 if result:
                     return result[0]
 
+    async def get_feed_user_nickname(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT nickname
+                    FROM users
+                    WHERE id = %s AND leaved = FALSE
+                    """,
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+
     async def check_purchase_secret_feed(
         self,
         user_id: str,
