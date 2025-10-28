@@ -7,6 +7,7 @@ from app.db.user import (
     UserDetailResponse,
     UserListResponse,
     UserCreateRequest,
+    UserCreditHistoryResponse,
 )
 from app.db.image import UserSecretResponse
 from app.db.db_connection import db
@@ -15,6 +16,7 @@ from app.utils.logging_config import get_logger
 from app.repository.user_repository import UserRepository
 from app.repository.feed_repository import FeedRepository
 from app.services.image_service import ImageService
+from app.utils.token import get_user_id_from_token
 
 logger = get_logger(__name__)
 
@@ -1092,3 +1094,22 @@ class UserService:
             return await self.user_repository.fetch_user_unlock_count(user_id)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"열람 통계 조회 실패, str{e}")
+
+    async def fetch_user_credit_history(
+        self, page: int, token: str
+    ) -> UserCreditHistoryResponse:
+        user_id = await get_user_id_from_token(token)
+        credit_histories = await self.user_repository.fetch_user_credit_history(
+            page=page, user_id=user_id
+        )
+        print(credit_histories)
+        credit_history_list: List[UserCreditHistoryResponse] = []
+        for credit_history in credit_histories:
+            credit_history_list.append(
+                UserCreditHistoryResponse(
+                    amount=credit_history[0],
+                    description=credit_history[1],
+                    createdAt=credit_history[2],
+                )
+            )
+        return credit_history_list

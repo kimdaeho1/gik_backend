@@ -1247,3 +1247,22 @@ async def fetch_user_unlock_count(
         "profileCount": count.profileCount,
         "secretCount": count.secretCount,
     }
+
+
+@router.get("/user/credit/history", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_credit_history(
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    나의 크레딧 히스토리 조회
+    user_id: token에서 추출, 크레딧 히스토리 조회 주체
+    """
+    result = await user_service.fetch_user_credit_history(page=page, token=token)
+    return {
+        "success": True,
+        "message": "나의 크레딧 히스토리 조회 성공",
+        "creditHistory": result,
+    }
