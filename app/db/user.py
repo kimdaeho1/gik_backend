@@ -445,3 +445,9 @@ class ViewCountRow(BaseModel):
 class CountRow(BaseModel):
     profileCount: int
     secretCount: int
+
+
+class UserCreditHistoryResponse(BaseModel):
+    amount: int
+    description: str
+    createdAt: datetime

@@ -558,7 +558,7 @@ class FeedRepository:
                     INSERT INTO credit_history (user_id, amount, description)
                     VALUES (%s, %s, %s)
                     """,
-                    (user_id, credit_amount, credit_description),
+                    (user_id, -credit_amount, credit_description),
                 )
 
                 await cur.execute(

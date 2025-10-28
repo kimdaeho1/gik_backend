@@ -22,7 +22,7 @@ async def get_credit_end_point(token: str = Depends(oauth2_scheme)) -> dict:
     return {"balance": credit_balance}
 
 
-@router.get("/credit-history", status_code=status.HTTP_200_OK)
+@router.get("/credit-history/test", status_code=status.HTTP_200_OK)
 async def get_credit_history_end_point(token: str = Depends(oauth2_scheme)) -> dict:
     """
     현재 크레딧 내역을 조회
