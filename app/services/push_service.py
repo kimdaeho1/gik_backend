@@ -143,6 +143,7 @@ class PushService:
         android_priority: str = "high",
         mutable_content: bool = False,
         content_available: bool = False,
+        is_chat: bool = False,
     ) -> Dict:
         push_id = (data or {}).get("pushId")
 
@@ -207,6 +208,8 @@ class PushService:
         try:
             messaging.send(msg, dry_run=False)
             try:
+                if is_chat is True:
+                    return
                 await self._insert_push_user_log(
                     user_no=user_no,
                     push_id=push_id,
@@ -298,6 +301,7 @@ class PushService:
         mutable_content: bool,
         content_available: bool,
         user_no: int,
+        is_chat: bool,
     ):
         await self.send_to_token(
             token=token,
@@ -310,6 +314,7 @@ class PushService:
             android_priority=android_priority,
             mutable_content=mutable_content,
             content_available=content_available,
+            is_chat=is_chat,
         )
 
     async def send_push_to_user(
@@ -320,8 +325,9 @@ class PushService:
         title_content: str,
         body_content: str,
         data: str,
-        collapse_key=str,
-        activity_type=str,
+        collapse_key: str,
+        activity_type: str,
+        is_chat: Optional[bool] = False,
     ):
         # 본인이 본인껄 보거나, 게시글에 좋아요를 누르는 경우는 보내지 않는다
         if user_id == target_user_id:
@@ -355,7 +361,6 @@ class PushService:
             return
 
         push_id = str(uuid.uuid4())
-
         background_tasks.add_task(
             self.push_task,
             target_token,
@@ -368,6 +373,7 @@ class PushService:
             mutable_content=True,
             content_available=True,
             user_no=target_user_no,
+            is_chat=is_chat,
         )
 
     async def send_chat_push(
@@ -381,7 +387,7 @@ class PushService:
     ):
 
         user_id = await get_user_id_from_token(token)
-
+        is_chat = True
         # 만약 유저 리스트 안에 내 아이디가 있을경우 제외
         if user_id in chat_user_list:
             chat_user_list.remove(user_id)
@@ -401,6 +407,7 @@ class PushService:
                     data=data,
                     collapse_key=collapse_key,
                     activity_type=activity_type,
+                    is_chat=True,
                 )
         else:
             for target_user_id in chat_user_list:
@@ -420,5 +427,6 @@ class PushService:
                     data=data,
                     collapse_key=collapse_key,
                     activity_type=activity_type,
+                    is_chat=True,
                 )
         return True
