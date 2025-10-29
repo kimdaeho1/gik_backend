@@ -8,6 +8,7 @@ from app.routers import (
     payment,
     feed,
     feed_comment,
+    chat,
 )
 from app.db.db_connection import db
 import os
@@ -35,6 +36,7 @@ container.wire(
         "app.routers.payment",
         "app.routers.feed",
         "app.routers.feed_comment",
+        "app.routers.chat",
     ]
 )
 app.container = container
@@ -47,6 +49,7 @@ app.include_router(image.router)
 app.include_router(user.router)
 app.include_router(community.router)
 app.include_router(token.router)
+app.include_router(chat.router)
 
 
 def get_env_variable(var_name: str) -> str:

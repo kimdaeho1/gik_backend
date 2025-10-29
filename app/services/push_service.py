@@ -6,6 +6,7 @@ from firebase_admin import messaging
 from app.utils.firebase_init import init_firebase_admin
 from app.db.db_connection import db
 from app.repository.user_repository import UserRepository
+from app.utils.token import get_user_id_from_token
 import uuid
 
 
@@ -64,7 +65,7 @@ class PushService:
                 sound=sound,
                 image=image_url,
                 sticky=False,
-                priority="default",
+                priority="high",
                 local_only=False,
                 default_sound=True,
                 default_vibrate_timings=True,
@@ -332,7 +333,6 @@ class PushService:
         is_blocked = await self.user_repository.check_user_block(
             user_id=target_user_id, target_user_id=user_id
         )
-        print(user_id, target_user_id, is_blocked)
 
         if is_blocked:
             return
@@ -369,3 +369,56 @@ class PushService:
             content_available=True,
             user_no=target_user_no,
         )
+
+    async def send_chat_push(
+        self,
+        token,
+        chat_type: str,
+        chat_user_list: List[str],
+        chat_message: str,
+        chat_title: Optional[str],
+        background_tasks: BackgroundTasks,
+    ):
+
+        user_id = await get_user_id_from_token(token)
+
+        # 만약 유저 리스트 안에 내 아이디가 있을경우 제외
+        if user_id in chat_user_list:
+            chat_user_list.remove(user_id)
+
+        if chat_type == "group":
+            data = {"type": "group", "chat_title": chat_title}
+            collapse_key = f"group_chat_{chat_title}"
+            activity_type = "group_chat"
+
+            for target_user_id in chat_user_list:
+                await self.send_push_to_user(
+                    background_tasks=background_tasks,
+                    user_id=target_user_id,
+                    target_user_id=user_id,
+                    title_content=chat_title,
+                    body_content=chat_message,
+                    data=data,
+                    collapse_key=collapse_key,
+                    activity_type=activity_type,
+                )
+        else:
+            for target_user_id in chat_user_list:
+                target_user_nickname = await self.user_repository.fetch_user_nickname(
+                    user_id
+                )
+                data = {"type": "personal", "chat_title": target_user_nickname}
+                collapse_key = f"personal_chat_{target_user_id}"
+                activity_type = "personal_chat"
+
+                await self.send_push_to_user(
+                    background_tasks=background_tasks,
+                    user_id=target_user_id,
+                    target_user_id=user_id,
+                    title_content=target_user_nickname,
+                    body_content=chat_message,
+                    data=data,
+                    collapse_key=collapse_key,
+                    activity_type=activity_type,
+                )
+        return True

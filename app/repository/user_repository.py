@@ -2261,7 +2261,8 @@ class UserRepository:
                 await cur.execute(
                     """
                     SELECT profile_alarm_agree, feed_like_alarm_agree, feed_comment_alarm_agree,
-                            post_like_alarm_agree, post_comment_alarm_agree, secret_alarm_agree
+                            post_like_alarm_agree, post_comment_alarm_agree, secret_alarm_agree,
+                            personal_chat_alarm_agree, group_chat_alarm_agree
                     FROM users
                     WHERE id = %s
                     """,
@@ -2277,6 +2278,8 @@ class UserRepository:
                     "post_like",
                     "post_comment",
                     "secret",
+                    "personal_chat",
+                    "group_chat",
                 ]
                 return dict(zip(keys, result))
 
