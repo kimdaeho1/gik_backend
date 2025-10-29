@@ -27,6 +27,7 @@ class Container(containers.DeclarativeContainer):
             "app.routers.payment",
             "app.routers.feed",
             "app.routers.feed_comment",
+            "app.routers.chat",
         ]
     )
     # main.py에서 생성한 db 객체를 그대로 쓰기.
