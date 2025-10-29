@@ -36,6 +36,7 @@ async def create_feed(
     - status: 피드 공개 여부, true = 숨김, false = 숨기지 않음
     - secretStatus: 시크릿 피드 여부, true = 시크릿, false = 시크릿이 아님
     - feedImages: 업로드할 이미지 파일 리스트 (선택 사항)
+    - price: 시크릿 피드 가격(선택 사항, 기본값 10)
     """
     result = await feed_service.create_feed(
         token=token,
@@ -43,6 +44,7 @@ async def create_feed(
         status=create_feed_request.status,
         secret_status=create_feed_request.secretStatus,
         feed_images=feedImages,
+        price=create_feed_request.price,
     )
     return {"success": True, "message": "피드가 성공적으로 게시되었습니다."}
 
@@ -77,6 +79,7 @@ async def update_feed(
         status=update_feed_request.status,
         secret_status=update_feed_request.secretStatus,
         feed_images=update_feed_images,
+        price=update_feed_request.price,
     )
 
     if result is False:

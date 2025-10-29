@@ -14,7 +14,7 @@ from app.utils.token import get_user_id_from_token
 from app.utils.logging_config import get_logger
 from app.repository.feed_repository import FeedRepository
 from app.repository.user_repository import UserRepository
-import uuid
+import uuid, math
 
 
 logger = get_logger(__name__)
@@ -31,6 +31,7 @@ class FeedService:
         status: bool,
         secret_status: bool,
         feed_images: Optional[List[UploadFile]] = File(default=[]),
+        price: Optional[int] = 10,
     ):
         # 토큰에서 user_id를 가져오기.
         user_id = await get_user_id_from_token(token)
@@ -61,6 +62,7 @@ class FeedService:
             status=status,
             secret_status=secret_status,
             content=content,
+            price=price,
         )
 
         return True
@@ -75,6 +77,7 @@ class FeedService:
         status: bool,
         secret_status: bool,
         feed_images: Optional[List[UploadFile]] = File(default=[]),
+        price: Optional[int] = 10,
     ):
         user_id = await get_user_id_from_token(token)
         is_owner = await self.feed_repository.is_owner(user_id=user_id, feed_id=feed_id)
@@ -128,6 +131,7 @@ class FeedService:
             status=status,
             secret_status=secret_status,
             content=content,
+            price=price,
         )
         return True
 
@@ -156,11 +160,12 @@ class FeedService:
             images=images,
             status=feed[3],
             secretStatus=feed[4],
+            price=feed[5],
             likeCount=like_count,
             commentCount=comment_count,
             isLiked=is_liked,
             isPurchased=is_purchased,
-            createdAt=feed[5],
+            createdAt=feed[6],
         )
 
     async def delete_feed(self, token: str, feed_id: str):
@@ -240,11 +245,12 @@ class FeedService:
                     images=images,
                     status=feed[3],
                     secretStatus=feed[4],
+                    price=feed[5],
                     likeCount=like_count,
                     commentCount=comment_count,
                     isLiked=isLiked,
                     isPurchased=is_purchased,
-                    createdAt=feed[5],
+                    createdAt=feed[6],
                 )
             )
         return feed_list
@@ -280,11 +286,12 @@ class FeedService:
                     images=images,
                     status=feed[3],
                     secretStatus=feed[4],
+                    price=feed[5],
                     likeCount=like_count,
                     commentCount=comment_count,
                     isLiked=is_liked,
                     isPurchased=is_purchased,
-                    createdAt=feed[5],
+                    createdAt=feed[6],
                 )
             )
         return feed_list
@@ -322,11 +329,12 @@ class FeedService:
                     images=images,
                     status=feed[3],
                     secretStatus=feed[4],
+                    price=feed[5],
                     likeCount=like_count,
                     commentCount=comment_count,
                     isLiked=is_liked,
                     isPurchased=is_purchased,
-                    createdAt=feed[5],
+                    createdAt=feed[6],
                 )
             )
         return feed_list
@@ -371,11 +379,12 @@ class FeedService:
                     images=images,
                     status=feed[3],
                     secretStatus=feed[4],
+                    price=feed[5],
                     likeCount=like_count,
                     commentCount=comment_count,
                     isLiked=is_liked,
                     isPurchased=is_purchased,
-                    createdAt=feed[5],
+                    createdAt=feed[6],
                 )
             )
         return feed_list
@@ -387,13 +396,18 @@ class FeedService:
     ):
         user_id = await get_user_id_from_token(token)
 
-        is_secret = await self.feed_repository.fetch_secret_feed_status(user_id)
-        if not is_secret:
-            credit_amount = 10
-            credit_description = "우회한 시크릿 피드 구매"
-        else:
-            credit_amount = 5
-            credit_description = "시크릿 피드 구매"
+        # is_secret = await self.feed_repository.fetch_secret_feed_status(user_id)
+        # if not is_secret:
+        #     credit_amount = 10
+        #     credit_description = "우회한 시크릿 피드 구매"
+        # else:
+        #     credit_amount = 5
+        #     credit_description = "시크릿 피드 구매"
+
+        price = await self.feed_repository.get_feed_price(feed_id=feed_id)
+        credit_amount = price
+        credit_description = "시크릿 피드 구매"
+
         purchased = await self.feed_repository.fetch_purchase_secret_feed(
             user_id=user_id, feed_id=feed_id
         )
@@ -401,13 +415,25 @@ class FeedService:
             logger.error("이미 구매한 시크릿 피드입니다.")
             return False
 
+        # 피드 구매 로직
         await self.feed_repository.purchase_secret_feed(
             user_id=user_id,
             feed_id=feed_id,
             credit_amount=credit_amount,
             credit_description=credit_description,
         )
+        
+        feed_user_id = await self.feed_repository.get_feed_user_id(feed_id=feed_id)
+
+        rebate_amount = math.ceil(credit_amount * 0.15)
+        await self.feed_repository.purchased_feed_rebate(
+            feed_user_id=feed_user_id,
+            rebate_amount=rebate_amount,
+            description="시크릿 피드 리베이트 지급,
+        )
+        
         return True
+
 
     async def get_feed_user_id(self, feed_id: str) -> str:
         user_id = await self.feed_repository.get_feed_user_id(feed_id=feed_id)
