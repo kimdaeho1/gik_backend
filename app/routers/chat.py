@@ -21,6 +21,7 @@ async def send_chat_push(
     push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     result = await push_service.send_chat_push(
+        chat_id=chat_request.chatId,
         chat_type=chat_request.chatType,
         chat_user_list=chat_request.chatUserList,
         chat_title=chat_request.chatTitle,

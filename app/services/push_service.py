@@ -379,6 +379,7 @@ class PushService:
     async def send_chat_push(
         self,
         token,
+        chat_id: str,
         chat_type: str,
         chat_user_list: List[str],
         chat_message: str,
@@ -393,7 +394,7 @@ class PushService:
             chat_user_list.remove(user_id)
 
         if chat_type == "group":
-            data = {"type": "group", "chat_title": chat_title}
+            data = {"type": "group", "chatTitle": chat_title, "chatId": chat_id}
             collapse_key = f"group_chat_{chat_title}"
             activity_type = "group_chat"
 
@@ -414,7 +415,11 @@ class PushService:
                 target_user_nickname = await self.user_repository.fetch_user_nickname(
                     user_id
                 )
-                data = {"type": "personal", "chat_title": target_user_nickname}
+                data = {
+                    "type": "personal",
+                    "chatTitle": target_user_nickname,
+                    "chatId": chat_id,
+                }
                 collapse_key = f"personal_chat_{target_user_id}"
                 activity_type = "personal_chat"
 

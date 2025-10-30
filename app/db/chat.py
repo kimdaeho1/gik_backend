@@ -4,6 +4,7 @@ from datetime import datetime
 
 
 class ChatPushRequest(BaseModel):
+    chatId: str
     chatType: str
     chatUserList: List[str]
     chatTitle: Optional[str] = None
