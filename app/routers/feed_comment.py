@@ -39,13 +39,26 @@ async def create_feed_comment(
 
     feed_user_id = await feed_service.get_feed_user_id(feed_id=feed_id)
 
+    # 피드의 시크릿 상태에 따라 푸시 타입 결정
+    status = await feed_service.get_feed_status(feed_id=feed_id)
+    if status == "feed":
+        push_type = "feedComment"
+    else:
+        push_type = "secretFeedComment"
+
+    image = await feed_service.get_feed_image(feed_id=feed_id)
+
     await push_service.send_push_to_user(
         background_tasks=background_tasks,
         user_id=feed_user_id,
         target_user_id=user_id,
         title_content="💭 새로운 댓글이 달렸어요!",
         body_content="내 피드에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
-        data={"type": "feedComment", "feedId": feed_id},
+        data={
+            "type": f"{push_type}",
+            "feedId": feed_id,
+            "image": image,
+        },
         collapse_key=f"feed_comment_{feed_id}",
         activity_type="feed_comment",
     )

@@ -246,14 +246,28 @@ async def like_feed(
     result = await feed_service.like_feed(token=token, feed_id=feed_id)
     feed_user_id = await feed_service.get_feed_user_id(feed_id=feed_id)
     user_id = await get_user_id_from_token(token)
+
+    # 피드의 시크릿 상태에 따라 푸시 타입 결정
+    status = await feed_service.get_feed_status(feed_id=feed_id)
+    if status == "feed":
+        push_type = "feedLike"
+    else:
+        push_type = "secretFeedLike"
+
+    image = await feed_service.get_feed_image(feed_id=feed_id)
+
     if result == "like_feed":
         await push_service.send_push_to_user(
             background_tasks=background_tasks,
             user_id=feed_user_id,
             target_user_id=user_id,
             title_content="👍 좋아요를 받았어요!",
-            body_content="내 피드에 누군가 좋아요를 눌렀어요. 지금 확인해 보세요!",
-            data={"type": "feedLike", "feedId": feed_id},
+            body_content="누군가 좋아요를 눌렀어요. 지금 확인해 보세요!",
+            data={
+                "type": f"{push_type}",
+                "feedId": feed_id,
+                "feedImages": image,
+            },
             collapse_key=f"feed_like_{feed_id}",
             activity_type="feed_like",
         )
@@ -356,13 +370,19 @@ async def purchase_secret_feed(
     feed_user_id = await feed_service.get_feed_user_id(feed_id=feed_id)
     user_id = await get_user_id_from_token(token)
     purchased_user_nickname = await feed_service.get_feed_user_nickname(user_id=user_id)
+    image = await feed_service.get_feed_image(feed_id=feed_id)
     await push_service.send_push_to_user(
         background_tasks=background_tasks,
         user_id=feed_user_id,
         target_user_id=user_id,
         title_content=f"{purchased_user_nickname}님이 내 시크릿 피드를 보고 갔어요. 👀",
         body_content="그사람의 시크릿 피드를 둘러보세요.",
-        data={"type": "secret", "feedId": feed_id, "viewerId": user_id},
+        data={
+            "type": "secret",
+            "feedId": feed_id,
+            "viewerId": user_id,
+            "feedImages": image,
+        },
         collapse_key=f"secret_feed_{feed_id}",
         activity_type="secret",
     )
@@ -370,3 +390,16 @@ async def purchase_secret_feed(
         "success": True,
         "message": "시크릿 피드 구매가 성공적으로 처리되었습니다.",
     }
+
+
+@router.get("/purchase/my/{feed_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_purchase_feed_user_list(
+    feed_id: str,
+    token: str = Depends(oauth2_scheme),
+    feed_service: FeedService = Depends(Provide[Container.feed_service]),
+):
+    """
+    내 시크릿 피드를 구매한 사용자 리스트 가져오기
+    """
+    ...

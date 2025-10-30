@@ -782,3 +782,42 @@ class FeedRepository:
                     """,
                     (rebate_amount, feed_user_id),
                 )
+
+    async def get_feed_status(
+        self,
+        feed_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT secret_status
+                    FROM feeds
+                    WHERE feed_id = %s AND deleted = FALSE
+                    """,
+                    (feed_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+
+    async def get_feed_image(
+        self,
+        feed_id: str,
+    ) -> Optional[str]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT url
+                    FROM feed_images
+                    WHERE feed_id = %s AND use_yn = TRUE
+                    ORDER BY `index` ASC
+                    LIMIT 1
+                    """,
+                    (feed_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+                return None

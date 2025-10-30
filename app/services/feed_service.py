@@ -422,18 +422,17 @@ class FeedService:
             credit_amount=credit_amount,
             credit_description=credit_description,
         )
-        
+
         feed_user_id = await self.feed_repository.get_feed_user_id(feed_id=feed_id)
 
         rebate_amount = math.ceil(credit_amount * 0.15)
         await self.feed_repository.purchased_feed_rebate(
             feed_user_id=feed_user_id,
             rebate_amount=rebate_amount,
-            description="시크릿 피드 리베이트 지급,
+            description="시크릿 피드 리베이트 지급",
         )
-        
-        return True
 
+        return True
 
     async def get_feed_user_id(self, feed_id: str) -> str:
         user_id = await self.feed_repository.get_feed_user_id(feed_id=feed_id)
@@ -442,3 +441,13 @@ class FeedService:
     async def get_feed_user_nickname(self, user_id: str) -> str:
         nickname = await self.feed_repository.get_feed_user_nickname(user_id=user_id)
         return nickname
+
+    async def get_feed_status(self, feed_id: str) -> bool:
+        status = await self.feed_repository.get_feed_status(feed_id=feed_id)
+        if status == True:
+            return "secret"
+        return "feed"
+
+    async def get_feed_image(self, feed_id: str) -> Optional[str]:
+        image = await self.feed_repository.get_feed_image(feed_id=feed_id)
+        return image
