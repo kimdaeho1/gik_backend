@@ -400,16 +400,16 @@ class UserRepository:
         유저 알람 설정 변경
         """
         column_map = {
-            "marketing_agree": "marketing_agree",
-            "personal_chat": "personal_chat_alarm_agree",
-            "group_chat": "group_chat_alarm_agree",
-            "post_comment": "post_comment_alarm_agree",
-            "post_like": "post_like_alarm_agree",
-            "night_agree": "night_agree",
-            "profile_agree": "profile_alarm_agree",
-            "secret_agree": "secret_alarm_agree",
-            "feed_like_agree": "feed_like_alarm_agree",
-            "feed_comment_agree": "feed_comment_alarm_agree",
+            "marketing_agree": "marketing_agree",  # 마케팅 수신 동의 알람
+            "night_agree": "night_agree",  # 야간 수신 동의 알람
+            "feed_like_agree": "feed_like_alarm_agree",  # 피드 좋아요 알람
+            "feed_comment_agree": "feed_comment_alarm_agree",  # 피드 댓글 알람
+            "secret_agree": "secret_alarm_agree",  # 시크릿 피드 조회 알람
+            "profile_agree": "profile_alarm_agree",  # 프로필 조회 알람
+            "personal_chat": "personal_chat_alarm_agree",  # 1:1 채팅 알람
+            "group_chat": "group_chat_alarm_agree",  # 그룹 채팅 알람
+            "post_like": "post_like_alarm_agree",  # 게시물 좋아요 알람
+            "post_comment": "post_comment_alarm_agree",  # 게시물 댓글 알람
         }
 
         if alarm_type not in column_map:
@@ -1245,7 +1245,7 @@ class UserRepository:
                         FROM push_user_log
                         WHERE user_no = %s
                           AND status IN ('SUCCESS', 'OPENED')
-                          AND push_type IN ('profile', 'postLike', 'postComment', 'secret', 'feedLike', 'feedComment')
+                          AND push_type IN ('profile', 'postLike', 'postComment', 'secret', 'feedLike', 'feedComment', 'secretFeedComment', 'secretFeedLike')
                         ORDER BY delivered_at DESC
                         LIMIT 20 OFFSET %s
                         """,

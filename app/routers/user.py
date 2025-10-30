@@ -287,9 +287,17 @@ async def update_user_alarm(
     """
     유저 알람 설정 수정
     id: 유저 ID
-    type: 알람 종류 (markeing_agree, personal_chat, group_chat, post_comment,
-                    post_like, night_agree, profile_agree, secret_alarm_agree,
-                    feed_like_agree, feed_comment_agree)
+    type: 알람 종류
+        - marketing_agree = 마케팅 수신 동의
+        - night_agree = 야간 수신 알림
+        - feed_like_agree = 피드 좋아요 알림
+        - feed_comment_agree = 피드 댓글 알림
+        - secret_agee = 시크릿 피드 조회 알림
+        - profile_agree = 프로필 조회 알림
+        - personal_chat =  개인 채팅 알림
+        - group_chat = 그룹 채팅 알림
+        - post_like = 게시물 좋아요 알림
+        - post_comment = 게시물 댓글 알림
     value: 변경된 알람 설정 값 (True/False)
     """
     result: bool = await service.update_user_alarm(

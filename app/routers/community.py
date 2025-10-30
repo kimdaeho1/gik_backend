@@ -394,7 +394,7 @@ async def create_comment_with_push(
         target_user_id=commenter_id,
         title_content="📩 새로운 댓글이 달렸어요!",
         body_content="내 글에 누군가 댓글을 남겼어요. 지금 확인해 보세요!",
-        data={"type": "profile", "postId": comment_request.postId},
+        data={"type": "postComment", "postId": comment_request.postId},
         collapse_key=f"post_comment_{comment_request.postId}",
         activity_type="post_comment",
     )

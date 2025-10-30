@@ -8,6 +8,7 @@ class CreateFeedRequest(BaseModel):
     content: Optional[str] = None
     status: bool
     secretStatus: bool
+    price: Optional[int] = 10
 
     @classmethod
     def create_feed_request(
@@ -15,11 +16,13 @@ class CreateFeedRequest(BaseModel):
         content: Optional[str] = Form(None),
         status: bool = Form(...),
         secretStatus: bool = Form(...),
+        price: Optional[int] = Form(10),
     ):
         return cls(
             content=content,
             status=status,
             secretStatus=secretStatus,
+            price=price,
         )
 
 
@@ -29,6 +32,7 @@ class UpdateFeedRequest(BaseModel):
     imageUrl: Optional[List[str]] = None
     status: bool
     secretStatus: bool
+    price: Optional[int] = 10
 
     @classmethod
     def update_feed_request(
@@ -37,12 +41,14 @@ class UpdateFeedRequest(BaseModel):
         imageUrl: Optional[List[str]] = Form(None),
         status: bool = Form(...),
         secretStatus: bool = Form(...),
+        price: Optional[int] = Form(10),
     ):
         return cls(
             content=content,
             imageUrl=imageUrl,
             status=status,
             secretStatus=secretStatus,
+            price=price,
         )
 
 
@@ -65,4 +71,5 @@ class FeedDetailResponse(BaseModel):
     commentCount: int
     isLiked: bool
     isPurchased: bool
+    price: int
     createdAt: datetime

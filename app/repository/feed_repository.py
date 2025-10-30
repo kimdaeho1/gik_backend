@@ -49,15 +49,16 @@ class FeedRepository:
         status: bool,
         secret_status: bool,
         content: Optional[str] = None,
+        price: Optional[int] = 10,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    INSERT INTO feeds (user_id, feed_id, feed_content, status, secret_status)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO feeds (user_id, feed_id, feed_content, status, secret_status, price)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    (user_id, feed_id, content, status, secret_status),
+                    (user_id, feed_id, content, status, secret_status, price),
                 )
                 await conn.commit()
 
@@ -67,16 +68,17 @@ class FeedRepository:
         status: bool,
         secret_status: bool,
         content: Optional[str] = None,
+        price: Optional[int] = 10,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
                     UPDATE feeds
-                    SET feed_content = %s, status = %s, secret_status = %s, updated_at = NOW()
+                    SET feed_content = %s, status = %s, secret_status = %s, price = %s, updated_at = NOW()
                     WHERE feed_id = %s
                     """,
-                    (content, status, secret_status, feed_id),
+                    (content, status, secret_status, price, feed_id),
                 )
 
     async def insert_feed_images(
@@ -180,7 +182,7 @@ class FeedRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
+                    SELECT feed_id, user_id, feed_content, status, secret_status, price, created_at, updated_at
                     FROM feeds
                     WHERE feed_id = %s AND deleted = FALSE
                     """,
@@ -344,7 +346,7 @@ class FeedRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT feed_id, user_id, feed_content, status, secret_status, created_at, updated_at
+                    SELECT feed_id, user_id, feed_content, status, secret_status, price, created_at, updated_at
                     FROM feeds
                     WHERE user_id = %s AND deleted = %s AND status = %s AND secret_status = %s
                     ORDER BY created_at DESC
@@ -367,7 +369,8 @@ class FeedRepository:
                         f.user_id, 
                         f.feed_content, 
                         f.status, 
-                        f.secret_status, 
+                        f.secret_status,
+                        f.price,
                         f.created_at, 
                         f.updated_at
                     FROM feeds f
@@ -402,7 +405,7 @@ class FeedRepository:
                 await cur.execute(
                     """
                     SELECT 
-                        f.feed_id, f.user_id, f.feed_content, f.status, f.secret_status, f.created_at, f.updated_at
+                        f.feed_id, f.user_id, f.feed_content, f.status, f.secret_status, f.price, f.created_at, f.updated_at
                     FROM feeds f
                     WHERE f.user_id = %s 
                     AND f.secret_status = %s 
@@ -505,6 +508,7 @@ class FeedRepository:
                         f.feed_content, 
                         f.status, 
                         f.secret_status, 
+                        f.price,
                         f.created_at
                     FROM feed_purchase_list p
                     JOIN feeds f ON p.feed_id = f.feed_id
@@ -727,6 +731,7 @@ class FeedRepository:
                         f.feed_content,
                         f.status,
                         f.secret_status,
+                        f.price,
                         f.created_at,
                         f.updated_at
                     FROM feeds f
@@ -738,3 +743,81 @@ class FeedRepository:
                 await cur.execute(query, tuple(paging_ids))
                 feeds = await cur.fetchall()
                 return feeds
+
+    # 피드의 가격 가져오기
+    async def get_feed_price(self, feed_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT price
+                    FROM feeds
+                    WHERE feed_id = %s AND deleted = FALSE
+                    """,
+                    (feed_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+
+    # (구매했다면) 리베이트 해주기
+    async def purchased_feed_rebate(
+        self, feed_user_id: str, rebate_amount: int, description: str
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO credit_history (user_id, amount, description)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (feed_user_id, rebate_amount, description),
+                )
+
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET credit = credit + %s
+                    WHERE id = %s
+                    """,
+                    (rebate_amount, feed_user_id),
+                )
+
+    async def get_feed_status(
+        self,
+        feed_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT secret_status
+                    FROM feeds
+                    WHERE feed_id = %s AND deleted = FALSE
+                    """,
+                    (feed_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+
+    async def get_feed_image(
+        self,
+        feed_id: str,
+    ) -> Optional[str]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT url
+                    FROM feed_images
+                    WHERE feed_id = %s AND use_yn = TRUE
+                    ORDER BY `index` ASC
+                    LIMIT 1
+                    """,
+                    (feed_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+                return None
