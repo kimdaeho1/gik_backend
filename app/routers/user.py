@@ -573,6 +573,39 @@ async def fetch_near_user_id_list(
     }
 
 
+@router.get("/user/nearby/list", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_nearby_user_list(
+    token: str = Depends(oauth2_scheme),
+    page: int = Query(...),
+    age: str = None,
+    position: str = None,
+    relation: str = None,
+    bdsmType: str = None,
+    talkStyle: str = None,
+    secret: bool = None,
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    유저 ID 목록 조회, 근처 유저 순서대로 정렬.
+    """
+    user_ids = await service.fetch_nearby_user_list(
+        token=token,
+        page=page,
+        age=age,
+        position=position,
+        relation=relation,
+        bdsm_type=bdsmType,
+        talk_style=talkStyle,
+        secret=secret,
+    )
+    return {
+        "success": True,
+        "message": "근처 유저 목록 조회 성공",
+        "users": user_ids,
+    }
+
+
 # [유저] 유저 FCM 목록 조회 (탈퇴하지 않은 유저 전체) 유저id리스트 보내주면
 @router.post("/users/fcm_list", status_code=status.HTTP_200_OK)
 @inject

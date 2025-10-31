@@ -509,6 +509,29 @@ class UserService:
             secret=secret,
         )
 
+    async def fetch_nearby_user_list(
+        self,
+        token: str,
+        page: int,
+        age: str,
+        position: str,
+        relation: str,
+        bdsm_type: str,
+        talk_style: str,
+        secret: bool,
+    ) -> List[str]:
+        user_id = await get_user_id_from_token(token)
+        return await self.user_repository.fetch_nearby_user_list(
+            user_id=user_id,
+            page=page,
+            age=age,
+            position=position,
+            relation=relation,
+            bdsm_type=bdsm_type,
+            talk_style=talk_style,
+            secret=secret,
+        )
+
     async def fetch_user_fcm_list(self, user_id_list: List[str]) -> List[str]:
         if not user_id_list:
             return []

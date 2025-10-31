@@ -394,7 +394,7 @@ async def purchase_secret_feed(
 
 @router.get("/purchase/my/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
-async def fetch_purchase_feed_user_list(
+async def fetch_feed_blind_profile_purchase_list(
     feed_id: str,
     token: str = Depends(oauth2_scheme),
     feed_service: FeedService = Depends(Provide[Container.feed_service]),
@@ -402,4 +402,33 @@ async def fetch_purchase_feed_user_list(
     """
     내 시크릿 피드를 구매한 사용자 리스트 가져오기
     """
-    ...
+    await feed_service.fetch_feed_blind_profile_purchase_list(
+        feed_id=feed_id,
+        token=token,
+    )
+    return {
+        "success": True,
+        "message": "시크릿 피드를 구매한 유저 리스트를 성공적으로 가져왔습니다.",
+    }
+
+
+@router.post("/purchase/my/{feed_id}/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def feed_blind_profile_purchase(
+    feed_id: str,
+    user_id: str,
+    token: str = Depends(oauth2_scheme),
+    feed_service: FeedService = Depends(Provide[Container.feed_service]),
+):
+    """
+    내 시크릿 피드를 구매한 사용자 블라인드 프로필을 결제하기
+    """
+    await feed_service.feed_blind_profile_purchase(
+        feed_id=feed_id,
+        target_user_id=user_id,
+        token=token,
+    )
+    return {
+        "success": True,
+        "message": "시크릿 피드 유저의 블라인드 프로필 구매가 성공적으로 처리되었습니다.",
+    }
