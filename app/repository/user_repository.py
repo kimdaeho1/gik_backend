@@ -944,6 +944,138 @@ class UserRepository:
 
                 return near_rows + null_rows
 
+    async def fetch_nearby_user_list(
+        self,
+        user_id: str,
+        page: int,
+        age: str,
+        position: str,
+        relation: str,
+        bdsm_type: str,
+        talk_style: str,
+        secret: bool,
+    ) -> List[str]:
+        offset = (page - 1) * 30
+
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                # 내 위치 조회
+                await cur.execute(
+                    "SELECT latitude, longitude FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                location = await cur.fetchone()
+                if not location:
+                    raise HTTPException(
+                        status_code=404, detail="탈퇴하거나 존재하지 않는 사용자입니다."
+                    )
+
+                lat, lng = location
+
+                # 문자열 파싱
+                position = [p.strip() for p in position.split(",")] if position else []
+                relation = [r.strip() for r in relation.split(",")] if relation else []
+                bdsm_type = (
+                    [b.strip() for b in bdsm_type.split(",")] if bdsm_type else []
+                )
+                talk_style = (
+                    [t.strip() for t in talk_style.split(",")] if talk_style else []
+                )
+                age = [a.strip() for a in age.split(",")] if age else []
+
+                query = """
+                    SELECT 
+                        id,
+                        (6371 * acos(
+                            cos(radians(%s)) * cos(radians(latitude)) *
+                            cos(radians(longitude) - radians(%s)) +
+                            sin(radians(%s)) * sin(radians(latitude))
+                        )) AS distance
+                    FROM users
+                    WHERE leaved = FALSE
+                    AND id != %s
+                """
+                arguments = [lat, lng, lat, user_id]
+                filters = []
+
+                if position:
+                    filters.append(
+                        "("
+                        + " OR ".join(["FIND_IN_SET(%s, position)"] * len(position))
+                        + ")"
+                    )
+                    arguments.extend(position)
+                if relation:
+                    filters.append(
+                        "("
+                        + " OR ".join(["FIND_IN_SET(%s, relation)"] * len(relation))
+                        + ")"
+                    )
+                    arguments.extend(relation)
+                if talk_style:
+                    filters.append(
+                        "("
+                        + " OR ".join(["FIND_IN_SET(%s, talk_style)"] * len(talk_style))
+                        + ")"
+                    )
+                    arguments.extend(talk_style)
+                if bdsm_type:
+                    filters.append(
+                        "("
+                        + " OR ".join(["FIND_IN_SET(%s, bdsm_type)"] * len(bdsm_type))
+                        + ")"
+                    )
+                    arguments.extend(bdsm_type)
+                if len(age) == 2:
+                    filters.append(
+                        """
+                        TIMESTAMPDIFF(
+                            YEAR,
+                            STR_TO_DATE(birthday, '%%Y%%m%%d'),
+                            CURDATE()
+                        ) BETWEEN %s AND %s
+                        """
+                    )
+                    arguments.extend(age)
+                if secret is not None:
+                    secret_exists = "EXISTS" if secret else "NOT EXISTS"
+                    filters.append(
+                        f"""
+                        {secret_exists} (
+                            SELECT 1 
+                            FROM user_secret_images si 
+                            WHERE si.user_id = users.id 
+                            AND si.use_yn = TRUE
+                        )
+                        """
+                    )
+                filters.append(
+                    """
+                    NOT EXISTS (
+                        SELECT 1 FROM user_block_list ubl
+                        WHERE 
+                            (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
+                            OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
+                    )
+                    """
+                )
+                arguments.extend([user_id, user_id])
+
+                if filters:
+                    query += " AND " + " AND ".join(filters)
+
+                query += """
+                    ORDER BY 
+                        (latitude IS NULL OR longitude IS NULL),
+                        distance ASC
+                    LIMIT %s OFFSET %s
+                """
+                arguments.extend([30, offset])
+
+                await cur.execute(query, arguments)
+                rows = await cur.fetchall()
+                return [row[0] for row in rows]
+
     async def fetch_user_fcm_list(self, user_id_list: List[str]) -> List[str]:
         """
         유저들의 fcm리스트를 가져오기

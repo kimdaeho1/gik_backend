@@ -451,3 +451,21 @@ class FeedService:
     async def get_feed_image(self, feed_id: str) -> Optional[str]:
         image = await self.feed_repository.get_feed_image(feed_id=feed_id)
         return image
+
+    async def feed_blind_profile_purchase(
+        self,
+        feed_id: str,
+        target_user_id: str,
+        token: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        is_owner = await self.feed_repository.is_owner(user_id=user_id, feed_id=feed_id)
+        if not is_owner:
+            logger.error("피드 소유자만 구매자 목록을 조회할 수 있습니다.")
+            return False
+
+        user_id = await self.feed_repository.feed_blind_profile_purchase(
+            target_user_id=target_user_id,
+            feed_id=feed_id,
+        )

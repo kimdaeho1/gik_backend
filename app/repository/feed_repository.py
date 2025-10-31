@@ -821,3 +821,18 @@ class FeedRepository:
                 if result:
                     return result[0]
                 return None
+
+    async def feed_blind_profile_purchase(
+        self,
+        feed_id: str,
+        target_user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO feed_blind_profile_purchase_list (feed_id, target_user_id)
+                    VALUES (%s, %s)
+                    """,
+                    (feed_id, target_user_id),
+                )
