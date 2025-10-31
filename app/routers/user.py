@@ -353,23 +353,6 @@ async def update_user_bdsm_type(
     return {"success": result, "message": "나의 bdsm 타입 변경 성공."}
 
 
-# [유저] 상대 유저 상세정보 조회
-@router.get("/user/{user_id}", status_code=status.HTTP_200_OK)
-@inject
-async def fetch_user_profile(
-    user_id: str, service: UserService = Depends(Provide[Container.user_service])
-):
-    """
-    상대 유저 프로필 조회
-    user_id: 조회할 상대 유저 ID
-    viewer_id: 조회한 주체
-    """
-    viewer_id = None
-    user = await service.fetch_user_profile(user_id, viewer_id)
-
-    return {"success": True, "message": "유저 정보 조회 성공", "user": user}
-
-
 # [유저] 상대 유저의 차단 여부 확인 True/False로 체크
 @router.get("/user/block/{target_user_id}", status_code=status.HTTP_200_OK)
 @inject
@@ -573,7 +556,7 @@ async def fetch_near_user_id_list(
     }
 
 
-@router.get("/user/nearby/list", status_code=status.HTTP_200_OK)
+@router.get("/user/list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_nearby_user_list(
     token: str = Depends(oauth2_scheme),
@@ -589,7 +572,7 @@ async def fetch_nearby_user_list(
     """
     유저 ID 목록 조회, 근처 유저 순서대로 정렬.
     """
-    user_ids = await service.fetch_nearby_user_list(
+    users = await service.fetch_nearby_user_list(
         token=token,
         page=page,
         age=age,
@@ -602,7 +585,7 @@ async def fetch_nearby_user_list(
     return {
         "success": True,
         "message": "근처 유저 목록 조회 성공",
-        "users": user_ids,
+        "users": users,
     }
 
 
@@ -1307,3 +1290,20 @@ async def fetch_user_credit_history(
         "message": "나의 크레딧 히스토리 조회 성공",
         "creditHistory": result,
     }
+
+
+# [유저] 상대 유저 상세정보 조회
+@router.get("/user/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_profile(
+    user_id: str, service: UserService = Depends(Provide[Container.user_service])
+):
+    """
+    상대 유저 프로필 조회
+    user_id: 조회할 상대 유저 ID
+    viewer_id: 조회한 주체
+    """
+    viewer_id = None
+    user = await service.fetch_user_profile(user_id, viewer_id)
+
+    return {"success": True, "message": "유저 정보 조회 성공", "user": user}
