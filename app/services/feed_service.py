@@ -9,6 +9,7 @@ from app.utils.s3_upload import (
 )
 from app.db.feed import (
     FeedDetailResponse,
+    FeedPurchasedResponse,
 )
 from app.utils.token import get_user_id_from_token
 from app.utils.logging_config import get_logger
@@ -452,6 +453,42 @@ class FeedService:
         image = await self.feed_repository.get_feed_image(feed_id=feed_id)
         return image
 
+    async def fetch_feed_purchase_list_with_blind_profile(
+        self,
+        feed_id: str,
+        token: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        is_owner = await self.feed_repository.is_owner(user_id=user_id, feed_id=feed_id)
+        if not is_owner:
+            logger.error("피드 소유자만 구매자 목록을 조회할 수 있습니다.")
+            return False
+
+        purchase_list = (
+            await self.feed_repository.fetch_feed_purchase_list_with_blind_profile(
+                feed_id=feed_id,
+            )
+        )
+
+        purchase_list_response: FeedPurchasedResponse = []
+        for purchase_user in purchase_list:
+            image = await self.feed_repository.get_user_profile_image(
+                user_id=purchase_user[0]
+            )
+            purchase_list_response.append(
+                FeedPurchasedResponse(
+                    userId=purchase_user[0],
+                    nickname=purchase_user[1],
+                    age=purchase_user[2],
+                    height=purchase_user[3],
+                    weight=purchase_user[4],
+                    image=image,
+                    isPurchased=purchase_user[5],
+                )
+            )
+        return purchase_list_response
+
     async def feed_blind_profile_purchase(
         self,
         feed_id: str,
@@ -465,7 +502,57 @@ class FeedService:
             logger.error("피드 소유자만 구매자 목록을 조회할 수 있습니다.")
             return False
 
+        # target_user_id = 내 시크릿 피드를 구매한 사람의 ID.
+        credit_amount = 3
+        credit_description = "시크릿 피드 블라인드 프로필 구매"
         user_id = await self.feed_repository.feed_blind_profile_purchase(
-            target_user_id=target_user_id,
             feed_id=feed_id,
+            user_id=user_id,
+            target_user_id=target_user_id,
+            credit_amount=credit_amount,
+            credit_description=credit_description,
         )
+
+    async def favorite_user_feed_list(
+        self,
+        token: str,
+        page: int,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        feeds = await self.feed_repository.favorite_user_feed_list(
+            user_id=user_id,
+            page=page,
+        )
+        feed_list: List[FeedDetailResponse] = []
+        for feed in feeds:
+            images = await self.feed_repository.get_feed_images(feed[0])
+            like_count = await self.feed_repository.get_feed_like_count(
+                feed_id=feed[0], user_id=user_id
+            )
+            comment_count = await self.feed_repository.get_feed_comment_count(
+                feed_id=feed[0], user_id=user_id
+            )
+            is_liked = await self.feed_repository.is_liked_feed(
+                feed_id=feed[0], user_id=user_id
+            )
+            is_purchased = await self.feed_repository.fetch_purchase_secret_feed(
+                user_id=user_id, feed_id=feed[0]
+            )
+            feed_list.append(
+                FeedDetailResponse(
+                    feedId=feed[0],
+                    userId=feed[1],
+                    content=feed[2],
+                    images=images,
+                    status=feed[3],
+                    secretStatus=feed[4],
+                    price=feed[5],
+                    likeCount=like_count,
+                    commentCount=comment_count,
+                    isLiked=is_liked,
+                    isPurchased=is_purchased,
+                    createdAt=feed[6],
+                )
+            )
+        return feed_list

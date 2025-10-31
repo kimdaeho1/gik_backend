@@ -822,17 +822,144 @@ class FeedRepository:
                     return result[0]
                 return None
 
-    async def feed_blind_profile_purchase(
+    async def get_user_profile_image(
         self,
-        feed_id: str,
-        target_user_id: str,
+        user_id: str,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    INSERT INTO feed_blind_profile_purchase_list (feed_id, target_user_id)
+                    SELECT url
+                    FROM user_images
+                    WHERE user_id = %s AND use_yn = TRUE
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+
+    async def fetch_feed_purchase_list_with_blind_profile(
+        self,
+        feed_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT
+                        u.id AS userId,
+                        u.nickname AS nickname,
+                        u.age AS age,
+                        u.height AS height,
+                        u.weight AS weight,
+                        CASE
+                            WHEN fb.feed_id IS NOT NULL THEN TRUE
+                            ELSE FALSE
+                        END AS isPurchase
+                    FROM feed_purchase_list fp
+                    JOIN users u 
+                        ON fp.user_id = u.id
+                    JOIN feeds f 
+                        ON f.feed_id = fp.feed_id
+                    LEFT JOIN feed_blind_profile_purchase_list fb
+                        ON fb.feed_id = fp.feed_id
+                        AND fb.user_id = fp.user_id
+                    WHERE fp.feed_id = %s
+                    AND u.leaved = FALSE
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM user_block_list ub
+                        WHERE ub.block_user_id = f.user_id
+                            AND ub.blocked_user_id = fp.user_id
+                    )
+                    ORDER BY fp.created_at DESC
+                    """,
+                    (feed_id,),
+                )
+                purchase_list = await cur.fetchall()
+                return purchase_list
+
+    async def feed_blind_profile_purchase(
+        self,
+        feed_id: str,
+        user_id: str,
+        target_user_id: str,
+        credit_amount: int,
+        credit_description: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO feed_blind_profile_purchase_list (feed_id, user_id)
                     VALUES (%s, %s)
                     """,
                     (feed_id, target_user_id),
                 )
+
+                await cur.execute(
+                    """
+                    INSERT INTO credit_history (user_id, amount, description)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (user_id, -credit_amount, credit_description),
+                )
+
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET credit = credit - %s
+                    WHERE id = %s
+                    """,
+                    (credit_amount, user_id),
+                )
+
+                await conn.commit()
+                return True
+
+    async def favorite_user_feed_list(
+        self,
+        user_id: str,
+        page: int,
+    ):
+        offset = (page - 1) * 5
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 
+                        f.feed_id, 
+                        f.user_id, 
+                        f.feed_content, 
+                        f.status, 
+                        f.secret_status,
+                        f.price,
+                        f.created_at, 
+                        f.updated_at
+                    FROM feeds f
+                    JOIN users_favorite_list ufl ON f.user_id = ufl.favorite_user_id
+                    JOIN users u ON f.user_id = u.id
+                    WHERE ufl.user_id = %s
+                    AND f.deleted = FALSE
+                    AND u.leaved = FALSE
+                    AND NOT EXISTS (
+                        SELECT 1 FROM user_block_list ubl
+                        WHERE 
+                            (ubl.block_user_id = %s AND ubl.blocked_user_id = f.user_id)
+                            OR (ubl.block_user_id = f.user_id AND ubl.blocked_user_id = %s)
+                    )
+                    AND f.feed_id NOT IN (
+                        SELECT blocked_feed_id 
+                        FROM feed_blocks 
+                        WHERE block_user_id = %s
+                    )
+                    ORDER BY f.created_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (user_id, user_id, user_id, user_id, 5, offset),
+                )
+                feeds = await cur.fetchall()
+                return feeds

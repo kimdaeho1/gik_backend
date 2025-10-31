@@ -73,3 +73,18 @@ class FeedDetailResponse(BaseModel):
     isPurchased: bool
     price: int
     createdAt: datetime
+
+
+class FeedPurchasedResponse(BaseModel):
+    userId: str
+    nickname: str
+    age: int
+    height: int
+    weight: int
+    image: str
+    isPurchased: bool
+
+
+class FeedProfilePurchaseRequest(BaseModel):
+    feedId: str
+    userId: str
