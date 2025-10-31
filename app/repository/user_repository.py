@@ -672,10 +672,13 @@ class UserRepository:
                             WHERE ubl.block_user_id = %s
                                 AND ubl.blocked_user_id = users.id
                         )
+                    ORDER BY FIELD(id, {placeholders})
                 """
                 query = query_template.format(placeholders=placeholders)
 
-                await cur.execute(query, tuple(user_id_list) + (viewer_id,))
+                await cur.execute(
+                    query, tuple(user_id_list) + (viewer_id,) + tuple(user_id_list)
+                )
                 rows = await cur.fetchall()
                 columns = [col[0] for col in cur.description]
                 return [UserListRow(**dict(zip(columns, row))) for row in rows]
@@ -1071,7 +1074,6 @@ class UserRepository:
                     LIMIT %s OFFSET %s
                 """
                 arguments.extend([30, offset])
-
                 await cur.execute(query, arguments)
                 rows = await cur.fetchall()
                 return [row[0] for row in rows]

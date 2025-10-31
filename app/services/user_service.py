@@ -519,9 +519,9 @@ class UserService:
         bdsm_type: str,
         talk_style: str,
         secret: bool,
-    ) -> List[str]:
+    ) -> List[UserListResponse]:
         user_id = await get_user_id_from_token(token)
-        return await self.user_repository.fetch_nearby_user_list(
+        user_list = await self.user_repository.fetch_nearby_user_list(
             user_id=user_id,
             page=page,
             age=age,
@@ -531,6 +531,53 @@ class UserService:
             talk_style=talk_style,
             secret=secret,
         )
+
+        user_profile_list = await self.user_repository.fetch_user_list(
+            user_id_list=user_list, viewer_id=user_id
+        )
+        user_profiles: List[UserListResponse] = []
+        for user in user_profile_list:
+            block_user_list = await self.user_repository.fetch_user_block_list(user.id)
+            is_blocked = await self.user_repository.check_user_block(user.id, user_id)
+            profile_images = await self.user_repository.fetch_profile_images(user.id)
+            secret_images = (
+                await self.user_repository.fetch_secret_images(user.id)
+                if user.secret_yn
+                else []
+            )
+
+            user_profiles.append(
+                UserListResponse(
+                    id=user.id,
+                    fcm=user.fcm,
+                    nickname=user.nickname,
+                    birthday=user.birthday,
+                    age=user.age,
+                    height=user.height,
+                    weight=user.weight,
+                    relation=user.relation,
+                    position=user.position,
+                    country=user.country,
+                    hashtags=Hashtags.parse_raw(user.hashtags),
+                    selfIntroduction=user.self_introduction,
+                    bdsmType=user.bdsm_type,
+                    talkStyle=user.talk_style,
+                    secretYn=user.secret_yn,
+                    secretImages=secret_images,
+                    profileImages=profile_images,
+                    leaved=user.leaved,
+                    personalChatAlarm=user.personal_chat_alarm_agree,
+                    groupChatAlarm=user.group_chat_alarm_agree,
+                    postCommentAlarm=user.post_comment_alarm_agree,
+                    postLikeAlarm=user.post_like_alarm_agree,
+                    blockUserList=block_user_list,
+                    lastConnectedAt=user.last_connected_at,
+                    isBlocked=is_blocked,
+                    latitude=user.latitude,
+                    longitude=user.longitude,
+                )
+            )
+        return user_profiles
 
     async def fetch_user_fcm_list(self, user_id_list: List[str]) -> List[str]:
         if not user_id_list:
