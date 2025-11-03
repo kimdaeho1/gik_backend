@@ -1175,7 +1175,7 @@ class UserService:
 
         credit_history_map = {
             "프로필 조회": {
-                "title": "내 시크릿 피드",
+                "title": "방문 기록",
                 "content": "블라인드 프로필 해제",
             },
             "시크릿 앨범 조회": {"title": "시크릿 앨범", "content": "시크릿 앨범 보기"},
@@ -1199,8 +1199,12 @@ class UserService:
                 "content": "신규 회원가입 보상",
             },
             "3일 이상 미접속 리워드 지급": {
-                "title": "리워드",
-                "content": "미접속 리워드 지급",
+                "title": "이벤트",
+                "content": "웰컴 복귀",
+            },
+            "시크릿 피드 리베이트 지급": {
+                "title": "내 시크릿 피드",
+                "content": "시크릿 피드 리베이트",
             },
         }
 
