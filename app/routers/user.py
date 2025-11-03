@@ -1273,18 +1273,23 @@ async def fetch_user_unlock_count(
     }
 
 
-@router.get("/user/credit/history", status_code=status.HTTP_200_OK)
+@router.get("/user/credit/history/", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_credit_history(
     page: int = Query(...),
+    type: str = Query(...),
     token: str = Depends(oauth2_scheme),
     user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """
     나의 크레딧 히스토리 조회
     user_id: token에서 추출, 크레딧 히스토리 조회 주체
+    page: 페이지 번호 (1부터 시작)
+    tab: 크레딧 히스토리 탭 (all, use, earn)
     """
-    result = await user_service.fetch_user_credit_history(page=page, token=token)
+    result = await user_service.fetch_user_credit_history(
+        page=page, type=type, token=token
+    )
     return {
         "success": True,
         "message": "나의 크레딧 히스토리 조회 성공",
