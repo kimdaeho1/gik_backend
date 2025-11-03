@@ -1166,20 +1166,59 @@ class UserService:
             raise HTTPException(status_code=500, detail=f"열람 통계 조회 실패, str{e}")
 
     async def fetch_user_credit_history(
-        self, page: int, token: str
+        self, page: int, type: str, token: str
     ) -> UserCreditHistoryResponse:
         user_id = await get_user_id_from_token(token)
         credit_histories = await self.user_repository.fetch_user_credit_history(
-            page=page, user_id=user_id
+            page=page, type=type, user_id=user_id
         )
-        print(credit_histories)
+
+        credit_history_map = {
+            "프로필 조회": {
+                "title": "내 시크릿 피드",
+                "content": "블라인드 프로필 해제",
+            },
+            "시크릿 앨범 조회": {"title": "시크릿 앨범", "content": "시크릿 앨범 보기"},
+            "우회한 시크릿 앨범 조회": {
+                "title": "시크릿 앨범",
+                "content": "시크릿 앨범 보기",
+            },
+            "시크릿 피드 구매": {"title": "시크릿 피드", "content": "시크릿 피드 보기"},
+            "시크릿 피드 블라인드 프로필 구매": {
+                "title": "시크릿 피드",
+                "content": "블라인드 프로필 해제",
+            },
+            "우회한 시크릿 피드 구매": {
+                "title": "시크릿 피드",
+                "content": "시크릿 피드 보기",
+            },
+            "고래 구입": {"title": "고래 코인 충전", "content": "고래 코인 충전"},
+            "광고 시청 보상": {"title": "광고 시청", "content": "광고 시청 리워드"},
+            "회원가입 이벤트 보상": {
+                "title": "이벤트",
+                "content": "신규 회원가입 보상",
+            },
+            "3일 이상 미접속 리워드 지급": {
+                "title": "리워드",
+                "content": "미접속 리워드 지급",
+            },
+        }
+
         credit_history_list: List[UserCreditHistoryResponse] = []
         for credit_history in credit_histories:
+            # db에 있는 description값을 꺼내온다
+            db_description = credit_history_map.get(credit_history[1])
+            if not db_description:
+                continue
+
             credit_history_list.append(
                 UserCreditHistoryResponse(
                     amount=credit_history[0],
-                    description=credit_history[1],
+                    title=db_description["title"],
+                    description=db_description["content"],
                     createdAt=credit_history[2],
                 )
             )
+        if not credit_history_list:
+            return []
         return credit_history_list

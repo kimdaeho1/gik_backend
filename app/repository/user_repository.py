@@ -2419,21 +2419,49 @@ class UserRepository:
 
     async def fetch_user_credit_history(
         self,
-        user_id: str,
         page: int,
+        type: str,
+        user_id: str,
     ):
         offset = (page - 1) * 20
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT amount, description, created_at
-                    FROM credit_history
-                    WHERE user_id = %s
-                    ORDER BY created_at DESC
-                    LIMIT 20 OFFSET %s
-                    """,
-                    (user_id, offset),
-                )
-                credit_history = await cur.fetchall()
-                return credit_history
+                if type == "all":
+                    await cur.execute(
+                        """
+                        SELECT amount, description, created_at
+                        FROM credit_history
+                        WHERE user_id = %s
+                        ORDER BY created_at DESC
+                        LIMIT 20 OFFSET %s
+                        """,
+                        (user_id, offset),
+                    )
+                    credit_history = await cur.fetchall()
+                    return credit_history
+                elif type == "use":
+                    await cur.execute(
+                        """
+                        SELECT amount, description, created_at
+                        FROM credit_history
+                        WHERE user_id = %s AND amount < 0
+                        ORDER BY created_at DESC
+                        LIMIT 20 OFFSET %s
+                        """,
+                        (user_id, offset),
+                    )
+                    credit_history = await cur.fetchall()
+                    return credit_history
+                elif type == "earn":
+                    await cur.execute(
+                        """
+                        SELECT amount, description, created_at
+                        FROM credit_history
+                        WHERE user_id = %s AND amount > 0
+                        ORDER BY created_at DESC
+                        LIMIT 20 OFFSET %s
+                        """,
+                        (user_id, offset),
+                    )
+                    credit_history = await cur.fetchall()
+                    return credit_history

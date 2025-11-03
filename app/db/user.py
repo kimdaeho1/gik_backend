@@ -449,5 +449,6 @@ class CountRow(BaseModel):
 
 class UserCreditHistoryResponse(BaseModel):
     amount: int
+    title: str
     description: str
     createdAt: datetime
