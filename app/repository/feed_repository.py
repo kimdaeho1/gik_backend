@@ -869,6 +869,7 @@ class FeedRepository:
                         AND fb.user_id = fp.user_id
                     WHERE fp.feed_id = %s
                     AND u.leaved = FALSE
+                    AND f.deleted = FALSE
                     AND NOT EXISTS (
                         SELECT 1
                         FROM user_block_list ub
