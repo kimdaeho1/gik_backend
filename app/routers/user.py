@@ -1273,7 +1273,7 @@ async def fetch_user_unlock_count(
     }
 
 
-@router.get("/user/credit/history/", status_code=status.HTTP_200_OK)
+@router.get("/user/credit/history", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_credit_history(
     page: int = Query(...),
