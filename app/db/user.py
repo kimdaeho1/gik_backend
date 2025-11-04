@@ -452,3 +452,7 @@ class UserCreditHistoryResponse(BaseModel):
     title: str
     description: str
     createdAt: datetime
+
+
+class UserCreditProfileRequest(BaseModel):
+    type: Optional[str]

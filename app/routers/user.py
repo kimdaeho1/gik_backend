@@ -24,6 +24,7 @@ from app.db.user import (
     UserUnblockRequest,
     UserCreditSecretRequest,
     UserFavoriteRequest,
+    UserCreditProfileRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -1091,6 +1092,7 @@ async def consume_user_credit(
 @inject
 async def add_user_credit_profile_view(
     user_id: str,
+    credit_type: Optional[UserCreditProfileRequest] = None,
     token: str = Depends(oauth2_scheme),
     service: UserService = Depends(Provide[Container.user_service]),
 ):
@@ -1103,6 +1105,7 @@ async def add_user_credit_profile_view(
     result = await service.add_user_credit_profile_view(
         viewer_id=viewer_id,
         viewed_id=user_id,
+        credit_type=credit_type.type if credit_type else None,
     )
     return {
         "success": result,
