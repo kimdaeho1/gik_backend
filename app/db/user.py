@@ -426,6 +426,10 @@ class UserListRow(BaseModel):
     last_connected_at: datetime
     latitude: Optional[float]
     longitude: Optional[float]
+    profileImages: Optional[List[str]] = []
+    secretImages: Optional[List[str]] = []
+    blockUserList: Optional[List[str]] = []
+    isBlocked: Optional[bool] = False
 
 
 class ProfileViewRow(BaseModel):

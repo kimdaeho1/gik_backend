@@ -17,6 +17,7 @@ from app.repository.user_repository import UserRepository
 from app.repository.feed_repository import FeedRepository
 from app.services.image_service import ImageService
 from app.utils.token import get_user_id_from_token
+import time
 
 logger = get_logger(__name__)
 
@@ -417,25 +418,11 @@ class UserService:
     ) -> List[UserListResponse]:
         if not user_id_list:
             return []
+
         user_rows = await self.user_repository.fetch_user_list(user_id_list, user_id)
+
         user_profiles: List[UserListResponse] = []
         for user_row in user_rows:
-
-            block_user_list = await self.user_repository.fetch_user_block_list(
-                user_row.id
-            )
-            is_blocked = await self.user_repository.check_user_block(
-                user_row.id, user_id
-            )
-
-            profile_images = await self.user_repository.fetch_profile_images(
-                user_row.id
-            )
-            secret_images = (
-                await self.user_repository.fetch_secret_images(user_row.id)
-                if user_row.secret_yn
-                else []
-            )
             user_profiles.append(
                 UserListResponse(
                     id=user_row.id,
@@ -453,16 +440,16 @@ class UserService:
                     bdsmType=user_row.bdsm_type,
                     talkStyle=user_row.talk_style,
                     secretYn=user_row.secret_yn,
-                    secretImages=secret_images,
-                    profileImages=profile_images,
+                    secretImages=user_row.secretImages,
+                    profileImages=user_row.profileImages,
                     leaved=user_row.leaved,
                     personalChatAlarm=user_row.personal_chat_alarm_agree,
                     groupChatAlarm=user_row.group_chat_alarm_agree,
                     postCommentAlarm=user_row.post_comment_alarm_agree,
                     postLikeAlarm=user_row.post_like_alarm_agree,
-                    blockUserList=block_user_list,
+                    blockUserList=user_row.blockUserList,
                     lastConnectedAt=user_row.last_connected_at,
-                    isBlocked=is_blocked,
+                    isBlocked=user_row.isBlocked,
                     latitude=user_row.latitude,
                     longitude=user_row.longitude,
                 )
@@ -520,7 +507,12 @@ class UserService:
         talk_style: str,
         secret: bool,
     ) -> List[UserListResponse]:
+
+        # 응답 시간 로깅을 위한
+        start_time = time.perf_counter()
         user_id = await get_user_id_from_token(token)
+
+        repo_start = time.perf_counter()
         user_list = await self.user_repository.fetch_nearby_user_list(
             user_id=user_id,
             page=page,
@@ -531,52 +523,23 @@ class UserService:
             talk_style=talk_style,
             secret=secret,
         )
+        repo_end = time.perf_counter()
 
-        user_profile_list = await self.user_repository.fetch_user_list(
-            user_id_list=user_list, viewer_id=user_id
+        list_start = time.perf_counter()
+        user_profiles = await self.fetch_user_list(
+            user_id=user_id, user_id_list=user_list
         )
-        user_profiles: List[UserListResponse] = []
-        for user in user_profile_list:
-            block_user_list = await self.user_repository.fetch_user_block_list(user.id)
-            is_blocked = await self.user_repository.check_user_block(user.id, user_id)
-            profile_images = await self.user_repository.fetch_profile_images(user.id)
-            secret_images = (
-                await self.user_repository.fetch_secret_images(user.id)
-                if user.secret_yn
-                else []
-            )
+        list_end = time.perf_counter()
+        end_time = time.perf_counter()
 
-            user_profiles.append(
-                UserListResponse(
-                    id=user.id,
-                    fcm=user.fcm,
-                    nickname=user.nickname,
-                    birthday=user.birthday,
-                    age=user.age,
-                    height=user.height,
-                    weight=user.weight,
-                    relation=user.relation,
-                    position=user.position,
-                    country=user.country,
-                    hashtags=Hashtags.parse_raw(user.hashtags),
-                    selfIntroduction=user.self_introduction,
-                    bdsmType=user.bdsm_type,
-                    talkStyle=user.talk_style,
-                    secretYn=user.secret_yn,
-                    secretImages=secret_images,
-                    profileImages=profile_images,
-                    leaved=user.leaved,
-                    personalChatAlarm=user.personal_chat_alarm_agree,
-                    groupChatAlarm=user.group_chat_alarm_agree,
-                    postCommentAlarm=user.post_comment_alarm_agree,
-                    postLikeAlarm=user.post_like_alarm_agree,
-                    blockUserList=block_user_list,
-                    lastConnectedAt=user.last_connected_at,
-                    isBlocked=is_blocked,
-                    latitude=user.latitude,
-                    longitude=user.longitude,
-                )
-            )
+        logger.info(
+            f"[PERF] nearby_user_list(service): "
+            f"fetch_nearby={repo_end - repo_start:.3f}s | "
+            f"profile_list={list_end - list_start:.3f}s | "
+            f"total={end_time - start_time:.3f}s | "
+            f"users={len(user_profiles)}"
+        )
+
         return user_profiles
 
     async def fetch_user_fcm_list(self, user_id_list: List[str]) -> List[str]:
