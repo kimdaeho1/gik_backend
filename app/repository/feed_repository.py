@@ -706,7 +706,7 @@ class FeedRepository:
             # 캐시에 저장할때는 피드의 Id리스트와 만료 시간을 같이 저장
             FEED_CACHE[user_id] = {
                 "feeds": feed_ids,
-                "expires_at": now + timedelta(minutes=30),
+                "expires_at": now + timedelta(minutes=1),
             }
 
         # 페이지 단위로 피드 ID 추출하기
