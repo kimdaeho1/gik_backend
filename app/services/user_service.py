@@ -1061,6 +1061,8 @@ class UserService:
 
         try:
             await self.user_repository.insert_credit_profile_view(viewer_id, viewed_id)
+            # 유저 크레딧 차감
+            await self.consume_user_credit(viewer_id, "history_view")
             return True
         except Exception:
             raise HTTPException(
