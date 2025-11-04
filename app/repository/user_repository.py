@@ -655,34 +655,94 @@ class UserRepository:
             async with conn.cursor() as cur:
                 placeholders = ", ".join(["%s"] * len(user_id_list))
 
-                query_template = """
+                query = f"""
                     SELECT 
-                        id, fcm, nickname, birthday, age, height, weight, 
-                        relation, position, country, hashtags, self_introduction, 
-                        bdsm_type, leaved, talk_style, secret_yn,
-                        personal_chat_alarm_agree, group_chat_alarm_agree,
-                        post_comment_alarm_agree, post_like_alarm_agree,
-                        last_connected_at,
-                        latitude, longitude
-                    FROM users
-                    WHERE id IN ({placeholders})
-                        AND leaved = FALSE
+                        u.id,
+                        u.fcm,
+                        u.nickname,
+                        u.birthday,
+                        u.age,
+                        u.height,
+                        u.weight,
+                        u.relation,
+                        u.position,
+                        u.country,
+                        u.hashtags,
+                        u.self_introduction,
+                        u.bdsm_type,
+                        u.leaved,
+                        u.talk_style,
+                        u.secret_yn,
+                        u.personal_chat_alarm_agree,
+                        u.group_chat_alarm_agree,
+                        u.post_comment_alarm_agree,
+                        u.post_like_alarm_agree,
+                        u.last_connected_at,
+                        u.latitude,
+                        u.longitude,
+                        GROUP_CONCAT(DISTINCT ui.url ORDER BY ui.`index` SEPARATOR ',') AS profileImages,
+                        GROUP_CONCAT(DISTINCT si.url ORDER BY si.`index` SEPARATOR ',') AS secretImages,
+                        GROUP_CONCAT(DISTINCT ubl.blocked_user_id SEPARATOR ',') AS blockUserList,
+                        CASE 
+                            WHEN EXISTS (
+                                SELECT 1 
+                                FROM user_block_list b 
+                                WHERE b.block_user_id = u.id 
+                                AND b.blocked_user_id = %s
+                            ) THEN TRUE 
+                            ELSE FALSE 
+                        END AS isBlocked
+
+                    FROM users u
+                    LEFT JOIN user_images ui 
+                        ON ui.user_id = u.id AND ui.use_yn = TRUE
+                    LEFT JOIN user_secret_images si 
+                        ON si.user_id = u.id AND si.use_yn = TRUE
+                    LEFT JOIN user_block_list ubl 
+                        ON ubl.block_user_id = u.id
+                    WHERE u.id IN ({placeholders})
+                        AND u.leaved = FALSE
                         AND NOT EXISTS (
                             SELECT 1 
-                            FROM user_block_list ubl
-                            WHERE ubl.block_user_id = %s
-                                AND ubl.blocked_user_id = users.id
+                            FROM user_block_list bx
+                            WHERE bx.block_user_id = %s 
+                            AND bx.blocked_user_id = u.id
                         )
-                    ORDER BY FIELD(id, {placeholders})
+                    GROUP BY u.id
+                    ORDER BY FIELD(u.id, {placeholders})
                 """
-                query = query_template.format(placeholders=placeholders)
 
-                await cur.execute(
-                    query, tuple(user_id_list) + (viewer_id,) + tuple(user_id_list)
+                params = (
+                    [viewer_id]  # isBlocked용
+                    + user_id_list  # IN (...)
+                    + [viewer_id]  # NOT EXISTS용
+                    + user_id_list  # ORDER BY FIELD(...)
                 )
+
+                await cur.execute(query, params)
                 rows = await cur.fetchall()
                 columns = [col[0] for col in cur.description]
-                return [UserListRow(**dict(zip(columns, row))) for row in rows]
+                results = []
+                for row in rows:
+                    data = dict(zip(columns, row))
+
+                    # 문자열 필드를 리스트로 변환
+                    data["profileImages"] = (
+                        data["profileImages"].split(",")
+                        if data["profileImages"]
+                        else []
+                    )
+                    data["secretImages"] = (
+                        data["secretImages"].split(",") if data["secretImages"] else []
+                    )
+                    data["blockUserList"] = (
+                        data["blockUserList"].split(",")
+                        if data["blockUserList"]
+                        else []
+                    )
+
+                    results.append(UserListRow(**data))
+                return results
 
     async def fetch_user_id_list(
         self,
@@ -988,7 +1048,7 @@ class UserRepository:
                 age = [a.strip() for a in age.split(",")] if age else []
 
                 query = """
-                    SELECT 
+                    SELECT
                         id,
                         (6371 * acos(
                             cos(radians(%s)) * cos(radians(latitude)) *
@@ -1046,9 +1106,9 @@ class UserRepository:
                     filters.append(
                         f"""
                         {secret_exists} (
-                            SELECT 1 
-                            FROM user_secret_images si 
-                            WHERE si.user_id = users.id 
+                            SELECT 1
+                            FROM user_secret_images si
+                            WHERE si.user_id = users.id
                             AND si.use_yn = TRUE
                         )
                         """
@@ -1057,7 +1117,7 @@ class UserRepository:
                     """
                     NOT EXISTS (
                         SELECT 1 FROM user_block_list ubl
-                        WHERE 
+                        WHERE
                             (ubl.block_user_id = %s AND ubl.blocked_user_id = users.id)
                             OR (ubl.block_user_id = users.id AND ubl.blocked_user_id = %s)
                     )
@@ -1069,7 +1129,7 @@ class UserRepository:
                     query += " AND " + " AND ".join(filters)
 
                 query += """
-                    ORDER BY 
+                    ORDER BY
                         (latitude IS NULL OR longitude IS NULL),
                         distance ASC
                     LIMIT %s OFFSET %s
@@ -1078,6 +1138,175 @@ class UserRepository:
                 await cur.execute(query, arguments)
                 rows = await cur.fetchall()
                 return [row[0] for row in rows]
+
+    # async def fetch_nearby_user_list(
+    #     self,
+    #     user_id: str,
+    #     page: int,
+    #     age: str,
+    #     position: str,
+    #     relation: str,
+    #     bdsm_type: str,
+    #     talk_style: str,
+    #     secret: bool,
+    # ) -> List[str]:
+    #     offset = (page - 1) * 30
+
+    #     async with self.db.get_connection() as conn:
+    #         async with conn.cursor() as cur:
+    #             # ✅ 내 위치 조회
+    #             await cur.execute(
+    #                 "SELECT latitude, longitude FROM users WHERE id = %s AND leaved = FALSE",
+    #                 (user_id,),
+    #             )
+    #             location = await cur.fetchone()
+    #             if not location:
+    #                 raise HTTPException(
+    #                     status_code=404, detail="탈퇴하거나 존재하지 않는 사용자입니다."
+    #                 )
+
+    #             lat, lng = map(float, location)
+
+    #             # ✅ 문자열 파싱
+    #             position = [p.strip() for p in position.split(",")] if position else []
+    #             relation = [r.strip() for r in relation.split(",")] if relation else []
+    #             bdsm_type = (
+    #                 [b.strip() for b in bdsm_type.split(",")] if bdsm_type else []
+    #             )
+    #             talk_style = (
+    #                 [t.strip() for t in talk_style.split(",")] if talk_style else []
+    #             )
+    #             age = [a.strip() for a in age.split(",")] if age else []
+
+    #             # ✅ Bounding Box 계산 (50km 반경 기준)
+    #             distance_limit_km = 50
+    #             lat_delta = distance_limit_km / 111.0
+    #             lng_delta = distance_limit_km / (111.0 * math.cos(math.radians(lat)))
+
+    #             lat_min = lat - lat_delta
+    #             lat_max = lat + lat_delta
+    #             lng_min = lng - lng_delta
+    #             lng_max = lng + lng_delta
+
+    #             # ✅ 기본 쿼리 (Bounding Box만)
+    #             query = """
+    #                 SELECT
+    #                     u.id, u.latitude, u.longitude
+    #                 FROM users u
+    #                 LEFT JOIN user_block_list b1 ON b1.block_user_id = %s AND b1.blocked_user_id = u.id
+    #                 LEFT JOIN user_block_list b2 ON b2.block_user_id = u.id AND b2.blocked_user_id = %s
+    #                 WHERE u.leaved = FALSE
+    #                   AND u.latitude BETWEEN %s AND %s
+    #                   AND u.longitude BETWEEN %s AND %s
+    #                   AND u.id != %s
+    #                   AND b1.id IS NULL
+    #                   AND b2.id IS NULL
+    #             """
+
+    #             arguments = [
+    #                 user_id,
+    #                 user_id,
+    #                 lat_min,
+    #                 lat_max,
+    #                 lng_min,
+    #                 lng_max,
+    #                 user_id,
+    #             ]
+    #             filters = []
+
+    #             # ✅ 필터 조건들
+    #             if position:
+    #                 filters.append(
+    #                     "("
+    #                     + " OR ".join(["FIND_IN_SET(%s, u.position)"] * len(position))
+    #                     + ")"
+    #                 )
+    #                 arguments.extend(position)
+    #             if relation:
+    #                 filters.append(
+    #                     "("
+    #                     + " OR ".join(["FIND_IN_SET(%s, u.relation)"] * len(relation))
+    #                     + ")"
+    #                 )
+    #                 arguments.extend(relation)
+    #             if talk_style:
+    #                 filters.append(
+    #                     "("
+    #                     + " OR ".join(
+    #                         ["FIND_IN_SET(%s, u.talk_style)"] * len(talk_style)
+    #                     )
+    #                     + ")"
+    #                 )
+    #                 arguments.extend(talk_style)
+    #             if bdsm_type:
+    #                 filters.append(
+    #                     "("
+    #                     + " OR ".join(["FIND_IN_SET(%s, u.bdsm_type)"] * len(bdsm_type))
+    #                     + ")"
+    #                 )
+    #                 arguments.extend(bdsm_type)
+    #             if len(age) == 2:
+    #                 filters.append(
+    #                     """
+    #                     TIMESTAMPDIFF(
+    #                         YEAR,
+    #                         STR_TO_DATE(u.birthday, '%%Y%%m%%d'),
+    #                         CURDATE()
+    #                     ) BETWEEN %s AND %s
+    #                 """
+    #                 )
+    #                 arguments.extend(age)
+    #             if secret is not None:
+    #                 secret_exists = "EXISTS" if secret else "NOT EXISTS"
+    #                 filters.append(
+    #                     f"""
+    #                     {secret_exists} (
+    #                         SELECT 1
+    #                         FROM user_secret_images si
+    #                         WHERE si.user_id = u.id
+    #                         AND si.use_yn = TRUE
+    #                     )
+    #                 """
+    #                 )
+
+    #             if filters:
+    #                 query += " AND " + " AND ".join(filters)
+
+    #             # ✅ LIMIT은 Python 정렬 후 적용하므로 생략 가능하지만 안전하게 추가
+    #             query += " LIMIT 500"
+
+    #             # ✅ 실행
+    #             await cur.execute(query, arguments)
+    #             rows = await cur.fetchall()
+
+    #             # ✅ Python에서 거리 계산
+    #             def calc_distance(lat1, lon1, lat2, lon2):
+    #                 R = 6371
+    #                 d_lat = math.radians(lat2 - lat1)
+    #                 d_lon = math.radians(lon2 - lon1)
+    #                 a = (
+    #                     math.sin(d_lat / 2) ** 2
+    #                     + math.cos(math.radians(lat1))
+    #                     * math.cos(math.radians(lat2))
+    #                     * math.sin(d_lon / 2) ** 2
+    #                 )
+    #                 c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    #                 return R * c
+
+    #             # ✅ 거리 계산 및 정렬
+    #             user_distances = []
+    #             for user_id_val, lat2, lon2 in rows:
+    #                 if lat2 is None or lon2 is None:
+    #                     continue
+    #                 distance = calc_distance(lat, lng, float(lat2), float(lon2))
+    #                 user_distances.append((user_id_val, distance))
+
+    #             # 거리순 정렬 및 페이징
+    #             user_distances.sort(key=lambda x: x[1])
+    #             paginated = user_distances[offset : offset + 30]
+
+    #             # ✅ 결과 반환
+    #             return [user_id for user_id, _ in paginated]
 
     async def fetch_user_fcm_list(self, user_id_list: List[str]) -> List[str]:
         """
