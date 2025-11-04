@@ -14,6 +14,7 @@ from app.db.user import (
     CountRow,
     ProfileViewRow,
 )
+import math
 
 logger = get_logger(__name__)
 
