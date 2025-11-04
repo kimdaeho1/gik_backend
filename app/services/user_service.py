@@ -1049,7 +1049,7 @@ class UserService:
             raise HTTPException(status_code=500, detail="고래 코인 차감 실패")
 
     async def add_user_credit_profile_view(
-        self, viewer_id: str, viewed_id: str
+        self, viewer_id: str, viewed_id: str, credit_type: Optional[str] = None
     ) -> bool:
         viewer = await self.user_repository.fetch_active_user(viewer_id)
         if not viewer:
@@ -1060,9 +1060,18 @@ class UserService:
             raise HTTPException(status_code=404, detail="상대방을 찾을 수 없습니다.")
 
         try:
-            await self.user_repository.insert_credit_profile_view(viewer_id, viewed_id)
-            # 유저 크레딧 차감
-            # await self.consume_user_credit(viewer_id, "history_view")
+            if credit_type == None:
+                await self.user_repository.insert_credit_profile_view(
+                    viewer_id, viewed_id
+                )
+                return True
+            elif credit_type == "history_view":
+                await self.user_repository.insert_credit_profile_view(
+                    viewer_id, viewed_id
+                )
+                # 유저 크레딧 차감
+                await self.consume_user_credit(viewer_id, "history_view")
+                return True
             return True
         except Exception:
             raise HTTPException(
