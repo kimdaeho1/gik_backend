@@ -140,6 +140,13 @@ class FeedService:
         user_id = await get_user_id_from_token(token)
 
         feed = await self.feed_repository.get_feed(feed_id)
+        if not feed:
+            logger.error("존재하지 않거나 삭제된 피드입니다.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="존재하지 않거나 삭제된 피드입니다.",
+            )
+
         images = await self.feed_repository.get_feed_images(feed_id)
         like_count = await self.feed_repository.get_feed_like_count(
             feed_id=feed_id, user_id=user_id
