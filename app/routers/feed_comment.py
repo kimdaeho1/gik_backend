@@ -57,7 +57,7 @@ async def create_feed_comment(
         data={
             "type": f"{push_type}",
             "feedId": feed_id,
-            "image": image,
+            "feedImages": image,
         },
         collapse_key=f"feed_comment_{feed_id}",
         activity_type="feed_comment",

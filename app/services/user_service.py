@@ -418,7 +418,7 @@ class UserService:
     ) -> List[UserListResponse]:
         if not user_id_list:
             return []
-
+        start_time = time.perf_couter()
         user_rows = await self.user_repository.fetch_user_list(user_id_list, user_id)
 
         user_profiles: List[UserListResponse] = []
