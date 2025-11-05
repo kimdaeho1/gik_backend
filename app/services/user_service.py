@@ -1166,10 +1166,19 @@ class UserService:
         }
 
         credit_history_list: List[UserCreditHistoryResponse] = []
+        print(credit_histories)
         for credit_history in credit_histories:
             # db에 있는 description값을 꺼내온다
             db_description = credit_history_map.get(credit_history[1])
             if not db_description:
+                credit_history_list.append(
+                    UserCreditHistoryResponse(
+                        amount=credit_history[0],
+                        title="",
+                        description=credit_history[1],
+                        createdAt=credit_history[2],
+                    )
+                )
                 continue
 
             credit_history_list.append(
