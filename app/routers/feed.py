@@ -376,7 +376,7 @@ async def purchase_secret_feed(
         background_tasks=background_tasks,
         user_id=feed_user_id,
         target_user_id=user_id,
-        title_content=f"{purchased_user_nickname}님이 내 시크릿 피드를 보고 갔어요. 👀",
+        title_content="누군가가 내 시크릿 피드를 보고 갔어요. 👀",
         body_content="그사람의 시크릿 피드를 둘러보세요.",
         data={
             "type": "secret",
