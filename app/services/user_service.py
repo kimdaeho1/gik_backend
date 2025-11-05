@@ -418,7 +418,6 @@ class UserService:
     ) -> List[UserListResponse]:
         if not user_id_list:
             return []
-        start_time = time.perf_couter()
         user_rows = await self.user_repository.fetch_user_list(user_id_list, user_id)
 
         user_profiles: List[UserListResponse] = []
@@ -509,10 +508,7 @@ class UserService:
     ) -> List[UserListResponse]:
 
         # 응답 시간 로깅을 위한
-        start_time = time.perf_counter()
         user_id = await get_user_id_from_token(token)
-
-        repo_start = time.perf_counter()
         user_list = await self.user_repository.fetch_nearby_user_list(
             user_id=user_id,
             page=page,
@@ -523,21 +519,8 @@ class UserService:
             talk_style=talk_style,
             secret=secret,
         )
-        repo_end = time.perf_counter()
-
-        list_start = time.perf_counter()
         user_profiles = await self.fetch_user_list(
             user_id=user_id, user_id_list=user_list
-        )
-        list_end = time.perf_counter()
-        end_time = time.perf_counter()
-
-        logger.info(
-            f"[PERF] nearby_user_list(service): "
-            f"fetch_nearby={repo_end - repo_start:.3f}s | "
-            f"profile_list={list_end - list_start:.3f}s | "
-            f"total={end_time - start_time:.3f}s | "
-            f"users={len(user_profiles)}"
         )
 
         return user_profiles
