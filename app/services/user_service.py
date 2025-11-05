@@ -1166,7 +1166,6 @@ class UserService:
         }
 
         credit_history_list: List[UserCreditHistoryResponse] = []
-        print(credit_histories)
         for credit_history in credit_histories:
             # db에 있는 description값을 꺼내온다
             db_description = credit_history_map.get(credit_history[1])
