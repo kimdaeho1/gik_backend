@@ -378,28 +378,76 @@ class UserProfileRow(BaseModel):
 
 class UserDetailRow(BaseModel):
     id: str
-    fcm: str
+    fcm: Optional[str]
     nickname: str
     birthday: str
-    relation: str
-    position: str
-    country: str
     age: int
     height: int
     weight: int
+    sns: str
+    relation: str
+    position: str
+    country: str
+    hashtags: str
+    self_introduction: Optional[str]
+    bdsm_type: Optional[str]
+    talk_style: Optional[str]
+    secret_yn: bool
+    credit: int
+    provider: str
+    marketing_agree: bool
+    night_agree: bool
+    personal_chat_alarm_agree: bool
+    group_chat_alarm_agree: bool
+    post_comment_alarm_agree: bool
+    post_like_alarm_agree: bool
+    profile_alarm_agree: bool
+    secret_alarm_agree: bool
+    feed_like_alarm_agree: bool
+    feed_comment_alarm_agree: bool
+    banned: bool
+    unbanned_dt: Optional[datetime]
+    last_connected_at: datetime
+    latitude: Optional[float]
+    longitude: Optional[float]
+    profileImages: Optional[str]
+    secretImages: Optional[str]
+    blockUserList: Optional[str]
+    favoriteUserList: Optional[str]
+    pushRead: bool
+    profileRead: bool
+    todayAdCount: int
+    hasSecretFeed: bool
+
+
+class UserDetailViewRow(BaseModel):
+    id: str
+    fcm: Optional[str]
+    nickname: str
+    birthday: str
+    age: int
+    height: int
+    weight: int
+    sns: str
+    relation: str
+    position: str
+    country: str
     hashtags: str
     self_introduction: Optional[str]
     bdsm_type: Optional[str]
     talk_style: Optional[str]
     secret_yn: bool
     leaved: bool
+    last_connected_at: datetime
+    latitude: Optional[float]
+    longitude: Optional[float]
     personal_chat_alarm_agree: bool
     group_chat_alarm_agree: bool
     post_comment_alarm_agree: bool
     post_like_alarm_agree: bool
-    last_connected_at: datetime
-    latitude: Optional[float]
-    longitude: Optional[float]
+    profileImages: Optional[str]
+    secretImages: Optional[str]
+    blockUserList: Optional[str]
 
 
 class UserListRow(BaseModel):
