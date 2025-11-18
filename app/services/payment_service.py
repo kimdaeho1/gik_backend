@@ -146,3 +146,6 @@ class PaymentsService:
                     await conn.rollback()
                     logger.error(f"환불 처리 중 오류 발생: {e}")
                     return False
+
+    # 구독 결제 모델
+    # 푸시로 결제 x일전, 결제 완료, 결제 중간 취소, 결제 실패등등의 push알림과 처리가 필요.

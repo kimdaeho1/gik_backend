@@ -17,7 +17,7 @@ from app.repository.user_repository import UserRepository
 from app.repository.feed_repository import FeedRepository
 from app.services.image_service import ImageService
 from app.utils.token import get_user_id_from_token
-import time
+import time, json
 
 logger = get_logger(__name__)
 
@@ -38,6 +38,7 @@ class UserService:
     # form data는 JSON이 아니다. FastAPI가 Pydantic 모델에 자동으로 변환해주지 않음.
     # 이 데이터 형식은 multipart/form-data가 되는데 Pydantic 모델을 Form 입력값으로 감싸서 생성하는 팩토리 메서드로
     # Depends()로 넘긴 함수의 시그니처를 보고 의존성 주입.
+    # TODO: 최적화 필요: 여기 추가할 수 있나?
     async def create_user(
         self,
         user_form: UserCreateRequest,
@@ -101,83 +102,78 @@ class UserService:
             user_row, columns = await self.user_repository.get_user_row(user_form.id)
             if user_row and columns:
                 await self.user_repository.insert_user_history(user_row, columns)
+            logger.info(f"유저 생성을 완료했습니다. user_id: {user_form.id}")
             return True
         except Exception as e:
-            logger.error(f"User creation failed: {str(e)}")
+            logger.error(f"유저 생성을 실패했습니다: {str(e)}")
             raise HTTPException(status_code=500, detail="사용자 생성 실패")
 
+    # TODO: 최적화 필요
     async def fetch_my_profile(self, user_id: str) -> UserProfileResponse | None:
         try:
-            # users에 있는 유저 정보
-            user_row = await self.user_repository.fetch_my_profile(user_id)
-            if not user_row:
+            row = await self.user_repository.fetch_my_profile(user_id)
+            if not row:
                 raise HTTPException(
                     status_code=404, detail="존재하지 않는 사용자입니다."
                 )
-            # 이미지 정보
-            profile_images = await self.user_repository.fetch_profile_images(user_id)
-            secret_images = await self.user_repository.fetch_secret_images(user_id)
-            # 차단 목록 / 즐겨찾기
-            block_user_list = await self.user_repository.fetch_user_block_list(user_id)
-            favorite_list = await self.user_repository.fetch_favorite_list(user_id)
-            # 푸시 상태
-            user_no = await self.user_repository.fetch_user_no(user_id)
-            push_read, profile_read = await self.user_repository.fetch_push_status(
-                user_no
+
+            # JSON 필드 파싱
+            profile_images = json.loads(row.profileImages) if row.profileImages else []
+            secret_images = json.loads(row.secretImages) if row.secretImages else []
+            block_user_list = json.loads(row.blockUserList) if row.blockUserList else []
+            favorite_list = (
+                json.loads(row.favoriteUserList) if row.favoriteUserList else []
             )
-            # 광고 시청 횟수
-            today_ad_count = await self.user_repository.fetch_today_ads(user_id)
-            has_secret_feed = await self.feed_repository.fetch_secret_feed_status(
-                user_id
-            )
+
             return UserProfileResponse(
-                id=user_row.id,
-                nickname=user_row.nickname,
-                birthday=user_row.birthday,
-                age=user_row.age,
-                height=user_row.height,
-                weight=user_row.weight,
-                sns=user_row.sns,
-                relation=user_row.relation,
-                provider=user_row.provider,
-                position=user_row.position,
-                country=user_row.country,
-                hashtags=Hashtags.parse_raw(user_row.hashtags),
-                selfIntroduction=user_row.self_introduction,
-                bdsmType=user_row.bdsm_type,
-                talkStyle=user_row.talk_style,
+                id=row.id,
+                nickname=row.nickname,
+                birthday=row.birthday,
+                age=row.age,
+                height=row.height,
+                weight=row.weight,
+                sns=row.sns,
+                relation=row.relation,
+                provider=row.provider,
+                position=row.position,
+                country=row.country,
+                hashtags=Hashtags.parse_raw(row.hashtags),
+                selfIntroduction=row.self_introduction,
+                bdsmType=row.bdsm_type,
+                talkStyle=row.talk_style,
                 profileImages=profile_images,
-                secretYn=user_row.secret_yn,
-                credit=user_row.credit,
-                todayAdCount=today_ad_count,
+                secretYn=row.secret_yn,
+                credit=row.credit,
+                todayAdCount=row.todayAdCount,
                 secretImages=secret_images,
-                marketingAlarm=user_row.marketing_agree,
-                nightAlarm=user_row.night_agree,
-                personalChatAlarm=user_row.personal_chat_alarm_agree,
-                groupChatAlarm=user_row.group_chat_alarm_agree,
-                postCommentAlarm=user_row.post_comment_alarm_agree,
-                postLikeAlarm=user_row.post_like_alarm_agree,
-                profileAlarm=user_row.profile_alarm_agree,
-                secretAlarm=user_row.secret_alarm_agree,
-                feedLikeAlarm=user_row.feed_like_alarm_agree,
-                feedCommentAlarm=user_row.feed_comment_alarm_agree,
-                pushRead=push_read,
-                profileRead=profile_read,
-                banned=user_row.banned,
-                unBannedDate=user_row.unbanned_dt,
+                marketingAlarm=row.marketing_agree,
+                nightAlarm=row.night_agree,
+                personalChatAlarm=row.personal_chat_alarm_agree,
+                groupChatAlarm=row.group_chat_alarm_agree,
+                postCommentAlarm=row.post_comment_alarm_agree,
+                postLikeAlarm=row.post_like_alarm_agree,
+                profileAlarm=row.profile_alarm_agree,
+                secretAlarm=row.secret_alarm_agree,
+                feedLikeAlarm=row.feed_like_alarm_agree,
+                feedCommentAlarm=row.feed_comment_alarm_agree,
+                pushRead=row.pushRead,
+                profileRead=row.profileRead,
+                banned=row.banned,
+                unBannedDate=row.unbanned_dt,
                 blockUserList=block_user_list,
                 blockPostList=[],
                 blockCommentList=[],
                 favoriteUserList=favorite_list,
-                lastConnectedAt=user_row.last_connected_at,
-                latitude=user_row.latitude,
-                longitude=user_row.longitude,
-                hasSecretFeed=has_secret_feed,
+                lastConnectedAt=row.last_connected_at,
+                latitude=row.latitude,
+                longitude=row.longitude,
+                hasSecretFeed=row.hasSecretFeed,
             )
 
         except HTTPException:
             raise
         except Exception as e:
+            logger.error(f"내 정보 조회 실패: {str(e)}")
             raise HTTPException(status_code=500, detail=f"내 정보 조회 실패: {str(e)}")
 
     async def check_nickname(self, nickname: str) -> bool:
@@ -186,9 +182,11 @@ class UserService:
     async def update_user_nickname(self, id: str, nickname: str) -> str:
         user = await self.user_repository.fetch_active_user(id)
         if not user:
+            logger.error(f"존재하지 않는 사용자입니다. user_id: {id}")
             return "not_found"
 
         if await self.user_repository.check_nickname(nickname):
+            logger.error(f"중복된 닉네임입니다. nickname: {nickname}")
             return "duplicate"
 
         await self.user_repository.update_user_nickname(id, nickname)
@@ -317,18 +315,18 @@ class UserService:
     async def check_user_block(self, user_id: str, target_user_id: str) -> bool:
         return await self.user_repository.check_user_block(user_id, target_user_id)
 
-    async def fetch_user_profile(
-        self, user_id: str, viewer_id: Optional[str]
-    ) -> UserDetailResponse | None:
+    async def fetch_user_profile(self, user_id: str, viewer_id: Optional[str]):
         try:
-            # 유저 정보 가져오기
-            user_row = await self.user_repository.fetch_user_profile(user_id)
-            if not user_row:
+            row = await self.user_repository.fetch_user_profile(user_id)
+            if not row:
                 return {}
-            # 차단 목록 가져오기
-            block_user_list = await self.user_repository.fetch_user_block_list(user_id)
 
-            # 차단 여부 및 조회수 가져오기
+            # JSON → Python list
+            profile_images = json.loads(row.profileImages) if row.profileImages else []
+            secret_images = json.loads(row.secretImages) if row.secretImages else []
+            block_user_list = json.loads(row.blockUserList) if row.blockUserList else []
+
+            # viewer 관련
             if viewer_id is None:
                 is_blocked = False
                 today_view_count = 0
@@ -341,46 +339,40 @@ class UserService:
                 total_view_count = await self.user_repository.fetch_total_view_count(
                     user_id, viewer_id
                 )
-            # 이미지 가져오기
-            profile_images = await self.user_repository.fetch_profile_images(user_id)
-            secret_images = (
-                await self.user_repository.fetch_secret_images(user_id)
-                if user_row.secret_yn
-                else []
-            )
 
             return UserDetailResponse(
-                id=user_row.id,
-                fcm=user_row.fcm,
-                nickname=user_row.nickname,
-                birthday=user_row.birthday,
-                relation=user_row.relation,
-                position=user_row.position,
-                country=user_row.country,
-                age=user_row.age,
-                height=user_row.height,
-                weight=user_row.weight,
-                hashtags=Hashtags.parse_raw(user_row.hashtags),
-                selfIntroduction=user_row.self_introduction,
-                bdsmType=user_row.bdsm_type,
-                talkStyle=user_row.talk_style,
-                secretYn=user_row.secret_yn,
-                secretImages=secret_images,
+                id=row.id,
+                fcm=row.fcm,
+                nickname=row.nickname,
+                birthday=row.birthday,
+                relation=row.relation,
+                position=row.position,
+                country=row.country,
+                age=row.age,
+                height=row.height,
+                weight=row.weight,
+                hashtags=Hashtags.parse_raw(row.hashtags),
+                selfIntroduction=row.self_introduction,
+                bdsmType=row.bdsm_type,
+                talkStyle=row.talk_style,
+                secretYn=row.secret_yn,
                 profileImages=profile_images,
-                leaved=user_row.leaved,
-                personalChatAlarm=user_row.personal_chat_alarm_agree,
-                groupChatAlarm=user_row.group_chat_alarm_agree,
-                postCommentAlarm=user_row.post_comment_alarm_agree,
-                postLikeAlarm=user_row.post_like_alarm_agree,
+                secretImages=secret_images if row.secret_yn else [],
+                leaved=row.leaved,
+                personalChatAlarm=row.personal_chat_alarm_agree,
+                groupChatAlarm=row.group_chat_alarm_agree,
+                postCommentAlarm=row.post_comment_alarm_agree,
+                postLikeAlarm=row.post_like_alarm_agree,
                 blockUserList=block_user_list,
-                lastConnectedAt=user_row.last_connected_at,
-                latitude=user_row.latitude,
-                longitude=user_row.longitude,
+                lastConnectedAt=row.last_connected_at,
+                latitude=row.latitude,
+                longitude=row.longitude,
                 isBlocked=is_blocked,
                 todayViewCount=today_view_count,
                 totalViewCount=total_view_count,
             )
         except Exception as e:
+            logger.error(f"유저 정보 조회 실패: {str(e)}")
             raise HTTPException(
                 status_code=500, detail=f"유저 정보 조회 실패: {str(e)}"
             )
@@ -388,10 +380,12 @@ class UserService:
     async def block_user(self, id: str, user_id: str) -> bool:
         active_user = await self.user_repository.fetch_active_user(id)
         if not active_user:
+            logger.error(f"존재하지 않는 사용자입니다. user_id: {id}")
             raise HTTPException(status_code=404, detail="User not found")
 
         target_user = await self.user_repository.fetch_active_user(user_id)
         if not target_user:
+            logger.error(f"차단할 사용자가 존재하지 않습니다. user_id: {user_id}")
             raise HTTPException(status_code=404, detail="Blocked user not found")
 
         await self.user_repository.block_user(id, user_id)
@@ -402,10 +396,14 @@ class UserService:
     ) -> bool:
         reporter = await self.user_repository.fetch_active_user(reportUserId)
         if not reporter:
+            logger.error(f"신고한 사용자가 존재하지 않습니다. user_id: {reportUserId}")
             raise HTTPException(status_code=404, detail="Reporting user not found")
 
         reported = await self.user_repository.fetch_active_user(reportedUserId)
         if not reported:
+            logger.error(
+                f"신고당한 사용자가 존재하지 않습니다. user_id: {reportedUserId}"
+            )
             raise HTTPException(status_code=404, detail="Reported user not found")
 
         await self.user_repository.report_user(

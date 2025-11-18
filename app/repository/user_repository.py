@@ -9,6 +9,7 @@ from app.utils.logging_config import get_logger
 from app.db.user import (
     UserProfileRow,
     UserDetailRow,
+    UserDetailViewRow,
     UserListRow,
     ViewCountRow,
     CountRow,
@@ -109,62 +110,227 @@ class UserRepository:
                 )
 
     async def fetch_my_profile(self, user_id: str):
-        """
-        유저 정보 가져오기
-        """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT
-                        id, nickname, birthday, age, height, weight, sns, 
-                        relation, position, country, hashtags, 
-                        self_introduction, bdsm_type, talk_style, secret_yn, credit,
-                        provider, marketing_agree, night_agree,
-                        personal_chat_alarm_agree, group_chat_alarm_agree,
-                        post_comment_alarm_agree, post_like_alarm_agree,
-                        profile_alarm_agree, secret_alarm_agree,
-                        feed_like_alarm_agree, feed_comment_alarm_agree,
-                        banned, unbanned_dt, last_connected_at,
-                        latitude, longitude
-                    FROM users
-                    WHERE id = %s AND leaved = FALSE
-                    """,
-                    (user_id,),
-                )
-                row = await cur.fetchone()
-                if not row:
-                    return None
-                columns = [col[0] for col in cur.description]
-                row_dict = dict(zip(columns, row))
-                return UserProfileRow(**row_dict)
+                    SELECT 
+                        u.id,
+                        u.fcm,
+                        u.nickname,
+                        u.birthday,
+                        u.age,
+                        u.height,
+                        u.weight,
+                        u.sns,
+                        u.relation,
+                        u.position,
+                        u.country,
+                        u.hashtags,
+                        u.self_introduction,
+                        u.bdsm_type,
+                        u.talk_style,
+                        u.secret_yn,
+                        u.credit,
+                        u.provider,
+                        u.marketing_agree,
+                        u.night_agree,
+                        u.personal_chat_alarm_agree,
+                        u.group_chat_alarm_agree,
+                        u.post_comment_alarm_agree,
+                        u.post_like_alarm_agree,
+                        u.profile_alarm_agree,
+                        u.secret_alarm_agree,
+                        u.feed_like_alarm_agree,
+                        u.feed_comment_alarm_agree,
+                        u.banned,
+                        u.unbanned_dt,
+                        u.last_connected_at,
+                        u.latitude,
+                        u.longitude,
 
-    async def fetch_user_profile(self, user_id: str):
-        """
-        상대 유저 프로필 정보 가져오기
-        """
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT
-                        id, fcm, nickname, birthday, relation, position,
-                        country, age, height, weight, hashtags, self_introduction,
-                        bdsm_type, talk_style, leaved, secret_yn,
-                        personal_chat_alarm_agree, group_chat_alarm_agree,
-                        post_comment_alarm_agree, post_like_alarm_agree,
-                        last_connected_at, latitude, longitude
-                    FROM users
-                    WHERE id = %s AND leaved = FALSE
+                        -- 🔥 프로필 이미지 리스트 (정렬 서브쿼리)
+                        (
+                            SELECT JSON_ARRAYAGG(t.url)
+                            FROM (
+                                SELECT ui.url
+                                FROM user_images ui
+                                WHERE ui.user_id = u.id AND ui.use_yn = TRUE
+                                ORDER BY ui.index
+                            ) t
+                        ) AS profileImages,
+
+                        -- 🔥 시크릿 이미지 리스트 (정렬 서브쿼리)
+                        (
+                            SELECT JSON_ARRAYAGG(t.url)
+                            FROM (
+                                SELECT us.url
+                                FROM user_secret_images us
+                                WHERE us.user_id = u.id AND us.use_yn = TRUE
+                                ORDER BY us.index
+                            ) t
+                        ) AS secretImages,
+
+                        -- 차단 리스트
+                        (
+                            SELECT JSON_ARRAYAGG(ub.blocked_user_id)
+                            FROM user_block_list ub
+                            WHERE ub.block_user_id = u.id
+                        ) AS blockUserList,
+
+                        -- 즐겨찾기 리스트
+                        (
+                            SELECT JSON_ARRAYAGG(favorite_user_id)
+                            FROM users_favorite_list
+                            WHERE user_id = u.id
+                        ) AS favoriteUserList,
+
+                        -- push_read
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM push_user_log pul
+                                WHERE pul.user_no = u.user_no 
+                                AND pul.delivery_state = 'DELIVERED'
+                            )
+                        ) AS pushRead,
+
+                        -- profile_read
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM push_user_log pul
+                                WHERE pul.user_no = u.user_no 
+                                AND pul.status = 'SUCCESS'
+                                AND pul.delivery_state = 'DELIVERED' 
+                                AND pul.push_type = 'profile'
+                            )
+                        ) AS profileRead,
+
+                        -- 광고 시청 횟수
+                        (
+                            SELECT COUNT(*)
+                            FROM credit_history ch
+                            WHERE ch.user_id = u.id
+                            AND ch.description = '광고 시청 보상'
+                            AND ch.created_at >= CONVERT_TZ(CURDATE(), '+09:00', '+00:00')
+                            AND ch.created_at < CONVERT_TZ(CURDATE() + INTERVAL 1 DAY, '+09:00', '+00:00')
+                        ) AS todayAdCount,
+
+                        -- 시크릿 피드 존재 여부
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM feeds f
+                                WHERE f.user_id = u.id
+                                AND f.secret_status = TRUE
+                                AND f.deleted = FALSE
+                            )
+                        ) AS hasSecretFeed
+
+                    FROM users u
+                    WHERE u.id = %s
+                    AND u.leaved = FALSE
+                    LIMIT 1;
                     """,
                     (user_id,),
                 )
+
                 row = await cur.fetchone()
                 if not row:
                     return None
+
                 columns = [col[0] for col in cur.description]
                 row_dict = dict(zip(columns, row))
                 return UserDetailRow(**row_dict)
+
+    # 상대방 유저의 block_list 가져오기.
+    # 상대방의 차단 여부 및 조회수 가져오기(total, today)
+    # 상대방의 프로필 이미지, 상대방의(피드?)????
+    async def fetch_user_profile(self, user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT
+                        u.id,
+                        u.fcm,
+                        u.nickname,
+                        u.birthday,
+                        u.age,
+                        u.height,
+                        u.weight,
+                        u.sns,
+                        u.relation,
+                        u.position,
+                        u.country,
+                        u.hashtags,
+                        u.self_introduction,
+                        u.bdsm_type,
+                        u.talk_style,
+                        u.secret_yn,
+                        u.credit,
+                        u.provider,
+                        u.marketing_agree,
+                        u.night_agree,
+                        u.personal_chat_alarm_agree,
+                        u.group_chat_alarm_agree,
+                        u.post_comment_alarm_agree,
+                        u.post_like_alarm_agree,
+                        u.profile_alarm_agree,
+                        u.secret_alarm_agree,
+                        u.feed_like_alarm_agree,
+                        u.feed_comment_alarm_agree,
+                        u.banned,
+                        u.unbanned_dt,
+                        u.last_connected_at,
+                        u.latitude,
+                        u.longitude,
+                        u.leaved,
+
+                        -- 프로필 이미지 리스트
+                        (
+                            SELECT JSON_ARRAYAGG(t.url)
+                            FROM (
+                                SELECT ui.url
+                                FROM user_images ui
+                                WHERE ui.user_id = u.id AND ui.use_yn = TRUE
+                                ORDER BY ui.index
+                            ) t
+                        ) AS profileImages,
+
+                        -- 시크릿 이미지 리스트
+                        (
+                            SELECT JSON_ARRAYAGG(t.url)
+                            FROM (
+                                SELECT us.url
+                                FROM user_secret_images us
+                                WHERE us.user_id = u.id AND us.use_yn = TRUE
+                                ORDER BY us.index
+                            ) t
+                        ) AS secretImages,
+
+                        -- block list
+                        (
+                            SELECT JSON_ARRAYAGG(ub.blocked_user_id)
+                            FROM user_block_list ub
+                            WHERE ub.block_user_id = u.id
+                        ) AS blockUserList
+
+                    FROM users u
+                    WHERE u.id = %s AND u.leaved = FALSE
+                    LIMIT 1;
+                    """,
+                    (user_id,),
+                )
+
+                row = await cur.fetchone()
+                if not row:
+                    return None
+
+                columns = [col[0] for col in cur.description]
+                row_dict = dict(zip(columns, row))
+                return UserDetailViewRow(**row_dict)
 
     async def fetch_push_status(self, user_no: int):
         """
