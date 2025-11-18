@@ -149,7 +149,7 @@ class UserRepository:
                         u.latitude,
                         u.longitude,
 
-                        -- 🔥 프로필 이미지 리스트 (정렬 서브쿼리)
+                        -- 프로필 이미지 리스트
                         (
                             SELECT JSON_ARRAYAGG(t.url)
                             FROM (
@@ -160,7 +160,7 @@ class UserRepository:
                             ) t
                         ) AS profileImages,
 
-                        -- 🔥 시크릿 이미지 리스트 (정렬 서브쿼리)
+                        -- 시크릿 이미지 리스트
                         (
                             SELECT JSON_ARRAYAGG(t.url)
                             FROM (
