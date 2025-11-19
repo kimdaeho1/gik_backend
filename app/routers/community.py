@@ -205,7 +205,7 @@ async def like_post(
     postId: 좋아요할 게시글 ID
     """
     success = await community_service.like_post(
-        userId=like_request.userId, postId=like_request.postId
+        user_id=like_request.userId, post_id=like_request.postId
     )
     if not success:
         raise HTTPException(
@@ -235,7 +235,7 @@ async def like_post_with_push(
 
     # 2. 해당 게시글에 좋아요 등록.
     success = await community_service.like_post(
-        userId=viewer_id, postId=post_id_request.postId
+        user_id=viewer_id, post_id=post_id_request.postId
     )
     if not success:
         raise HTTPException(
@@ -273,7 +273,7 @@ async def cancel_post_like(
     postId: 좋아요 취소할 게시글 ID
     """
     success = await community_service.cancel_post_like(
-        userId=like_request.userId, postId=like_request.postId
+        user_id=like_request.userId, post_id=like_request.postId
     )
     if not success:
         raise HTTPException(
