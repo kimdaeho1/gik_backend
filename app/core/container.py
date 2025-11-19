@@ -13,6 +13,7 @@ from app.services.feed_comment_service import FeedCommentService
 from app.repository.feed_repository import FeedRepository
 from app.repository.feed_comment_repository import FeedCommentRepository
 from app.repository.user_repository import UserRepository
+from app.repository.community_repository import CommunityRepository
 from app.db.db_connection import db
 
 
@@ -37,6 +38,7 @@ class Container(containers.DeclarativeContainer):
     feed_repository = providers.Factory(FeedRepository, db=database)
     feed_comment_repository = providers.Factory(FeedCommentRepository, db=database)
     user_repository = providers.Factory(UserRepository, db=database)
+    community_repository = providers.Factory(CommunityRepository, db=database)
 
     # 서비스 컨테이너
     image_service = providers.Factory(ImageService, db=database)
@@ -49,7 +51,9 @@ class Container(containers.DeclarativeContainer):
     push_service = providers.Factory(
         PushService, db=database, user_repository=user_repository
     )
-    community_service = providers.Factory(CommunityService, db=database)
+    community_service = providers.Factory(
+        CommunityService, community_repository=community_repository, db=database
+    )
     token_service = providers.Factory(TokenService, db=database)
     feed_service = providers.Factory(
         FeedService,
@@ -63,7 +67,6 @@ class Container(containers.DeclarativeContainer):
 
     # 나중에 레포지토리 추가할떄 추가하기
     # image_repository = providers.Factory(UserRepository, db=database)
-    # community_repository = providers.Factory(UserRepository, db=database)
     # credit_repository = providers.Factory(UserRepository, db=database)
     # payment_repository = providers.Factory(UserRepository, db=database)
     # token_repository = providers.Factory(UserRepository, db=database)
