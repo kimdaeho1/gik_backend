@@ -25,8 +25,8 @@ jobs:
           {
             "containerDefinitions": [
               {
-                "name": "${{ secrets.DEV_ECS_SERVICE_TASK_DEF }}",
-                "image": "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/couplematch/match-dev:latest",
+                "name": "gik-backend-service-dev",
+                "image": "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/gik/backend-dev:latest",
                 "cpu": 128,
                 "memory": 128,
                 "memoryReservation": 64,
@@ -39,51 +39,21 @@ jobs:
                 ],
                 "essential": true,
                 "environment": [
-                  {
-                    "name": "DB_HOST",
-                    "value": "${{ secrets.DEV_DB_HOST }}"
-                  },
-                  {
-                    "name": "DB_PORT",
-                    "value": "${{ secrets.DEV_DB_PORT }}"
-                  },
-                  {
-                    "name": "DB_USER",
-                    "value": "${{ secrets.DEV_DB_USER }}"
-                  },
-                  {
-                    "name": "DB_NAME",
-                    "value": "${{ secrets.DEV_DB_NAME }}"
-                  },
-                  {
-                    "name": "DB_PASSWORD",
-                    "value": "${{ secrets.DEV_DB_PASSWORD }}"
-                  },
-                  {
-                    "name": "S3_BUCKET",
-                    "value": "${{ secrets.DEV_S3_BUCKET }}"
-                  },
-                  {
-                    "name": "AWS_ACCESS_KEY_ID",
-                    "value": "${{ secrets.AWS_ACCESS_KEY }}"
-                  },
-                  {
-                    "name": "AWS_SECRET_ACCESS_KEY",
-                    "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-                  },
-                  {
-                    "name": "JWT_SECRET_KEY",
-                    "value": "${{ secrets.JWT_SECRET_KEY }}"
-                  },
-                  {
-                    "name": "HASH_ALGORITHM",
-                    "value": "${{ secrets.HASH_ALGORITHM }}"
-                  }
+                  { "name": "DB_HOST", "value": "${{ secrets.DEV_DB_HOST }}" },
+                  { "name": "DB_PORT", "value": "${{ secrets.DEV_DB_PORT }}" },
+                  { "name": "DB_USER", "value": "${{ secrets.DEV_DB_USER }}" },
+                  { "name": "DB_PASSWORD", "value": "${{ secrets.DEV_DB_PASSWORD }}" },
+                  { "name": "DB_NAME", "value": "${{ secrets.DEV_DB_NAME }}" },
+                  { "name": "S3_BUCKET", "value": "${{ secrets.DEV_S3_BUCKET }}" },
+                  { "name": "AWS_ACCESS_KEY_ID", "value": "${{ secrets.AWS_ACCESS_KEY }}" },
+                  { "name": "AWS_SECRET_ACCESS_KEY", "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}" },
+                  { "name": "JWT_SECRET_KEY", "value": "${{ secrets.JWT_SECRET_KEY }}" },
+                  { "name": "HASH_ALGORITHM", "value": "${{ secrets.HASH_ALGORITHM }}" }
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
                   "options": {
-                    "awslogs-group": "/ecs/${{ secrets.DEV_ECS_SERVICE }}",
+                    "awslogs-group": "/ecs/gik-backend-service-dev",
                     "awslogs-create-group": "true",
                     "awslogs-region": "ap-northeast-2",
                     "awslogs-stream-prefix": "ecs"
@@ -91,7 +61,7 @@ jobs:
                 }
               }
             ],
-            "family": "${{ secrets.DEV_ECS_SERVICE_TASK_DEF }}",
+            "family": "gik-backend-service-dev",
             "taskRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
             "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
             "networkMode": "bridge",
@@ -107,20 +77,23 @@ jobs:
       - name: Register task definition
         id: register-task-def
         run: |
-          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://task-def.json | jq -r '.taskDefinition.taskDefinitionArn')
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://task-def.json \
+            | jq -r '.taskDefinition.taskDefinitionArn')
           echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
 
       - name: Update ECS service
         run: |
           aws ecs update-service \
             --cluster ${{ secrets.ECS_CLUSTER }} \
-            --service ${{ secrets.DEV_ECS_SERVICE }} \
+            --service gik-backend-service-dev \
             --task-definition ${{ env.TASK_DEF_ARN }} \
             --force-new-deployment
 
       - name: Deregister old task definitions
         run: |
-          OLD_TASK_DEFS=$(aws ecs list-task-definitions --family-prefix ${{ secrets.DEV_ECS_SERVICE_TASK_DEF }} --status ACTIVE \
+          OLD_TASK_DEFS=$(aws ecs list-task-definitions \
+            --family-prefix gik-backend-service-dev --status ACTIVE \
             | jq -r '.taskDefinitionArns[]' | grep -v ${{ env.TASK_DEF_ARN }})
 
           for task_def in $OLD_TASK_DEFS; do

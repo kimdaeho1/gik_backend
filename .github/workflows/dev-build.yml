@@ -22,12 +22,14 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build -t match-dev .
-        docker tag match-dev:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com/couplematch/match-dev:latest
+        docker build -t backend-dev .
+        docker tag backend-dev:latest \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com/gik/backend-dev:latest
 
     - name: Login to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v1
 
     - name: Push image to Amazon ECR
       run: |
-        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com/couplematch/match-dev:latest
+        docker push \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com/gik/backend-dev:latest
