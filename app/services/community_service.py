@@ -271,6 +271,7 @@ class CommunityService:
 
         return posts
 
+    # 푸시용 주석
     async def get_post_detail(self, post_id: str) -> Optional[PostDetailResponse]:
         detail = await self.community_repository.get_post_detail(post_id)
 

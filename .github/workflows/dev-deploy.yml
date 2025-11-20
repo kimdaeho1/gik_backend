@@ -39,16 +39,102 @@ jobs:
                 ],
                 "essential": true,
                 "environment": [
-                  { "name": "DB_HOST", "value": "${{ secrets.DEV_DB_HOST }}" },
-                  { "name": "DB_PORT", "value": "${{ secrets.DEV_DB_PORT }}" },
-                  { "name": "DB_USER", "value": "${{ secrets.DEV_DB_USER }}" },
-                  { "name": "DB_PASSWORD", "value": "${{ secrets.DEV_DB_PASSWORD }}" },
-                  { "name": "DB_NAME", "value": "${{ secrets.DEV_DB_NAME }}" },
-                  { "name": "S3_BUCKET", "value": "${{ secrets.DEV_S3_BUCKET }}" },
-                  { "name": "AWS_ACCESS_KEY_ID", "value": "${{ secrets.AWS_ACCESS_KEY }}" },
-                  { "name": "AWS_SECRET_ACCESS_KEY", "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}" },
-                  { "name": "JWT_SECRET_KEY", "value": "${{ secrets.JWT_SECRET_KEY }}" },
-                  { "name": "HASH_ALGORITHM", "value": "${{ secrets.HASH_ALGORITHM }}" }
+                  {
+                    "name": "AWS_ACCESS_KEY_ID",
+                    "value": "${{ secrets.AWS_ACCESS_KEY }}"
+                  },
+                  {
+                    "name": "AWS_SECRET_ACCESS_KEY",
+                    "value": "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+                  },
+                  {
+                    "name": "S3_BUCKET",
+                    "value": "${{ secrets.S3_BUCKET }}"
+                  },
+                  {
+                    "name": "CLOUDFRONT_URL",
+                    "value": "${{ secrets.CLOUDFRONT_URL }}"
+                  },
+                  {
+                    "name": "DB_HOST",
+                    "value": "${{ secrets.DEV_DB_HOST }}"
+                  },
+                  {
+                    "name": "DB_PORT",
+                    "value": "${{ secrets.DEV_DB_PORT }}"
+                  },
+                  {
+                    "name": "DB_NAME",
+                    "value": "${{ secrets.DEV_DB_NAME }}"
+                  },
+                  {
+                    "name": "DB_USER",
+                    "value": "${{ secrets.DEV_DB_USER }}"
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "value": "${{ secrets.DEV_DB_PASSWORD }}"
+                  },
+                  {
+                    "name": "JWT_SECRET_KEY",
+                    "value": "${{ secrets.JWT_SECRET_KEY }}"
+                  },
+                  {
+                    "name": "HASH_ALGORITHM",
+                    "value": "${{ secrets.HASH_ALGORITHM }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_PROJECT_ID",
+                    "value": "${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_PRIVATE_KEY",
+                    "value": "${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_PRIVATE_KEY_ID",
+                    "value": "${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY_ID }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_CLIENT_EMAIL",
+                    "value": "${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_CLIENT_ID",
+                    "value": "${{ secrets.FIREBASE_ADMIN_CLIENT_ID }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_AUTH_PROVIDER_X509_CERT_URL",
+                    "value": "${{ secrets.FIREBASE_ADMIN_AUTH_PROVIDER_X509_CERT_URL }}"
+                  },
+                  {
+                    "name": "FIREBASE_ADMIN_CLIENT_X509_CERT_URL",
+                    "value": "${{ secrets.FIREBASE_ADMIN_CLIENT_X509_CERT_URL }}"
+                  },
+                  {
+                    "name": "GOOGLE_API_KEY_PATH",
+                    "value": "${{ secrets.GOOGLE_API_KEY_PATH }}"
+                  },
+                  {
+                    "name": "GOOGLE_API_KEY_LOCAL_PATH",
+                    "value": "${{ secrets.GOOGLE_API_KEY_LOCAL_PATH }}"
+                  },
+                  {
+                    "name": "IOS_BUNDLE_ID",
+                    "value": "${{ secrets.IOS_BUNDLE_ID }}"
+                  },
+                  {
+                    "name": "IOS_ISSUER_ID",
+                    "value": "${{ secrets.IOS_ISSUER_ID }}"
+                  },
+                  {
+                    "name": "IOS_KEY_ID",
+                    "value": "${{ secrets.IOS_KEY_ID }}"
+                  },
+                  {
+                    "name": "IOS_API_PRIVATE_KEY",
+                    "value": "${{ secrets.IOS_API_PRIVATE_KEY }}"
+                  }
                 ],
                 "logConfiguration": {
                   "logDriver": "awslogs",
