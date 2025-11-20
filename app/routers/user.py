@@ -491,6 +491,7 @@ async def fetch_user_list(
     return {"success": True, "message": "유저 목록 조회 성공", "users": users}
 
 
+# 토큰 없을때 실패 처리
 # [유저] 유저 ID 목록 조회 (탈퇴하지 않은 유저 전체) / 희망하는 관계, 소통 스타일을 쿼리 파라미터로 받아서 필터
 @router.get("/users/id_list", status_code=status.HTTP_200_OK)
 @inject
