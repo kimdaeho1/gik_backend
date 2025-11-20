@@ -394,6 +394,17 @@ class CommunityRepository:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
 
+                await cur.execute(
+                    """
+                    UPDATE posts
+                    SET view_count = view_count + 1
+                    WHERE post_id = %s AND deleted = FALSE
+                    """,
+                    (post_id,),
+                )
+
+                await conn.commit()
+
                 query = """
                     SELECT
                         p.post_id,
