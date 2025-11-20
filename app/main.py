@@ -103,6 +103,11 @@ async def health():
     return {"message": "OK"}
 
 
+@app.get("/v1/gik/test-development", status_code=status.HTTP_200_OK)
+async def test_development():
+    return {"message": "Development environment is set up correctly."}
+
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting up and connecting to the database.")
