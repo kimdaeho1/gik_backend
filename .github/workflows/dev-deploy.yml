@@ -28,7 +28,7 @@ jobs:
                 "name": "gik-backend-service-dev",
                 "image": "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/gik/backend-dev:latest",
                 "cpu": 128,
-                "memory": 128,
+                "memory": 256,
                 "memoryReservation": 64,
                 "portMappings": [
                   {
@@ -152,7 +152,7 @@ jobs:
             "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
             "networkMode": "bridge",
             "cpu": "128",
-            "memory": "128",
+            "memory": "256",
             "runtimePlatform": {
               "cpuArchitecture": "X86_64",
               "operatingSystemFamily": "LINUX"
