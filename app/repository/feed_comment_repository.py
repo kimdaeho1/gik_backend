@@ -79,6 +79,7 @@ class FeedCommentRepository:
                     (user_id, reported_user_id, comment_id, reason),
                 )
 
+    # TODO: 차단 플로우 처리
     async def get_feed_comment_list(self, feed_id: str, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:

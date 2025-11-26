@@ -796,7 +796,8 @@ class UserService:
             )
             return credit_secret_list
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"시크릿 열람 내역 조회 실패: {str(e)}")
             raise HTTPException(status_code=500, detail="시크릿 열람 내역 조회 실패")
 
     async def accept_user_secret_images(

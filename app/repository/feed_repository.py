@@ -191,6 +191,7 @@ class FeedRepository:
                 feed = await cur.fetchone()
                 return feed
 
+    # TODO: 차단 플로우 처리
     async def get_feed_like_count(self, feed_id: str, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -206,12 +207,18 @@ class FeedRepository:
                         FROM user_block_list
                         WHERE block_user_id = %s
                     )
+                    AND fl.user_id NOT IN (
+                        SELECT block_user_id
+                        FROM user_block_list
+                        WHERE blocked_user_id = %s
+                    )
                     """,
-                    (feed_id, user_id),
+                    (feed_id, user_id, user_id),
                 )
                 query_count = await cur.fetchone()
                 return query_count[0]
 
+    # TODO: 차단 플로우 처리
     async def get_feed_comment_count(self, feed_id: str, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -228,8 +235,13 @@ class FeedRepository:
                         FROM user_block_list
                         WHERE block_user_id = %s
                     )
+                    AND fc.user_id NOT IN (
+                        SELECT block_user_id
+                        FROM user_block_list
+                        WHERE blocked_user_id = %s
+                    )
                     """,
-                    (feed_id, user_id),
+                    (feed_id, user_id, user_id),
                 )
                 query_count = await cur.fetchone()
                 return query_count[0]
@@ -358,6 +370,7 @@ class FeedRepository:
 
                 return feeds
 
+    # TODO: 차단 플로우 처리
     async def get_feed_list(self, user_id: str, page: int):
         offset = (page - 1) * 5
         async with self.db.get_connection() as conn:
@@ -396,6 +409,7 @@ class FeedRepository:
                 feeds = await cur.fetchall()
                 return feeds
 
+    # TODO: 차단 플로우 처리
     async def get_user_feed_list(
         self, user_id: str, target_user_id: str, page: int, secret_status: bool
     ):
@@ -457,6 +471,7 @@ class FeedRepository:
                     return False
                 return True
 
+    # TODO: 차단 플로우 처리
     async def get_feed_like_list(self, feed_id: str, user_id: str) -> List[str]:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -473,8 +488,13 @@ class FeedRepository:
                         FROM user_block_list
                         WHERE block_user_id = %s
                     )
+                    AND fl.user_id NOT IN (
+                        SELECT block_user_id
+                        FROM user_block_list
+                        WHERE blocked_user_id = %s
+                    )
                     """,
-                    (feed_id, user_id),
+                    (feed_id, user_id, user_id),
                 )
                 users_list = await cur.fetchall()
                 return [user_list[0] for user_list in users_list]
@@ -496,6 +516,7 @@ class FeedRepository:
                 secret_feeds = await cur.fetchall()
                 return len(secret_feeds) > 0
 
+    # TODO: 차단 플로우 처리
     async def get_purchase_feed_list(self, user_id: str, page: int):
         offset = (page - 1) * 5
         async with self.db.get_connection() as conn:
@@ -663,6 +684,7 @@ class FeedRepository:
                 count = await cur.fetchone()
                 return count[0] > 0
 
+    # TODO: 차단 플로우 처리
     async def get_random_feed_list(self, user_id: str, page: int):
         now = datetime.utcnow()
         offset = (page - 1) * 5
@@ -841,6 +863,7 @@ class FeedRepository:
                 if result:
                     return result[0]
 
+    # TODO: 차단 플로우 처리
     async def fetch_feed_purchase_list_with_blind_profile(
         self,
         feed_id: str,
@@ -875,6 +898,12 @@ class FeedRepository:
                         FROM user_block_list ub
                         WHERE ub.block_user_id = f.user_id
                             AND ub.blocked_user_id = fp.user_id
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM user_block_list ub
+                        WHERE ub.block_user_id = fp.user_id
+                            AND ub.blocked_user_id = f.user_id
                     )
                     ORDER BY fp.created_at DESC
                     """,
