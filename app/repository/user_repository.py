@@ -2729,3 +2729,147 @@ class UserRepository:
                     )
                     credit_history = await cur.fetchall()
                     return credit_history
+
+    async def follow_user(
+        self,
+        user_id: str,
+        biz_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM users_follow_list
+                    WHERE follower_id = %s AND follow_id = %s 
+                    """,
+                    (user_id, biz_id),
+                )
+                is_followed = await cur.fetchone()
+                # 팔로우 취소
+                if is_followed:
+                    await cur.execute(
+                        """
+                        DELETE FROM users_follow_list
+                        WHERE follower_id = %s AND follow_id
+                        """,
+                        (
+                            user_id,
+                            biz_id,
+                        ),
+                    )
+                    await conn.commit()
+                    await conn.close()
+                    return False
+                # 팔로우
+                await cur.execute(
+                    """
+                    INSERT INTO users_follow_list (follower_id, follow_id, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        user_id,
+                        biz_id,
+                    ),
+                )
+                await conn.commit()
+                await conn.close()
+                return True
+
+    # TODO: 고래코인 얼마로 지급할건데용?
+    async def insert_refferal_code(
+        self,
+        user_id: str,
+        referral_code: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM users_refferal_code
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                is_exist = await cur.fetchone()
+                if is_exist:
+                    return False
+
+                await cur.execute(
+                    """
+                    INSERT INTO users_refferal_code (user_id, referral_code, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        user_id,
+                        referral_code,
+                    ),
+                )
+                await conn.commit()
+                await conn.close()
+                return True
+
+    async def upload_biz_review(
+        self,
+        user_id: str,
+        biz_id: str,
+        content: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO users_review (user_id, biz_id, content, created_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        user_id,
+                        biz_id,
+                        content,
+                    ),
+                ),
+                await conn.commit()
+                await conn.close()
+                return True
+
+    async def fetch_biz_profile(
+        self,
+        user_id: str,
+        biz_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT b.name, b.type, b.tag, b.description, b.loaction, b.phone_number
+                    FROM biz_accounts b
+                    WHERE b.id = %s
+                    """,
+                    (biz_id,),
+                )
+                row = await cur.fetchone()
+                if not row:
+                    return None
+                columns = [col[0] for col in cur.description]
+                return dict(zip(columns, row))
+
+    async def fetch_biz_list(
+        self,
+        page: int,
+    ):
+        offset = (page - 1) * 20
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT b.id, b.name, b.type, b.tag, b.description, b.loaction, b.phone_number
+                    FROM biz_accounts b
+                    ORDER BY b.created_at DESC
+                    LIMIT 20 OFFSET %s
+                    """,
+                    (offset,),
+                )
+                rows = await cur.fetchall()
+                columns = [col[0] for col in cur.description]
+                return [dict(zip(columns, row)) for row in rows]

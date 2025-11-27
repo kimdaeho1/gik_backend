@@ -1190,3 +1190,92 @@ class UserService:
         if not credit_history_list:
             return []
         return credit_history_list
+
+    async def use_user_coupon(
+        self,
+        token: str,
+        coupon_id: str,
+    ):
+        # 토큰에서 user_id 추출
+
+        # 쿠폰의 id 검증
+
+        # 쿠폰 사용처리
+        ...
+
+    async def fetch_biz_list(
+        self,
+        token: str,
+        page: int,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 리스트 조회
+        return await self.user_repository.fetch_biz_list(
+            user_id=user_id,
+            page=page,
+        )
+
+    async def fetch_biz_profile(
+        self,
+        token: str,
+        biz_id: str,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 프로필 조회
+        await self.user_repository.fetch_biz_profile(
+            user_id=user_id,
+            biz_id=biz_id,
+        )
+
+    async def upload_biz_review(
+        self,
+        token: str,
+        biz_id: str,
+        content: str,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 리뷰 업로드
+        await self.user_repository.upload_biz_review(
+            user_id=user_id,
+            biz_id=biz_id,
+            content=content,
+        )
+
+    async def follow_user(
+        self,
+        token: str,
+        follow_id: str,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 팔로우 처리 follower = 팔로우 하는 사람, follow = 팔로우 당하는 사람
+        # 팔로우 취소는 False 리턴, 팔로우는 True 리턴
+        return await self.user_repository.follow_user(
+            follower_id=user_id, follow_id=follow_id
+        )
+
+    async def insert_refferal_code(
+        self,
+        token: str,
+        refferal_code: str,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 리퍼럴 코드 업데이트
+        refferal = await self.user_repository.insert_refferal_code(
+            user_id=user_id, refferal_code=refferal_code
+        )
+        if refferal is False:
+            logger.error(f"이미 추천인 코드를 등록한 사용자입니다. user_id: {user_id}")
+            raise HTTPException(
+                status_code=400, detail="이미 추천인 코드를 등록하였습니다."
+            )
+        return True

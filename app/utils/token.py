@@ -71,6 +71,35 @@ def verify_token(token: str) -> Optional[str]:
         return None
 
 
+def create_access_token_biz(biz_id: str) -> str:
+    expire_dt = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    encoded_jwt = jwt.encode(
+        {"biz_id": biz_id, "exp": expire_dt}, SECRET_KEY, algorithm=ALGORITHM
+    )
+    return encoded_jwt
+
+
+def create_refresh_token_biz(biz_id: str) -> str:
+    expire_dt = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    encoded_jwt = jwt.encode(
+        {"biz_id": biz_id, "exp": expire_dt}, SECRET_KEY, algorithm=ALGORITHM
+    )
+    return encoded_jwt
+
+
+def get_biz_id_from_token(token: str) -> Optional[str]:
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload.get("biz_id")
+    except ExpiredSignatureError:
+        return None
+    except jwt.JWTError:
+        return None
+
+
 # TODO: access_token, refresh_token만 하면 되는거 아님? user_id, expires_in이 필요한건가?
 def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dict]:
     user_id = verify_token(refresh_token)
