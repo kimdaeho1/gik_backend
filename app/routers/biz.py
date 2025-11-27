@@ -16,7 +16,7 @@ import uuid
 
 oauth2_scheme = JWTBearer(auto_error=False)
 
-router = APIRouter(prefix="v1/gik-backend/biz", tags=["Biz"])
+router = APIRouter(prefix="/v1/gik-backend/biz", tags=["Biz"])
 
 
 @router.post("/login")
