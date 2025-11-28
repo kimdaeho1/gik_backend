@@ -200,6 +200,7 @@ class ImageService:
         image_label_map = {
             "user_profile": "user_profile",
             "user_secret_profile": "user_secret_profile",
+            "biz_profile": "biz_profile",
         }
         image_prefix = image_label_map.get(image_label)
         if not image_prefix:
