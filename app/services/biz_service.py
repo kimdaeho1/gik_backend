@@ -63,6 +63,7 @@ class BizService:
         biz = await self.biz_repository.get_my_biz_account_info(user_id=user_id)
 
         if not biz:
+            logger.error(f"존재하지 않는 비즈 계정입니다. user_id: {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="존재하지 않는 비즈 계정입니다.",

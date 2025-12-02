@@ -32,9 +32,12 @@ class UserRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT 1
-                    FROM users
-                    WHERE id = %s AND leaved = FALSE
+                    SELECT 1 FROM (
+                        SELECT id FROM users WHERE leaved = FALSE
+                        UNION
+                        SELECT id FROM biz_account WHERE leaved = FALSE
+                    ) AS all_accounts
+                    WHERE id = %s
                     """,
                     (user_id,),
                 )
