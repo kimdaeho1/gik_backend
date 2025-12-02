@@ -8,6 +8,8 @@ from app.db.user import (
     UserListResponse,
     UserCreateRequest,
     UserCreditHistoryResponse,
+    BizListResponse,
+    BizDetailResponse,
 )
 from app.db.image import UserSecretResponse
 from app.db.db_connection import db
@@ -1191,6 +1193,93 @@ class UserService:
             return []
         return credit_history_list
 
+    async def fetch_biz_list(
+        self,
+        token: str,
+        page: int,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 리스트 조회 (레포지토리 호출)
+        bizs = await self.user_repository.fetch_biz_list(
+            user_id=user_id,
+            page=page,
+        )
+
+        # 응답 모델 배열 생성
+        biz_list: List[BizListResponse] = []
+
+        for biz in bizs:
+            biz_list.append(
+                BizListResponse(
+                    id=biz[0],
+                    bizId=biz[1],
+                    storeType=biz[2],
+                    storeName=biz[3],
+                    email=biz[4],
+                    tags=biz[5],
+                    address=biz[6],
+                    businessHours=biz[7],
+                    phone=biz[8],
+                    managerPhone=biz[9],
+                    latitude=biz[10],
+                    longitude=biz[11],
+                )
+            )
+
+        return biz_list
+
+    async def fetch_biz_detail(
+        self,
+        token: str,
+        biz_pk: int,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        detail = await self.user_repository.fetch_biz_detail(
+            user_id=user_id,
+            biz_pk=biz_pk,
+        )
+
+        if detail is False:
+            raise HTTPException(status_code=404, detail="존재하지 않는 비즈입니다.")
+
+        biz_detail = BizDetailResponse()
+
+    async def create_biz_review(
+        self,
+        token: str,
+        biz_id: str,
+        content: str,
+        rating: int,
+        review_images: Optional[List[UploadFile]] = None,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 리뷰 업로드
+        review_id = await self.user_repository.create_biz_review(
+            user_id=user_id,
+            biz_id=biz_id,
+            content=content,
+            rating=rating,
+        )
+
+        if not review_images:
+            return True
+
+        image_urls = await self.image_service.upload_images(
+            user_id=biz_id,
+            images=review_images,
+            image_label="biz_review",
+        )
+
+        await self.user_repository.insert_biz_review_images(
+            review_id=review_id, user_id=user_id, image_urls=image_urls, start_index=0
+        )
+        return True
+
     async def use_user_coupon(
         self,
         token: str,
@@ -1202,50 +1291,6 @@ class UserService:
 
         # 쿠폰 사용처리
         ...
-
-    async def fetch_biz_list(
-        self,
-        token: str,
-        page: int,
-    ):
-        # 토큰에서 user_id 추출
-        user_id = await get_user_id_from_token(token)
-
-        # 비즈 리스트 조회
-        return await self.user_repository.fetch_biz_list(
-            user_id=user_id,
-            page=page,
-        )
-
-    async def fetch_biz_profile(
-        self,
-        token: str,
-        biz_id: str,
-    ):
-        # 토큰에서 user_id 추출
-        user_id = await get_user_id_from_token(token)
-
-        # 비즈 프로필 조회
-        await self.user_repository.fetch_biz_profile(
-            user_id=user_id,
-            biz_id=biz_id,
-        )
-
-    async def upload_biz_review(
-        self,
-        token: str,
-        biz_id: str,
-        content: str,
-    ):
-        # 토큰에서 user_id 추출
-        user_id = await get_user_id_from_token(token)
-
-        # 비즈 리뷰 업로드
-        await self.user_repository.upload_biz_review(
-            user_id=user_id,
-            biz_id=biz_id,
-            content=content,
-        )
 
     async def follow_user(
         self,

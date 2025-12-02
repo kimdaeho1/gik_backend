@@ -2759,7 +2759,6 @@ class UserRepository:
                         ),
                     )
                     await conn.commit()
-                    await conn.close()
                     return False
                 # 팔로우
                 await cur.execute(
@@ -2773,7 +2772,6 @@ class UserRepository:
                     ),
                 )
                 await conn.commit()
-                await conn.close()
                 return True
 
     # TODO: 고래코인 얼마로 지급할건데용?
@@ -2807,55 +2805,62 @@ class UserRepository:
                     ),
                 )
                 await conn.commit()
-                await conn.close()
                 return True
 
-    async def upload_biz_review(
+    async def create_biz_review(
         self,
         user_id: str,
         biz_id: str,
         content: str,
+        rating: int,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    INSERT INTO users_review (user_id, biz_id, content, created_at)
-                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    INSERT INTO biz_review (user_id, biz_id, content, rating)
+                    VALUES (%s, %s, %s, %s)
                     """,
                     (
                         user_id,
                         biz_id,
                         content,
+                        rating,
                     ),
-                ),
-                await conn.commit()
-                await conn.close()
-                return True
+                )
 
-    async def fetch_biz_profile(
+                review_id = cur.lastrowid
+                await conn.commit()
+                return review_id
+
+    async def insert_biz_review_images(
         self,
+        review_id: int,
         user_id: str,
-        biz_id: str,
+        image_urls: list[str],
+        start_index=0,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT b.name, b.type, b.tag, b.description, b.loaction, b.phone_number
-                    FROM biz_accounts b
-                    WHERE b.id = %s
-                    """,
-                    (biz_id,),
-                )
-                row = await cur.fetchone()
-                if not row:
-                    return None
-                columns = [col[0] for col in cur.description]
-                return dict(zip(columns, row))
+                for index, url in enumerate(image_urls):
+                    await cur.execute(
+                        """
+                        INSERT INTO biz_review_image (review_id, user_id, url, `index`, created_at)
+                        VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                        """,
+                        (
+                            review_id,
+                            user_id,
+                            url,
+                            start_index + index,
+                        ),
+                    )
+                await conn.commit()
+                return True
 
     async def fetch_biz_list(
         self,
+        user_id: str,
         page: int,
     ):
         offset = (page - 1) * 20
@@ -2863,13 +2868,53 @@ class UserRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT b.id, b.name, b.type, b.tag, b.description, b.loaction, b.phone_number
-                    FROM biz_accounts b
+                    SELECT b.id, 
+                           b.biz_id, 
+                           b.store_type, 
+                           b.store_name,
+                           b.email,
+                           b.tags,
+                           b.address,
+                           b.business_hours,
+                           b.phone, 
+                           b.manager_phone, 
+                           b.latitude, 
+                           b.longitude
+                    FROM biz_account b
                     ORDER BY b.created_at DESC
                     LIMIT 20 OFFSET %s
                     """,
                     (offset,),
                 )
                 rows = await cur.fetchall()
-                columns = [col[0] for col in cur.description]
-                return [dict(zip(columns, row)) for row in rows]
+                return rows
+
+    async def fetch_biz_detail(
+        self,
+        user_id: str,
+        biz_pk: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT b.id, 
+                           b.biz_id, 
+                           b.store_type, 
+                           b.store_name,
+                           b.email,
+                           b.tags,
+                           b.address,
+                           b.business_hours,
+                           b.phone, 
+                           b.manager_phone, 
+                           b.latitude, 
+                           b.longitude
+                    FROM biz_account b
+                    WHERE b.id = %s
+                    LIMIT 1
+                    """,
+                    (biz_pk,),
+                )
+                row = await cur.fetchone()
+                return row

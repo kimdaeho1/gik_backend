@@ -49,6 +49,7 @@ class BizRepository:
                     SELECT  
                         b.biz_id,
                         b.store_type,
+                        b.store_name,
                         b.tags,
                         b.address,
                         b.business_hours,
@@ -124,31 +125,78 @@ class BizRepository:
 
     async def update_biz_coupon(
         self,
+        biz_id: str,
         coupon_id: int,
         title: str,
         content: str,
-        hashtags: str,
-        valid_date: str,
-        image_url: Optional[str] = None,
+        amount: int,
+        start_date: str,
+        expired_date: str,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    UPDATE biz_coupons
+                    SELECT 1
+                    FROM biz_coupon
+                    WHERE biz_id = %s AND id= %s AND deleted = FALSE
+                    """,
+                    (
+                        biz_id,
+                        coupon_id,
+                    ),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    return False
+
+                await cur.execute(
+                    """
+                    UPDATE biz_coupon
                     SET title = %s,
                         content = %s,
-                        hashtags = %s,
-                        valid_date = %s,
-                        image_url = %s
+                        amount = %s,
+                        start_date = %s,
+                        expired_date = %s
                     WHERE id = %s AND deleted = FALSE
                     """,
                     (
                         title,
                         content,
-                        hashtags,
-                        valid_date,
-                        image_url,
+                        amount,
+                        start_date,
+                        expired_date,
                         coupon_id,
                     ),
                 )
+            await conn.commit()
+            return True
+
+    async def delete_biz_coupon(
+        self,
+        biz_id: str,
+        coupon_id: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM biz_coupon
+                    WHERE id = %s AND biz_id = %s AND deleted = FALSE
+                    """,
+                    (coupon_id, biz_id),
+                )
+                result = await cur.fetchone()
+                if not result:
+                    return False
+
+                await cur.execute(
+                    """
+                    UPDATE biz_coupon
+                    SET deleted = TRUE
+                    WHERE id = %s AND biz_id = %s
+                    """,
+                    (coupon_id, biz_id),
+                )
+                return True

@@ -508,3 +508,52 @@ class UserCreditHistoryResponse(BaseModel):
 
 class UserCreditProfileRequest(BaseModel):
     type: Optional[str]
+
+
+class BizReviewRequest(BaseModel):
+    bizId: str
+    rating: int
+    content: str
+
+    @classmethod
+    def create_form(
+        cls,
+        bizId: str = Form(...),
+        rating: int = Form(...),
+        content: str = Form(...),
+    ) -> "BizReviewRequest":
+        return cls(
+            bizId=bizId,
+            rating=rating,
+            content=content,
+        )
+
+
+class BizListResponse(BaseModel):
+    id: int
+    bizId: str
+    storeType: str
+    storeName: str
+    email: str
+    tags: str
+    address: str
+    businessHours: str
+    phone: str
+    managerPhone: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+
+
+class BizDetailResponse(BaseModel):
+    id: int
+    bizId: str
+    storeType: str
+    storeName: str
+    email: str
+    tags: str
+    address: str
+    businessHours: str
+    phone: str
+    managerPhone: str
+    latitude: Optional[float]
+    logitude: Optional[float]

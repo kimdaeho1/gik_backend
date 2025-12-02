@@ -3,10 +3,7 @@ from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
 from fastapi import BackgroundTasks, Depends
 from typing import Optional
-from app.db.biz import (
-    BizAccountRequest,
-    BizCouponRequest,
-)
+from app.db.biz import BizAccountRequest, BizCouponRequest, BizUpdateRequest
 from app.services.user_service import UserService
 from app.services.push_service import PushService
 from app.repository.user_repository import UserRepository
@@ -27,8 +24,8 @@ async def login_biz_account(
     biz_service=Depends(Provide[Container.biz_service]),
 ):
     access_token, refresh_token = await biz_service.login_biz_account(
-        biz_id=request_id.biz_id,
-        biz_password=request_id.biz_password,
+        biz_id=request_id.bizId,
+        biz_password=request_id.bizPassword,
     )
     return {
         "success": True,
@@ -81,11 +78,50 @@ async def create_biz_coupon(
         token=token,
         title=create_coupon_request.title,
         content=create_coupon_request.content,
-        start_date=create_coupon_request.start_date,
-        expired_date=create_coupon_request.expired_date,
+        start_date=create_coupon_request.startDate,
+        expired_date=create_coupon_request.expiredDate,
         amount=create_coupon_request.amount,
     )
     return {
         "success": True,
         "message": "비즈 쿠폰 생성 성공",
+    }
+
+
+@router.patch("/coupon")
+@inject
+async def update_biz_coupon(
+    update_coupon_request: BizUpdateRequest,
+    token: str = Depends(oauth2_scheme),
+    biz_service=Depends(Provide[Container.biz_service]),
+):
+    coupon = await biz_service.update_biz_coupon(
+        token=token,
+        coupon_id=update_coupon_request.couponId,
+        title=update_coupon_request.title,
+        content=update_coupon_request.content,
+        amount=update_coupon_request.amount,
+        start_date=update_coupon_request.startDate,
+        expired_date=update_coupon_request.expiredDate,
+    )
+    return {
+        "success": True,
+        "message": "비즈 쿠폰 수정 성공",
+    }
+
+
+@router.delete("/coupon/{coupon_id}")
+@inject
+async def delete_biz_coupon(
+    coupon_id: int,
+    token: str = Depends(oauth2_scheme),
+    biz_service=Depends(Provide[Container.biz_service]),
+):
+    await biz_service.delete_biz_coupon(
+        token=token,
+        coupon_id=coupon_id,
+    )
+    return {
+        "success": True,
+        "message": "비즈 쿠폰 삭제 성공",
     }

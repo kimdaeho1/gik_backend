@@ -30,12 +30,10 @@ class BizService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="존재하지 않는 비즈 계정입니다.",
             )
-
         # 비밀번호
-        stored_hash = biz[2]
-
+        stored_hash = biz[3]
+        print("Stored hash repr:", repr(stored_hash))
         # 1. 아이디가 다를경우, PW가 다를경우, 그리고 PW decode 과정이 필요하다.
-
         if not verify_password(biz_password, stored_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -72,7 +70,7 @@ class BizService:
         biz_id = get_biz_id_from_token(token)
 
         # 2. DB에서 정보 조회
-        biz = await self.biz_repository.get_biz_account_info(biz_id=biz_id)
+        biz = await self.biz_repository.get_my_biz_account_info(biz_id=biz_id)
 
         if not biz:
             raise HTTPException(
@@ -81,16 +79,17 @@ class BizService:
             )
 
         return {
-            "biz_id": biz[0],
-            "store_type": biz[1],
+            "bizId": biz[0],
+            "storeType": biz[1],
+            "storeName": biz[2],
             "tags": biz[2],
             "address": biz[3],
-            "business_hours": biz[4],
-            "phone_number": biz[5],
-            "manager_phone": biz[6],
+            "businessHours": biz[4],
+            "phoneNumber": biz[5],
+            "managerPhone": biz[6],
             "latitude": biz[7],
             "longitude": biz[8],
-            "image_urls": biz[9],
+            "imagerls": biz[9],
         }
 
     async def upload_biz_images(
@@ -124,15 +123,14 @@ class BizService:
         await self.biz_repository.delete_biz_account(biz_id=biz_id)
         return True
 
-    # 쿠폰 deleted 추가.
     async def create_biz_coupon(
         self,
         token: str,
         title: str,
         content: str,
+        amount: str,
         start_date: str,
         expired_date: str,
-        amount: str,
     ):
         biz_id = get_biz_id_from_token(token)
 
@@ -140,14 +138,57 @@ class BizService:
             biz_id=biz_id,
             title=title,
             content=content,
+            amount=amount,
             start_date=start_date,
             expired_date=expired_date,
-            amount=amount,
         )
         return True
 
     async def update_biz_coupon(
         self,
         token: str,
-        title: Optional[str] = None,
-    ): ...
+        coupon_id: int,
+        title: str,
+        content: str,
+        amount: str,
+        start_date: str,
+        expired_date: str,
+    ):
+        biz_id = get_biz_id_from_token(token)
+
+        result = await self.biz_repository.update_biz_coupon(
+            biz_id=biz_id,
+            coupon_id=coupon_id,
+            title=title,
+            content=content,
+            amount=amount,
+            start_date=start_date,
+            expired_date=expired_date,
+        )
+
+        if result is False:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="존재하지 않는 쿠폰이거나 수정 권한이 없습니다.",
+            )
+
+        return True
+
+    async def delete_biz_coupon(
+        self,
+        token: str,
+        coupon_id: int,
+    ):
+        biz_id = get_biz_id_from_token(token)
+
+        result = await self.biz_repository.delete_biz_coupon(
+            biz_id=biz_id,
+            coupon_id=coupon_id,
+        )
+        if result is False:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="존재하지 않는 쿠폰이거나 삭제 권한이 없습니다.",
+            )
+
+        return True

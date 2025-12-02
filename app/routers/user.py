@@ -25,6 +25,7 @@ from app.db.user import (
     UserCreditSecretRequest,
     UserFavoriteRequest,
     UserCreditProfileRequest,
+    BizReviewRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -1316,3 +1317,74 @@ async def fetch_user_profile(
     user = await service.fetch_user_profile(user_id, viewer_id)
 
     return {"success": True, "message": "유저 정보 조회 성공", "user": user}
+
+
+@router.post("/user/biz/review", status_code=status.HTTP_200_OK)
+@inject
+async def create_biz_review(
+    biz_review: BizReviewRequest = Depends(BizReviewRequest.create_form),
+    reviewImages: Optional[List[UploadFile]] = File(default=None),
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 유저 리뷰 작성
+    user_id: token에서 추출, 리뷰 작성 주체
+    biz_review: 리뷰 내용
+    """
+    result = await service.create_biz_review(
+        token=token,
+        biz_id=biz_review.bizId,
+        content=biz_review.content,
+        rating=biz_review.rating,
+        review_images=reviewImages,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비즈니스 유저 리뷰 작성 실패.",
+        )
+    return {"success": result, "message": "비즈니스 유저 리뷰 작성 성공."}
+
+
+@router.get("/user/biz/list", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_biz_user_list(
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 계정 유저 목록 조회(매장 리스트 조회)
+    user_id: token에서 추출, 비즈니스 유저 목록 조회 주체
+    """
+    biz_users = await service.fetch_biz_list(
+        token=token,
+        page=page,
+    )
+    return {
+        "success": True,
+        "message": "비즈니스 유저 목록 조회 성공",
+        "bizUsers": biz_users,
+    }
+
+
+@router.get("/user/biz/{biz_pk}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_biz_detail(
+    biz_pk: str,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 계정 상세정보 조회(매장 상세정보 조회)
+    """
+    biz_user = await service.fetch_biz_detail(
+        token=token,
+        biz_pk=biz_pk,
+    )
+    return {
+        "success": True,
+        "message": "비즈니스 유저 상세정보 조회 성공",
+        "bizUser": biz_user,
+    }
