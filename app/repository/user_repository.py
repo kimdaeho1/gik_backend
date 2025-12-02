@@ -486,9 +486,6 @@ class UserRepository:
                     raise HTTPException(status_code=500, detail="사용자 정보 수정 실패")
 
     async def update_user_fcm(self, user_id: str, fcm: str):
-        """
-        유저 fcm코드 변경
-        """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 try:
@@ -496,12 +493,21 @@ class UserRepository:
                         """
                         UPDATE users
                         SET fcm = %s, updated_at = CURRENT_TIMESTAMP
-                        WHERE id = %s
+                        WHERE id = %s AND leaved = FALSE
+                        """,
+                        (fcm, user_id),
+                    )
+                    await cur.execute(
+                        """
+                        UPDATE biz_account
+                        SET fcm = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s AND leaved = FALSE
                         """,
                         (fcm, user_id),
                     )
                     await conn.commit()
-                except Exception as e:
+                    return True
+                except Exception:
                     await conn.rollback()
                     raise HTTPException(status_code=500, detail="FCM 수정 실패")
 
