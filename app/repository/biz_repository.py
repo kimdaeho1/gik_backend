@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from app.db.db_connection import db
 from typing import List, Optional
 from app.utils.logging_config import get_logger
+from app.db.biz import BizDetailRow
 
 logger = get_logger(__name__)
 
@@ -64,6 +65,7 @@ class BizRepository:
                 await cur.execute(
                     """
                     SELECT  
+                        b.id,
                         b.biz_id,
                         b.store_type,
                         b.store_name,
@@ -74,6 +76,19 @@ class BizRepository:
                         b.manager_phone,
                         b.latitude,
                         b.longitude,
+                        b.fcm,
+                        b.credit,
+                        b.marketing_agree,
+                        b.night_agree,
+                        b.personal_chat_alarm_agree,
+                        b.group_chat_alarm_agree,
+                        b.post_comment_alarm_agree,
+                        b.post_like_alarm_agree,
+                        b.profile_alarm_agree,
+                        b.feed_like_alarm_agree,
+                        b.feed_comment_alarm_agree,
+
+                        -- 비즈 이미지
                         (
                             SELECT JSON_ARRAYAGG(t.url)
                             FROM (
@@ -82,14 +97,69 @@ class BizRepository:
                                 WHERE bi.biz_id = b.biz_id
                                 ORDER BY bi.index
                             ) t
-                        ) AS image_urls
+                        ) AS image_urls,
+
+                        -- 차단 목록
+                        (
+                            SELECT JSON_ARRAYAGG(ub.blocked_user_id)
+                            FROM user_block_list ub
+                            WHERE ub.block_user_id = u.id
+                        ) AS block_user_list,
+
+                        -- 즐겨찾기 목록
+                        (
+                            SELECT JSON_ARRAYAGG(favorite_user_id)
+                            FROM users_favorite_list
+                            WHERE user_id = u.id
+                        ) AS favorite_user_list,
+
+                        -- pushRead
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM push_user_log pul
+                                WHERE pul.user_no = u.user_no 
+                                AND pul.delivery_state = 'DELIVERED'
+                            )
+                        ) AS push_read,
+
+                        -- profileRead
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM push_user_log pul
+                                WHERE pul.user_no = u.user_no 
+                                AND pul.status = 'SUCCESS'
+                                AND pul.delivery_state = 'DELIVERED' 
+                                AND pul.push_type = 'profile'
+                            )
+                        ) AS profile_read,
+
+                        -- hasSecretFeed
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM feeds f
+                                WHERE f.user_id = u.id
+                                AND f.secret_status = TRUE
+                                AND f.deleted = FALSE
+                            )
+                        ) AS has_secret_feed
+
                     FROM biz_account b
+                    LEFT JOIN users u ON u.id = b.id
                     WHERE b.id = %s
                     """,
                     (user_id,),
                 )
-                biz_info = await cur.fetchone()
-                return biz_info
+
+                row = await cur.fetchone()
+                if not row:
+                    return None
+
+                columns = [col[0] for col in cur.description]
+                row_dict = dict(zip(columns, row))
+                return BizDetailRow(**row_dict)
 
     async def upload_biz_images(
         self, biz_id: str, image_urls: List[str], start_index: int

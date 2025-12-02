@@ -76,3 +76,65 @@ class BizProfileResponse(BaseModel):
     latitude: Optional[float]
     longitude: Optional[float]
     hasSecretFeed: bool
+
+
+class BizDetailRow(BaseModel):
+    id: str
+    biz_id: str
+    store_type: str
+    store_name: str
+    tags: str
+    address: str
+    business_hours: str
+    phone: str
+    manager_phone: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+    fcm: Optional[str]
+    credit: int
+    marketing_agree: bool
+    night_agree: bool
+    personal_chat_alarm_agree: bool
+    group_chat_alarm_agree: bool
+    post_comment_alarm_agree: bool
+    post_like_alarm_agree: bool
+    profile_alarm_agree: bool
+    feed_like_alarm_agree: bool
+    feed_comment_alarm_agree: bool
+    image_urls: Optional[str]
+    block_user_list: Optional[str]
+    favorite_user_list: Optional[str]
+    push_read: bool
+    profile_read: bool
+    has_secret_feed: bool
+
+
+class BizProfileResponse(BaseModel):
+    id: str
+    bizId: str
+    storeType: str
+    storeName: str
+    tags: str
+    address: str
+    business_hours: str
+    phoneNumber: str
+    managerPhone: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+    fcm: Optional[str]
+    credit: int
+    marketing_agree: bool
+    night_agree: bool
+    personal_chat_alarm_agree: bool
+    group_chat_alarm_agree: bool
+    post_comment_alarm_agree: bool
+    post_like_alarm_agree: bool
+    profile_alarm_agree: bool
+    feed_like_alarm_agree: bool
+    feed_comment_alarm_agree: bool
+    profileImage: Optional[List[str]]
+    blockUserList: Optional[List[str]]
+    favoriteUserList: Optional[List[str]]
+    pushRead: bool
+    profileRead: bool
+    hasSecretFeed: bool

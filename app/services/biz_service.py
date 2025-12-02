@@ -3,6 +3,7 @@ from fastapi import HTTPException, status, UploadFile, File
 from app.utils.logging_config import get_logger
 from app.repository.biz_repository import BizRepository
 from app.services.image_service import ImageService
+from app.db.biz import BizProfileResponse
 from app.utils.security import verify_password, hash_password
 from app.utils.token import (
     create_access_token_biz,
@@ -12,6 +13,7 @@ from app.utils.token import (
     create_refresh_token,
     create_access_token,
 )
+import json
 
 logger = get_logger(__name__)
 
@@ -54,34 +56,49 @@ class BizService:
         )
         return access_token, refresh_token
 
-    # 내 비즈계정 정보 조회
     async def get_my_biz_account_info(self, token: str):
-        # 1. 토큰 검증 → biz_id 추출
         user_id = await get_user_id_from_token(token)
-
-        # 2. DB에서 정보 조회
         biz = await self.biz_repository.get_my_biz_account_info(user_id=user_id)
 
         if not biz:
-            logger.error(f"존재하지 않는 비즈 계정입니다. user_id: {user_id}")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="존재하지 않는 비즈 계정입니다.",
+                status_code=404, detail="존재하지 않는 비즈 계정입니다."
             )
 
-        return {
-            "bizId": biz[0],
-            "storeType": biz[1],
-            "storeName": biz[2],
-            "tags": biz[2],
-            "address": biz[3],
-            "businessHours": biz[4],
-            "phoneNumber": biz[5],
-            "managerPhone": biz[6],
-            "latitude": biz[7],
-            "longitude": biz[8],
-            "imagerls": biz[9],
-        }
+        return BizProfileResponse(
+            id=biz.id,
+            bizId=biz.biz_id,
+            storeType=biz.store_type,
+            storeName=biz.store_name,
+            tags=biz.tags,
+            address=biz.address,
+            business_hours=biz.business_hours,
+            phoneNumber=biz.phone,
+            managerPhone=biz.manager_phone,
+            latitude=biz.latitude,
+            longitude=biz.longitude,
+            fcm=biz.fcm,
+            credit=biz.credit,
+            marketing_agree=biz.marketing_agree,
+            night_agree=biz.night_agree,
+            personal_chat_alarm_agree=biz.personal_chat_alarm_agree,
+            group_chat_alarm_agree=biz.group_chat_alarm_agree,
+            post_comment_alarm_agree=biz.post_comment_alarm_agree,
+            post_like_alarm_agree=biz.post_like_alarm_agree,
+            profile_alarm_agree=biz.profile_alarm_agree,
+            feed_like_alarm_agree=biz.feed_like_alarm_agree,
+            feed_comment_alarm_agree=biz.feed_comment_alarm_agree,
+            profileImage=json.loads(biz.image_urls) if biz.image_urls else [],
+            blockUserList=(
+                json.loads(biz.block_user_list) if biz.block_user_list else []
+            ),
+            favoriteUserList=(
+                json.loads(biz.favorite_user_list) if biz.favorite_user_list else []
+            ),
+            pushRead=biz.push_read,
+            profileRead=biz.profile_read,
+            hasSecretFeed=biz.has_secret_feed,
+        )
 
     async def upload_biz_images(
         self,

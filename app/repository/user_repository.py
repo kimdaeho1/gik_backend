@@ -589,17 +589,42 @@ class UserRepository:
 
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+
+                # users 테이블 확인
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                exists_user = await cur.fetchone()
+
+                # biz_account 테이블 확인
+                await cur.execute(
+                    "SELECT 1 FROM biz_account WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                exists_biz = await cur.fetchone()
+
+                if exists_user:
+                    target_table = "users"
+                elif exists_biz:
+                    target_table = "biz_account"
+                else:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않는 계정입니다."
+                    )
+
                 try:
-                    query = """
-                        UPDATE users
-                        SET {column_name} = %s, updated_at = CURRENT_TIMESTAMP
+                    query = f"""
+                        UPDATE {target_table}
+                        SET {column_name} = %s,
+                            updated_at = CURRENT_TIMESTAMP
                         WHERE id = %s
                     """
-                    query_template = query.format(column_name=column_name)
 
-                    await cur.execute(query_template, (value, user_id))
+                    await cur.execute(query, (value, user_id))
                     await conn.commit()
-                except Exception:
+
+                except Exception as e:
                     await conn.rollback()
                     raise HTTPException(status_code=500, detail="알람 설정 수정 실패")
 
@@ -1031,6 +1056,7 @@ class UserRepository:
                 rows = await cur.fetchall()
                 return [row[0] for row in rows]
 
+    # TODOTODO
     async def fetch_near_user_id_list(
         self,
         user_id: str,
@@ -1184,6 +1210,7 @@ class UserRepository:
 
                 return near_rows + null_rows
 
+    # TODO
     async def fetch_nearby_user_list(
         self,
         user_id: str,
@@ -1375,6 +1402,7 @@ class UserRepository:
                     await conn.rollback()
                     raise HTTPException(status_code=500, detail="사용자 탈퇴 실패")
 
+    # TODO
     async def user_health_check(
         self, user_id: str, latitude: Optional[float], longitude: Optional[float]
     ):
@@ -2262,6 +2290,7 @@ class UserRepository:
                 )
                 await conn.commit()
 
+    # TODO
     async def fetch_user_credit(self, user_id: str) -> int:
         """
         유저의 고래코인 개수 조회하기
@@ -2275,6 +2304,7 @@ class UserRepository:
                 row = await cur.fetchone()
                 return row[0] if row else 0
 
+    # TODO
     async def add_user_credit(self, user_id: str, amount: int, reason: str) -> None:
         """
         유저의 고래코인 지급하기
@@ -2777,7 +2807,6 @@ class UserRepository:
                 await conn.commit()
                 return True
 
-    # TODO: 고래코인 얼마로 지급할건데용?
     async def insert_refferal_code(
         self,
         user_id: str,
