@@ -1281,17 +1281,19 @@ class UserService:
         )
         return True
 
-    async def use_user_coupon(
+    async def delete_biz_review(
         self,
         token: str,
-        coupon_id: str,
+        review_id: str,
     ):
-        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
 
-        # 쿠폰의 id 검증
+        result = await self.user_repository.delete_biz_review(
+            user_id=user_id,
+            review_id=review_id,
+        )
 
-        # 쿠폰 사용처리
-        ...
+        return True
 
     async def follow_user(
         self,
@@ -1337,7 +1339,17 @@ class UserService:
             user_id=user_id,
             coupon_id=coupon_id,
         )
-        if result is False:
-            logger.warn(f"쿠폰 유효기간이 아닙니다, coupon_id: {coupon_id}")
-            raise HTTPException(status_code=400, detail="쿠폰 유효기간이 아닙니다.")
-        return True
+        if result == "none":
+            logger.error(f"존재하지 않는 쿠폰입니다. coupon_id: {coupon_id}")
+            raise HTTPException(status_code=404, detail="존재하지 않는 쿠폰입니다.")
+        elif result == "used":
+            logger.error(f"이미 사용한 쿠폰입니다. coupon_id: {coupon_id}")
+            raise HTTPException(status_code=400, detail="이미 사용한 쿠폰입니다.")
+        elif result == "expired":
+            logger.error(f"만료된 쿠폰입니다. coupon_id: {coupon_id}")
+            raise HTTPException(status_code=400, detail="만료된 쿠폰입니다.")
+        elif result == "amount":
+            logger.error(f"잔여 쿠폰 수량이 없습니다. coupon_id: {coupon_id}")
+            raise HTTPException(status_code=400, detail="잔여 쿠폰 수량이 없습니다.")
+        else:
+            return True

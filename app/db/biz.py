@@ -45,7 +45,6 @@ class BizDetailRow(BaseModel):
     manager_phone: str
     latitude: Optional[float]
     longitude: Optional[float]
-    fcm: Optional[str]
     credit: int
     marketing_agree: bool
     night_agree: bool
@@ -54,6 +53,7 @@ class BizDetailRow(BaseModel):
     post_comment_alarm_agree: bool
     post_like_alarm_agree: bool
     profile_alarm_agree: bool
+    secret_alarm_agree: bool
     feed_like_alarm_agree: bool
     feed_comment_alarm_agree: bool
     image_urls: Optional[str]
@@ -76,7 +76,6 @@ class BizProfileResponse(BaseModel):
     managerPhone: str
     latitude: Optional[float]
     longitude: Optional[float]
-    fcm: Optional[str]
     credit: int
     marketingAlarm: bool
     nightAlarm: bool
@@ -85,6 +84,7 @@ class BizProfileResponse(BaseModel):
     postCommentAlarm: bool
     postLikeAlarm: bool
     profileAlarm: bool
+    secretAlarm: bool
     feedLikeAlarm: bool
     feedCommentAlarm: bool
     profileImage: Optional[List[str]]

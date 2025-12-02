@@ -76,7 +76,6 @@ class BizRepository:
                         b.manager_phone,
                         b.latitude,
                         b.longitude,
-                        b.fcm,
                         b.credit,
                         b.marketing_agree,
                         b.night_agree,
@@ -85,6 +84,7 @@ class BizRepository:
                         b.post_comment_alarm_agree,
                         b.post_like_alarm_agree,
                         b.profile_alarm_agree,
+                        b.secret_alarm_agree,
                         b.feed_like_alarm_agree,
                         b.feed_comment_alarm_agree,
 

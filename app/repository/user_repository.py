@@ -2890,6 +2890,19 @@ class UserRepository:
                 await conn.commit()
                 return True
 
+    # async def delete_biz_review(
+    #     self,
+    #     user_id: str,
+    #     review_id: int,
+    # ):
+    #     async with self.db.get_connection() as conn:
+    #         async with conn.cursor() as cur:
+    #             await cur.execute(
+    #                 """
+
+    #                 """
+    #             )
+
     async def fetch_biz_list(
         self,
         user_id: str,
@@ -2958,24 +2971,64 @@ class UserRepository:
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+
+                # 쿠폰 정보 조회
                 await cur.execute(
                     """
-                    SELECT start_date, expired_date
+                    SELECT start_date, expired_date, amount
                     FROM biz_coupon
-                    WHERE coupon_id = %s 
+                    WHERE coupon_id = %s AND deleted = FALSE
+                    FOR UPDATE
                     """,
                     (coupon_id,),
                 )
 
                 row = await cur.fetchone()
-                start_date = row[0]
-                expired_date = row[1]
+                if not row:
+                    return "none"
 
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM biz_coupon_history
+                    WHERE coupon_id = %s AND user_id = %s
+                    LIMIT 1
+                    """,
+                    (coupon_id, user_id),
+                )
+                used_before = await cur.fetchone()
+                if used_before:
+                    return "used"
+
+                start_date, expired_date, amount = row
                 now = datetime.now()
 
-                if not (start_date <= now <= expired_date):
-                    return False
+                # 유효기간 체크하기
+                if expired_date is not None:
+                    if start_date is not None:
+                        if not (start_date <= now <= expired_date):
+                            return "expired"
+                    else:
+                        if now > expired_date:
+                            return "expired"
 
+                # 수량 체크하기
+                if amount is not None:
+                    # 수량 소진
+                    if amount <= 0:
+                        return "amount"
+
+                    # 수량 1 감소
+                    await cur.execute(
+                        """
+                        UPDATE biz_coupon
+                        SET amount = amount - 1
+                        WHERE coupon_id = %s
+                        """,
+                        (coupon_id,),
+                    )
+
+                # 쿠폰 사용기록 저장
                 await cur.execute(
                     """
                     INSERT INTO biz_coupon_history (coupon_id, user_id, used_at)
@@ -2983,6 +3036,6 @@ class UserRepository:
                     """,
                     (coupon_id, user_id),
                 )
-                await conn.commit()
 
+                await conn.commit()
                 return True
