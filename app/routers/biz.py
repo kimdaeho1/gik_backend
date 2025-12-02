@@ -125,3 +125,24 @@ async def delete_biz_coupon(
         "success": True,
         "message": "비즈 쿠폰 삭제 성공",
     }
+
+
+# 비즈(내가 발급한) 쿠폰 불러오기
+@router.get("/coupon/list")
+@inject
+async def fetch_biz_coupons(
+    token: str = Depends(oauth2_scheme),
+    biz_service=Depends(Provide[Container.biz_service]),
+):
+    coupons = await biz_service.fetch_biz_coupons(
+        token=token,
+    )
+    return {
+        "success": True,
+        "message": "비즈 쿠폰 목록 불러오기 성공",
+        "coupons": coupons,
+    }
+
+
+# 비즈가 리뷰다는건 어떻게 할 생각인지.
+# @router.post("/review")

@@ -93,3 +93,23 @@ class BizProfileResponse(BaseModel):
     pushRead: bool
     profileRead: bool
     hasSecretFeed: bool
+
+
+class BizCouponRow(BaseModel):
+    id: int
+    biz_id: str
+    title: str
+    content: str
+    start_date: Optional[datetime]
+    expired_date: Optional[datetime]
+    amount: Optional[int]
+
+
+class BizCouponResponse(BaseModel):
+    id: int
+    biz_id: str
+    title: str
+    content: str
+    start_date: Optional[datetime]
+    expired_date: Optional[datetime]
+    amount: Optional[int]

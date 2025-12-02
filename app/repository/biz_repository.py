@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from app.db.db_connection import db
 from typing import List, Optional
 from app.utils.logging_config import get_logger
-from app.db.biz import BizDetailRow
+from app.db.biz import BizDetailRow, BizCouponRow
 
 logger = get_logger(__name__)
 
@@ -272,3 +272,38 @@ class BizRepository:
                     (coupon_id, biz_id),
                 )
                 return True
+
+    async def fetch_biz_coupons(
+        self,
+        biz_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 
+                        id,
+                        biz_id,
+                        title,
+                        content,
+                        start_date,
+                        expired_date,
+                        amount
+                    FROM biz_coupon
+                    WHERE biz_id = %s AND deleted = FALSE
+                    ORDER BY id DESC
+                    """,
+                    (biz_id,),
+                )
+                rows = await cur.fetchall()
+                if not rows:
+                    return []
+
+                columns = [col[0] for col in cur.description]
+                result = []
+
+                for row in rows:
+                    row_dict = dict(zip(columns, row))
+                    result.append(BizCouponRow(**row_dict))
+
+                return result

@@ -10,6 +10,7 @@ from app.db.user import (
     UserCreditHistoryResponse,
     BizListResponse,
     BizDetailResponse,
+    BizReviewResponse,
 )
 from app.db.image import UserSecretResponse
 from app.db.db_connection import db
@@ -1309,10 +1310,21 @@ class UserService:
         user_id = await get_user_id_from_token(token)
 
         reviews = await self.user_repository.fetch_biz_review_list(
-            user_id=user_id,
             biz_id=biz_id,
         )
-        return reviews
+        review_list: List[BizReviewResponse] = []
+        for review in reviews:
+            review_list.append(
+                BizReviewResponse(
+                    id=review.id,
+                    userId=review.user_id,
+                    userNickname=review.nickname,
+                    bizId=review.biz_id,
+                    content=review.content,
+                    createdAt=review.created_at,
+                )
+            )
+        return review_list
 
     async def follow_user(
         self,
@@ -1327,6 +1339,15 @@ class UserService:
         return await self.user_repository.follow_user(
             follower_id=user_id, follow_id=follow_id
         )
+
+    async def fetch_follow_list(self, token: str):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        follow_list = await self.user_repository.fetch_follow_list(user_id=user_id)
+        return follow_list
+
+    # async def fetch_follower_list
 
     async def insert_refferal_code(
         self,

@@ -3,7 +3,10 @@ from fastapi import HTTPException, status, UploadFile, File
 from app.utils.logging_config import get_logger
 from app.repository.biz_repository import BizRepository
 from app.services.image_service import ImageService
-from app.db.biz import BizProfileResponse
+from app.db.biz import (
+    BizProfileResponse,
+    BizCouponResponse,
+)
 from app.utils.security import verify_password, hash_password
 from app.utils.token import (
     create_access_token_biz,
@@ -195,3 +198,26 @@ class BizService:
             )
 
         return True
+
+    async def fetch_biz_coupons(
+        self,
+        token: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+        biz_id = await self.biz_repository.get_biz_id(user_id)
+
+        coupons = await self.biz_repository.fetch_biz_coupons(biz_id=biz_id)
+        coupon_list = []
+        for coupon in coupons:
+            coupon_list.append(
+                BizCouponResponse(
+                    id=coupon.id,
+                    biz_id=coupon.biz_id,
+                    title=coupon.title,
+                    content=coupon.content,
+                    amount=coupon.amount,
+                    start_date=coupon.start_date,
+                    expired_date=coupon.expired_date,
+                )
+            )
+        return coupon_list

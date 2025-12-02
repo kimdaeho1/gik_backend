@@ -26,6 +26,7 @@ from app.db.user import (
     UserFavoriteRequest,
     UserCreditProfileRequest,
     BizReviewRequest,
+    UserFollowRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -1300,6 +1301,31 @@ async def fetch_user_credit_history(
         "message": "나의 크레딧 히스토리 조회 성공",
         "creditHistory": result,
     }
+
+
+@router.post("/user/follow", status_code=status.HTTP_200_OK)
+@inject
+async def follow_user(
+    target_user_id: UserFollowRequest,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    유저 팔로우/언팔로우
+    user_id: token에서 추출, 팔로우 주체
+    target_user_id: 팔로우할 대상 유저 ID
+    """
+    result = await service.follow_user(token, target_user_id.userId)
+    if result:
+        return {
+            "success": True,
+            "message": "유저 언팔로우 성공.",
+        }
+    else:
+        return {
+            "success": True,
+            "message": "유저 팔로우 성공.",
+        }
 
 
 # [유저] 상대 유저 상세정보 조회

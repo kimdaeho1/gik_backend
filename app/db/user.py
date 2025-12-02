@@ -559,4 +559,23 @@ class BizDetailResponse(BaseModel):
     logitude: Optional[float]
 
 
-# class BizReviewResponse(BaseModel):
+class BizReviewRow(BaseModel):
+    id: int
+    user_id: str
+    nickname: str
+    biz_id: str
+    content: str
+    created_at: datetime
+
+
+class BizReviewResponse(BaseModel):
+    id: int
+    userId: str
+    userNickname: str
+    bizId: str
+    content: str
+    createdAt: datetime
+
+
+class UserFollowRequest(BaseModel):
+    userId: str

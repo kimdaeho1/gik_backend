@@ -15,6 +15,7 @@ from app.db.user import (
     ViewCountRow,
     CountRow,
     ProfileViewRow,
+    BizReviewRow,
 )
 from datetime import datetime
 import math
@@ -2920,6 +2921,40 @@ class UserRepository:
                     return False
                 await conn.commit()
                 return True
+
+    async def fetch_biz_review_list(self, biz_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 
+                        br.id,
+                        br.user_id,
+                        u.nickname,
+                        br.biz_id,
+                        br.content,
+                        br.created_at
+                    FROM biz_review br
+                    JOIN users u
+                        ON br.user_id = u.id
+                    WHERE br.biz_id = %s
+                    AND br.deleted = FALSE
+                    ORDER BY br.id DESC
+                    """,
+                    (biz_id,),
+                )
+
+                rows = await cur.fetchall()
+                if not rows:
+                    return []
+
+                columns = [col[0] for col in cur.description]
+                return [BizReviewRow(**dict(zip(columns, row))) for row in rows]
+
+    async def fetch_follow_list(
+        self,
+        user_id: str,
+    ): ...
 
     async def fetch_biz_list(
         self,
