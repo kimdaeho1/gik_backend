@@ -78,15 +78,15 @@ class BizProfileResponse(BaseModel):
     longitude: Optional[float]
     fcm: Optional[str]
     credit: int
-    marketingAgree: bool
-    nightAgree: bool
-    personalChatAlarmAgree: bool
-    groupChatAlarmAgree: bool
-    postCommentAlarmAgree: bool
-    postLikeAlarmAgree: bool
-    profileAlarmAgree: bool
-    feedLikeAlarmAgree: bool
-    feedCommentAlarmAgree: bool
+    marketingAlarm: bool
+    nightAlarm: bool
+    personalChatAlarm: bool
+    groupChatAlarm: bool
+    postCommentAlarm: bool
+    postLikeAlarm: bool
+    profileAlarm: bool
+    feedLikeAlarm: bool
+    feedCommentAlarm: bool
     profileImage: Optional[List[str]]
     blockUserList: Optional[List[str]]
     favoriteUserList: Optional[List[str]]
