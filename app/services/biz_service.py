@@ -72,7 +72,7 @@ class BizService:
             storeName=biz.store_name,
             tags=biz.tags,
             address=biz.address,
-            business_hours=biz.business_hours,
+            businessHours=biz.business_hours,
             phoneNumber=biz.phone,
             managerPhone=biz.manager_phone,
             latitude=biz.latitude,

@@ -1230,6 +1230,7 @@ class UserService:
 
         return biz_list
 
+    # 내가 쿠폰을 사용했는지 여부 표시.
     async def fetch_biz_detail(
         self,
         token: str,
@@ -1323,4 +1324,20 @@ class UserService:
             raise HTTPException(
                 status_code=400, detail="이미 추천인 코드를 등록하였습니다."
             )
+        return True
+
+    async def use_biz_coupon(
+        self,
+        token: str,
+        coupon_id: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        result = await self.user_repository.use_biz_coupon(
+            user_id=user_id,
+            coupon_id=coupon_id,
+        )
+        if result is False:
+            logger.warn(f"쿠폰 유효기간이 아닙니다, coupon_id: {coupon_id}")
+            raise HTTPException(status_code=400, detail="쿠폰 유효기간이 아닙니다.")
         return True

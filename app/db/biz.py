@@ -71,7 +71,7 @@ class BizProfileResponse(BaseModel):
     storeName: str
     tags: str
     address: str
-    business_hours: str
+    businessHours: str
     phoneNumber: str
     managerPhone: str
     latitude: Optional[float]

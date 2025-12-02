@@ -15,7 +15,7 @@ from app.db.user import (
     CountRow,
     ProfileViewRow,
 )
-import math
+import math, datetime
 
 logger = get_logger(__name__)
 
@@ -2950,3 +2950,39 @@ class UserRepository:
                 )
                 row = await cur.fetchone()
                 return row
+
+    async def use_biz_coupon(
+        self,
+        user_id: str,
+        coupon_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT start_date, expired_date
+                    FROM biz_coupon
+                    WHERE coupon_id = %s 
+                    """,
+                    (coupon_id,),
+                )
+
+                row = await cur.fetchone()
+                start_date = row[0]
+                expired_date = row[1]
+
+                now = datetime.now()
+
+                if not (start_date <= now <= expired_date):
+                    return False
+
+                await cur.execute(
+                    """
+                    INSERT INTO biz_coupon_history (coupon_id, user_id, used_at)
+                    VALUES (%s, %s, NOW())
+                    """,
+                    (coupon_id, user_id),
+                )
+                await conn.commit()
+
+                return True

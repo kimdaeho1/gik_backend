@@ -1388,3 +1388,25 @@ async def fetch_biz_detail(
         "message": "비즈니스 유저 상세정보 조회 성공",
         "bizUser": biz_user,
     }
+
+
+@router.post("/user/biz/coupon/{coupon_id}", status_code=status.HTTP_200_OK)
+@inject
+async def use_biz_coupon(
+    coupon_id: int,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 쿠폰 사용 처리
+    """
+    result = await service.use_biz_coupon(
+        token=token,
+        coupon_id=coupon_id,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비즈니스 쿠폰 사용 처리 실패.",
+        )
+    return {"success": result, "message": "비즈니스 쿠폰 사용 처리 성공."}
