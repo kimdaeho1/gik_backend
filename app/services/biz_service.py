@@ -8,6 +8,9 @@ from app.utils.token import (
     create_access_token_biz,
     create_refresh_token_biz,
     get_biz_id_from_token,
+    get_user_id_from_token,
+    create_refresh_token,
+    create_access_token,
 )
 
 logger = get_logger(__name__)
@@ -30,9 +33,10 @@ class BizService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="존재하지 않는 비즈 계정입니다.",
             )
+        # 유저 ID
+        user_id = biz[1]
         # 비밀번호
         stored_hash = biz[3]
-        print("Stored hash repr:", repr(stored_hash))
         # 1. 아이디가 다를경우, PW가 다를경우, 그리고 PW decode 과정이 필요하다.
         if not verify_password(biz_password, stored_hash):
             raise HTTPException(
@@ -40,8 +44,8 @@ class BizService:
                 detail="비밀번호가 일치하지 않습니다.",
             )
 
-        access_token = create_access_token_biz(biz_id=biz_id)
-        refresh_token = create_refresh_token_biz(biz_id=biz_id)
+        access_token = create_access_token(user_id=user_id)
+        refresh_token = create_refresh_token(user_id=user_id)
 
         await self.biz_repository.update_biz_tokens(
             biz_id=biz_id,
@@ -50,27 +54,13 @@ class BizService:
         )
         return access_token, refresh_token
 
-    async def uplaod_biz_image(
-        self,
-        biz_id: str,
-        biz_image: UploadFile,
-    ) -> List[str]:
-        image_urls = []
-        if biz_image:
-            image_url = await self.image_service.upload_image(
-                file=biz_image,
-                folder_name=f"biz/{biz_id}",
-            )
-            image_urls.append(image_url)
-        return image_urls
-
     # 내 비즈계정 정보 조회
     async def get_my_biz_account_info(self, token: str):
         # 1. 토큰 검증 → biz_id 추출
-        biz_id = get_biz_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
 
         # 2. DB에서 정보 조회
-        biz = await self.biz_repository.get_my_biz_account_info(biz_id=biz_id)
+        biz = await self.biz_repository.get_my_biz_account_info(user_id=user_id)
 
         if not biz:
             raise HTTPException(
@@ -115,14 +105,6 @@ class BizService:
         # 3. 그대로 반환
         return image_urls
 
-    async def delete_biz_account(self, token: str):
-        # 토큰을 검증해 biz_id를 받는다
-        biz_id = get_biz_id_from_token(token)
-
-        # biz_id로 biz_account 정보를 삭제(비활성화) 한다.
-        await self.biz_repository.delete_biz_account(biz_id=biz_id)
-        return True
-
     async def create_biz_coupon(
         self,
         token: str,
@@ -132,7 +114,8 @@ class BizService:
         start_date: str,
         expired_date: str,
     ):
-        biz_id = get_biz_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
+        biz_id = await self.biz_repository.get_biz_id(user_id)
 
         coupon = await self.biz_repository.create_biz_coupon(
             biz_id=biz_id,
@@ -154,7 +137,8 @@ class BizService:
         start_date: str,
         expired_date: str,
     ):
-        biz_id = get_biz_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
+        biz_id = await self.biz_repository.get_biz_id(user_id)
 
         result = await self.biz_repository.update_biz_coupon(
             biz_id=biz_id,
@@ -179,7 +163,8 @@ class BizService:
         token: str,
         coupon_id: int,
     ):
-        biz_id = get_biz_id_from_token(token)
+        user_id = await get_user_id_from_token(token)
+        biz_id = await self.biz_repository.get_biz_id(user_id)
 
         result = await self.biz_repository.delete_biz_coupon(
             biz_id=biz_id,

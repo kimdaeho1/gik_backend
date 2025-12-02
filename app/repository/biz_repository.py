@@ -10,6 +10,23 @@ class BizRepository:
     def __init__(self, db):
         self.db = db
 
+    async def get_biz_id(self, user_id: str) -> str:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT biz_id
+                    FROM biz_account
+                    WHERE id = %s
+                    """,
+                    (user_id,),
+                )
+                result = await cur.fetchone()
+                if result:
+                    return result[0]
+                else:
+                    return None
+
     async def get_biz_account(self, biz_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -41,7 +58,7 @@ class BizRepository:
                     (access_token, refresh_token, biz_id),
                 )
 
-    async def get_my_biz_account_info(self, biz_id: str):
+    async def get_my_biz_account_info(self, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
@@ -67,9 +84,9 @@ class BizRepository:
                             ) t
                         ) AS image_urls
                     FROM biz_account b
-                    WHERE b.biz_id = %s
+                    WHERE b.id = %s
                     """,
-                    (biz_id,),
+                    (user_id,),
                 )
                 biz_info = await cur.fetchone()
                 return biz_info
@@ -87,21 +104,6 @@ class BizRepository:
                         """,
                         (biz_id, idx, image_url),
                     )
-
-    async def delete_biz_account(
-        self,
-        biz_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    UPDATE biz_account
-                    SET leaved = TRUE
-                    WHERE biz_id = %s
-                    """,
-                    (biz_id,),
-                )
 
     async def create_biz_coupon(
         self,
