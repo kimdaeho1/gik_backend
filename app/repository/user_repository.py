@@ -4,6 +4,7 @@ from app.db.db_connection import db
 from typing import List, Optional
 from app.utils.logging_config import get_logger
 from app.utils.firebase_init import init_firebase_admin
+from app.utils.utils import to_datetime
 from firebase_admin import auth
 from app.utils.logging_config import get_logger
 from app.db.user import (
@@ -15,7 +16,8 @@ from app.db.user import (
     CountRow,
     ProfileViewRow,
 )
-import math, datetime
+from datetime import datetime
+import math
 
 logger = get_logger(__name__)
 
@@ -2896,18 +2898,28 @@ class UserRepository:
                 await conn.commit()
                 return True
 
-    # async def delete_biz_review(
-    #     self,
-    #     user_id: str,
-    #     review_id: int,
-    # ):
-    #     async with self.db.get_connection() as conn:
-    #         async with conn.cursor() as cur:
-    #             await cur.execute(
-    #                 """
-
-    #                 """
-    #             )
+    async def delete_biz_review(
+        self,
+        user_id: str,
+        review_id: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE biz_review
+                    SET deleted = TRUE
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (
+                        review_id,
+                        user_id,
+                    ),
+                )
+                if cur.rowcount == 0:
+                    return False
+                await conn.commit()
+                return True
 
     async def fetch_biz_list(
         self,
@@ -2983,7 +2995,7 @@ class UserRepository:
                     """
                     SELECT start_date, expired_date, amount
                     FROM biz_coupon
-                    WHERE coupon_id = %s AND deleted = FALSE
+                    WHERE id = %s AND deleted = FALSE
                     FOR UPDATE
                     """,
                     (coupon_id,),
@@ -3007,7 +3019,9 @@ class UserRepository:
                     return "used"
 
                 start_date, expired_date, amount = row
-                now = datetime.now()
+                start_date = to_datetime(start_date)
+                expired_date = to_datetime(expired_date)
+                now = datetime.utcnow()
 
                 # 유효기간 체크하기
                 if expired_date is not None:
@@ -3029,7 +3043,7 @@ class UserRepository:
                         """
                         UPDATE biz_coupon
                         SET amount = amount - 1
-                        WHERE coupon_id = %s
+                        WHERE id = %s
                         """,
                         (coupon_id,),
                     )

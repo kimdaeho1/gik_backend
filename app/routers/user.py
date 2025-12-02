@@ -1347,6 +1347,76 @@ async def create_biz_review(
     return {"success": result, "message": "비즈니스 유저 리뷰 작성 성공."}
 
 
+# 리뷰 삭제
+@router.delete("/user/biz/review/{review_id}", status_code=status.HTTP_200_OK)
+@inject
+async def delete_biz_review(
+    review_id: int,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 유저 리뷰 삭제
+    user_id: token에서 추출, 리뷰 삭제 주체
+    review_id: 삭제할 리뷰 ID
+    """
+    result = await service.delete_biz_review(
+        token=token,
+        review_id=review_id,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 리뷰 삭제 실패.",
+        )
+    return {"success": result, "message": "유저 리뷰 삭제 성공."}
+
+
+# 리뷰 조회
+@router.get("/user/biz/review/list/{biz_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_biz_review_list(
+    biz_id: str,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 유저 리뷰 조회
+    biz_id: 리뷰 조회할 비즈니스 유저 ID
+    """
+    reviews = await service.fetch_biz_review_list(
+        token=token,
+        biz_id=biz_id,
+    )
+    return {
+        "success": True,
+        "message": "비즈니스 유저 리뷰 조회 성공",
+        "reviews": reviews,
+    }
+
+
+@router.post("/user/biz/coupon/{coupon_id}", status_code=status.HTTP_200_OK)
+@inject
+async def use_biz_coupon(
+    coupon_id: int,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 쿠폰 사용 처리
+    """
+    result = await service.use_biz_coupon(
+        token=token,
+        coupon_id=coupon_id,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비즈니스 쿠폰 사용 처리 실패.",
+        )
+    return {"success": result, "message": "비즈니스 쿠폰 사용 처리 성공."}
+
+
 @router.get("/user/biz/list", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_biz_user_list(
@@ -1388,25 +1458,3 @@ async def fetch_biz_detail(
         "message": "비즈니스 유저 상세정보 조회 성공",
         "bizUser": biz_user,
     }
-
-
-@router.post("/user/biz/coupon/{coupon_id}", status_code=status.HTTP_200_OK)
-@inject
-async def use_biz_coupon(
-    coupon_id: int,
-    token: str = Depends(oauth2_scheme),
-    service: UserService = Depends(Provide[Container.user_service]),
-):
-    """
-    비즈니스 쿠폰 사용 처리
-    """
-    result = await service.use_biz_coupon(
-        token=token,
-        coupon_id=coupon_id,
-    )
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="비즈니스 쿠폰 사용 처리 실패.",
-        )
-    return {"success": result, "message": "비즈니스 쿠폰 사용 처리 성공."}

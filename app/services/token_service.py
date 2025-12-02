@@ -49,14 +49,34 @@ class TokenService:
         try:
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
+
                     await cur.execute(
                         """
                         UPDATE users
-                        SET access_token = NULL, refresh_token = NULL, fcm = ""
+                        SET access_token = NULL,
+                            refresh_token = NULL,
+                            fcm = ""
                         WHERE id = %s
                         """,
                         (user_id,),
                     )
+                    row_users = cur.rowcount
+
+                    await cur.execute(
+                        """
+                        UPDATE biz_account
+                        SET access_token = NULL,
+                            refresh_token = NULL,
+                            fcm = ""
+                        WHERE id = %s
+                        """,
+                        (user_id,),
+                    )
+                    row_biz = cur.rowcount
+
+                    if row_users == 0 and row_biz == 0:
+                        return False
+
                     await conn.commit()
                     return True
 

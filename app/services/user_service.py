@@ -1293,7 +1293,26 @@ class UserService:
             review_id=review_id,
         )
 
+        if result is False:
+            logger.error(
+                f"존재하지 않는 리뷰이거나 삭제 권한이 없습니다. review_id: {review_id}"
+            )
+            raise HTTPException(status_code=404, detail="리뷰를 삭제할 수 없습니다.")
+
         return True
+
+    async def fetch_biz_review_list(
+        self,
+        token: str,
+        biz_id: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        reviews = await self.user_repository.fetch_biz_review_list(
+            user_id=user_id,
+            biz_id=biz_id,
+        )
+        return reviews
 
     async def follow_user(
         self,

@@ -557,3 +557,6 @@ class BizDetailResponse(BaseModel):
     managerPhone: str
     latitude: Optional[float]
     logitude: Optional[float]
+
+
+# class BizReviewResponse(BaseModel):
