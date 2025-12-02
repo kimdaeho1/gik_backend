@@ -387,11 +387,18 @@ class FeedRepository:
                         f.created_at, 
                         f.updated_at
                     FROM feeds f
-                    JOIN users u ON f.user_id = u.id
-                    WHERE f.deleted = %s
-                    AND u.leaved = FALSE
+                    LEFT JOIN users u 
+                        ON f.user_id = u.id AND u.leaved = FALSE
+                    LEFT JOIN biz_account b
+                        ON f.user_id = b.id AND b.leaved = FALSE
+                    WHERE f.deleted = FALSE
+                    AND (
+                        u.id IS NOT NULL 
+                        OR b.id IS NOT NULL
+                    )
                     AND NOT EXISTS (
-                        SELECT 1 FROM user_block_list ubl
+                        SELECT 1 
+                        FROM user_block_list ubl
                         WHERE 
                             (ubl.block_user_id = %s AND ubl.blocked_user_id = f.user_id)
                             OR (ubl.block_user_id = f.user_id AND ubl.blocked_user_id = %s)
@@ -404,7 +411,7 @@ class FeedRepository:
                     ORDER BY f.created_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (False, user_id, user_id, user_id, 5, offset),
+                    (user_id, user_id, user_id, 5, offset),
                 )
                 feeds = await cur.fetchall()
                 return feeds
@@ -689,22 +696,26 @@ class FeedRepository:
         now = datetime.utcnow()
         offset = (page - 1) * 5
 
-        # 캐시 확인.
-        # 유저의 아이디가 가지고있는 캐시 데이터가 있고, 만료 기간이 지나지 않았다면:
+        # 캐시 확인
         if user_id in FEED_CACHE and FEED_CACHE[user_id]["expires_at"] > now:
-            # 캐시에서 피드 ID 리스트를 가져오기
             feed_ids = FEED_CACHE[user_id]["feeds"]
         else:
-            # 캐시가 없거나 만료 기간이 지나버렸다면, 랜덤 피드 ID 리스트를 생성하기
+            # 캐시 없으면 새로 생성
             async with self.db.get_connection() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute(
                         """
                         SELECT f.feed_id
                         FROM feeds f
-                        JOIN users u ON f.user_id = u.id
+                        LEFT JOIN users u 
+                            ON f.user_id = u.id AND u.leaved = FALSE
+                        LEFT JOIN biz_account b
+                            ON f.user_id = b.id AND b.leaved = FALSE
                         WHERE f.deleted = FALSE
-                        AND u.leaved = FALSE
+                        AND (
+                            u.id IS NOT NULL 
+                            OR b.id IS NOT NULL
+                        )
                         AND NOT EXISTS (
                             SELECT 1
                             FROM user_block_list ubl
@@ -723,22 +734,18 @@ class FeedRepository:
                     query = await cur.fetchall()
                     feed_ids = [row[0] for row in query]
 
-            # 랜덤으로 셔플해서 캐시에 저장하기
             random.shuffle(feed_ids)
-            # 캐시에 저장할때는 피드의 Id리스트와 만료 시간을 같이 저장
             FEED_CACHE[user_id] = {
                 "feeds": feed_ids,
                 "expires_at": now + timedelta(minutes=1),
             }
 
-        # 페이지 단위로 피드 ID 추출하기
         paging_ids = feed_ids[offset : offset + 5]
 
-        # 캐시 끝까지 도달 시 새로 생성 (끝으로 가면 피드가 없어짐)
         if not paging_ids:
             return []
 
-        # 실제 피드 데이터 가져오기
+        # 피드 상세 데이터 가져오기
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 placeholders = ",".join(["%s"] * len(paging_ids))
@@ -755,8 +762,15 @@ class FeedRepository:
                         f.created_at,
                         f.updated_at
                     FROM feeds f
-                    JOIN users u ON f.user_id = u.id
+                    LEFT JOIN users u 
+                        ON f.user_id = u.id AND u.leaved = FALSE
+                    LEFT JOIN biz_account b
+                        ON f.user_id = b.id AND b.leaved = FALSE
                     WHERE f.feed_id IN ({})
+                    AND (
+                        u.id IS NOT NULL 
+                        OR b.id IS NOT NULL
+                    )
                     """
                 ).format(placeholders)
 
