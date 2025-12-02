@@ -736,9 +736,7 @@ class FeedRepository:
 
         # 캐시 끝까지 도달 시 새로 생성 (끝으로 가면 피드가 없어짐)
         if not paging_ids:
-            if user_id in FEED_CACHE:
-                del FEED_CACHE[user_id]
-            return await self.get_random_feed_list(user_id, 1)
+            return []
 
         # 실제 피드 데이터 가져오기
         async with self.db.get_connection() as conn:
