@@ -33,51 +33,6 @@ class Hashtags(BaseModel):
     personality: List[str]
 
 
-class BizProfileResponse(BaseModel):
-    id: str
-    nickname: str
-    birthday: str
-    age: int
-    height: int
-    weight: int
-    sns: str
-    relation: str
-    provider: str
-    position: str
-    country: str
-    hashtags: Hashtags
-    selfIntroduction: Optional[str]
-    bdsmType: Optional[str]
-    talkStyle: Optional[str]
-    profileImages: List[str]
-    secretYn: bool
-    credit: int
-    todayAdCount: int
-    secretImages: List[str]
-    marketingAlarm: bool
-    nightAlarm: bool
-    personalChatAlarm: bool
-    groupChatAlarm: bool
-    postCommentAlarm: bool
-    postLikeAlarm: bool
-    profileAlarm: bool
-    secretAlarm: bool
-    feedLikeAlarm: bool
-    feedCommentAlarm: bool
-    pushRead: bool
-    profileRead: bool
-    banned: bool
-    unBannedDate: Optional[datetime]
-    blockUserList: Optional[List[str]]
-    blockPostList: Optional[List[str]]
-    blockCommentList: Optional[List[str]]
-    favoriteUserList: Optional[List[str]]
-    lastConnectedAt: datetime
-    latitude: Optional[float]
-    longitude: Optional[float]
-    hasSecretFeed: bool
-
-
 class BizDetailRow(BaseModel):
     id: str
     biz_id: str
@@ -123,15 +78,15 @@ class BizProfileResponse(BaseModel):
     longitude: Optional[float]
     fcm: Optional[str]
     credit: int
-    marketing_agree: bool
-    night_agree: bool
-    personal_chat_alarm_agree: bool
-    group_chat_alarm_agree: bool
-    post_comment_alarm_agree: bool
-    post_like_alarm_agree: bool
-    profile_alarm_agree: bool
-    feed_like_alarm_agree: bool
-    feed_comment_alarm_agree: bool
+    marketingAgree: bool
+    nightAgree: bool
+    personalChatAlarmAgree: bool
+    groupChatAlarmAgree: bool
+    postCommentAlarmAgree: bool
+    postLikeAlarmAgree: bool
+    profileAlarmAgree: bool
+    feedLikeAlarmAgree: bool
+    feedCommentAlarmAgree: bool
     profileImage: Optional[List[str]]
     blockUserList: Optional[List[str]]
     favoriteUserList: Optional[List[str]]
