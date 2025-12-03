@@ -2774,8 +2774,8 @@ class UserRepository:
 
     async def follow_user(
         self,
-        user_id: str,
-        biz_id: str,
+        follower_id: str,
+        follow_id: str,
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -2783,9 +2783,9 @@ class UserRepository:
                     """
                     SELECT 1
                     FROM users_follow_list
-                    WHERE follower_id = %s AND follow_id = %s 
+                    WHERE follower_user_id = %s AND following_user_id = %s 
                     """,
-                    (user_id, biz_id),
+                    (follower_id, follow_id),
                 )
                 is_followed = await cur.fetchone()
                 # 팔로우 취소
@@ -2793,11 +2793,11 @@ class UserRepository:
                     await cur.execute(
                         """
                         DELETE FROM users_follow_list
-                        WHERE follower_id = %s AND follow_id
+                        WHERE follower_user_id = %s AND following_user_id = %s
                         """,
                         (
-                            user_id,
-                            biz_id,
+                            follower_id,
+                            follow_id,
                         ),
                     )
                     await conn.commit()
@@ -2805,13 +2805,10 @@ class UserRepository:
                 # 팔로우
                 await cur.execute(
                     """
-                    INSERT INTO users_follow_list (follower_id, follow_id, created_at)
+                    INSERT INTO users_follow_list (follower_user_id, following_user_id, created_at)
                     VALUES (%s, %s, CURRENT_TIMESTAMP)
                     """,
-                    (
-                        user_id,
-                        biz_id,
-                    ),
+                    (follower_id, follow_id),
                 )
                 await conn.commit()
                 return True
@@ -2922,7 +2919,156 @@ class UserRepository:
                 await conn.commit()
                 return True
 
-    async def fetch_biz_review_list(self, biz_id: str):
+    async def is_owner(self, user_id: str, review_id: int) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM biz_review
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (review_id, user_id),
+                )
+                result = await cur.fetchone()
+                return result[0] > 0
+
+    async def get_review_images(self, review_id: int) -> List[str]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT url
+                    FROM biz_review_image
+                    WHERE review_id = %s AND use_yn = TRUE
+                    ORDER BY `index`
+                    """,
+                    (review_id,),
+                )
+                rows = await cur.fetchall()
+                return [url for (url,) in rows]
+
+    async def update_review_images(
+        self,
+        review_id: int,
+        user_id: str,
+        keep_images: List[str],
+        remove_images: List[str],
+        uploaded_urls: List[str],
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await conn.begin()
+
+                # 삭제할 이미지 use_yn = FALSE
+                if remove_images:
+                    for url in remove_images:
+                        await cur.execute(
+                            """
+                            UPDATE biz_review_image
+                            SET use_yn = FALSE, updated_at = NOW()
+                            WHERE review_id = %s AND url = %s
+                            """,
+                            (review_id, url),
+                        )
+
+                # 유지할 이미지 index 재정렬
+                for idx, url in enumerate(keep_images):
+                    await cur.execute(
+                        """
+                        UPDATE biz_review_image
+                        SET `index` = %s, updated_at = NOW()
+                        WHERE review_id = %s AND url = %s AND use_yn = TRUE
+                        """,
+                        (idx, review_id, url),
+                    )
+
+                # 새 이미지 삽입
+                start_index = len(keep_images)
+                for idx, url in enumerate(uploaded_urls, start=start_index):
+                    await cur.execute(
+                        """
+                        INSERT INTO biz_review_image (review_id, user_id, `index`, url)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (review_id, user_id, idx, url),
+                    )
+
+                await conn.commit()
+
+    async def update_biz_review(
+        self,
+        review_id: int,
+        content: str,
+        rating: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE biz_review
+                    SET content = %s, rating = %s
+                    WHERE id = %s
+                    """,
+                    (content, rating, review_id),
+                )
+
+    async def get_review(self, review_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT review_id, user_id, biz_id, content, rating, created_at, updated_at
+                    FROM biz_review
+                    WHERE id = %s AND deleted = FALSE
+                    """,
+                    (review_id,),
+                )
+                return await cur.fetchone()
+
+    async def block_biz_review(
+        self,
+        user_id: str,
+        review_id: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO biz_review_block_list (block_user_id, review_id, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        user_id,
+                        review_id,
+                    ),
+                )
+                await conn.commit()
+                return True
+
+    async def report_biz_review(
+        self,
+        user_id: str,
+        review_id: int,
+        reason: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO biz_review_report_list (review_id, report_user_id, reason, status, created_at)
+                    VALUES (%s, %s, %s, 'PENDING', CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        review_id,
+                        user_id,
+                        reason,
+                    ),
+                )
+                await conn.commit()
+                return True
+
+    async def fetch_biz_review_list(self, user_id: str, biz_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
@@ -2933,15 +3079,38 @@ class UserRepository:
                         u.nickname,
                         br.biz_id,
                         br.content,
-                        br.created_at
+                        br.rating,
+                        br.created_at,
+                        bra.answer_content,
+                        bra.answer_created_at
                     FROM biz_review br
-                    JOIN users u
+                    JOIN users u 
                         ON br.user_id = u.id
+                    LEFT JOIN (
+                        SELECT review_id, content AS answer_content, created_at AS answer_created_at
+                        FROM biz_review_answer_list
+                    ) bra
+                        ON bra.review_id = br.id
                     WHERE br.biz_id = %s
                     AND br.deleted = FALSE
+                    AND br.user_id NOT IN (
+                        SELECT blocked_user_id
+                        FROM user_block_list
+                        WHERE block_user_id = %s
+                    )
+                    AND br.user_id NOT IN (
+                        SELECT block_user_id
+                        FROM user_block_list
+                        WHERE blocked_user_id = %s
+                    )
+                    AND br.id NOT IN (
+                        SELECT review_id
+                        FROM biz_review_block_list
+                        WHERE block_user_id = %s
+                    )
                     ORDER BY br.id DESC
                     """,
-                    (biz_id,),
+                    (biz_id, user_id, user_id, user_id),
                 )
 
                 rows = await cur.fetchall()
@@ -2976,7 +3145,7 @@ class UserRepository:
                            b.business_hours,
                            b.phone, 
                            b.manager_phone, 
-                           b.latitude, 
+                           b.latitude,
                            b.longitude
                     FROM biz_account b
                     ORDER BY b.created_at DESC
@@ -2994,28 +3163,45 @@ class UserRepository:
     ):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+
                 await cur.execute(
                     """
-                    SELECT b.id, 
-                           b.biz_id, 
-                           b.store_type, 
-                           b.store_name,
-                           b.email,
-                           b.tags,
-                           b.address,
-                           b.business_hours,
-                           b.phone, 
-                           b.manager_phone, 
-                           b.latitude, 
-                           b.longitude
+                    SELECT 
+                        b.id,
+                        b.biz_id,
+                        b.store_type,
+                        b.store_name,
+                        b.email,
+                        b.tags,
+                        b.address,
+                        b.business_hours,
+                        b.phone,
+                        b.manager_phone,
+                        b.latitude,
+                        b.longitude,
+
+                        CASE 
+                            WHEN f.user_id IS NOT NULL THEN TRUE
+                            ELSE FALSE
+                        END AS is_follow
+
                     FROM biz_account b
+                    LEFT JOIN biz_follow_list f
+                        ON f.biz_id = b.biz_id
+                        AND f.user_id = %s 
+
                     WHERE b.id = %s
                     LIMIT 1
                     """,
-                    (biz_pk,),
+                    (user_id, biz_pk),
                 )
+
                 row = await cur.fetchone()
-                return row
+                if not row:
+                    return None
+
+                columns = [col[0] for col in cur.description]
+                return dict(zip(columns, row))
 
     async def use_biz_coupon(
         self,

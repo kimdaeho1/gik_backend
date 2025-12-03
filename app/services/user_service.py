@@ -1,6 +1,6 @@
 from fastapi import UploadFile, HTTPException
 from datetime import datetime
-from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
+from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL, generate_filename
 from app.db.user import (
     Hashtags,
     UserProfileResponse,
@@ -8,7 +8,6 @@ from app.db.user import (
     UserListResponse,
     UserCreateRequest,
     UserCreditHistoryResponse,
-    BizListResponse,
     BizDetailResponse,
     BizReviewResponse,
 )
@@ -1209,11 +1208,11 @@ class UserService:
         )
 
         # 응답 모델 배열 생성
-        biz_list: List[BizListResponse] = []
+        biz_list: List[BizDetailResponse] = []
 
         for biz in bizs:
             biz_list.append(
-                BizListResponse(
+                BizDetailResponse(
                     id=biz[0],
                     bizId=biz[1],
                     storeType=biz[2],
@@ -1282,6 +1281,71 @@ class UserService:
         )
         return True
 
+    async def update_biz_review(
+        self,
+        token: str,
+        review_id: int,
+        content: str,
+        rating: int,
+        images: Optional[List[str]] = None,
+        review_images: Optional[List[UploadFile]] = None,
+    ):
+        # 1. 토큰 → userId 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 2. 작성자 체크
+        is_owner = await self.user_repository.is_owner(
+            user_id=user_id, review_id=review_id
+        )
+        if not is_owner:
+            logger.error("리뷰 수정 권한 없음")
+            return False
+
+        # 3. 기존 이미지 조회
+        origin_images = await self.user_repository.get_review_images(review_id)
+
+        # 4. 이미지 URL 파싱 (리스트 또는 ","로 이어진 문자열 모두 처리)
+        if images:
+            if len(images) == 1 and "," in images[0]:
+                images = images[0].split(",")
+        else:
+            images = []
+
+        images = [url.strip() for url in images]
+
+        # 유지할 이미지
+        keep_images = [url for url in images if url in origin_images]
+
+        # 삭제될 이미지
+        remove_images = [url for url in origin_images if url not in keep_images]
+
+        # 5. 새 이미지 업로드
+        uploaded_urls = []
+        if review_images and len(review_images) > 0:
+            s3_prefix = f"biz_review/{review_id}/"
+            for image in review_images:
+                filename = generate_filename(image.filename)
+                upload_file_to_s3(image.file, s3_prefix, filename)
+                uploaded_urls.append(f"{CLOUDFRONT_URL}/{s3_prefix}{filename}")
+
+        # 6. 이미지 업데이트
+        await self.user_repository.update_review_images(
+            review_id=review_id,
+            user_id=user_id,
+            keep_images=keep_images,
+            remove_images=remove_images,
+            uploaded_urls=uploaded_urls,
+        )
+
+        # 7. 리뷰 내용 + 평점 업데이트
+        await self.user_repository.update_biz_review(
+            review_id=review_id,
+            content=content,
+            rating=rating,
+        )
+
+        return True
+
     async def delete_biz_review(
         self,
         token: str,
@@ -1302,6 +1366,34 @@ class UserService:
 
         return True
 
+    async def block_biz_review(
+        self,
+        token: str,
+        review_id: int,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        result = await self.user_repository.block_biz_review(
+            user_id=user_id,
+            review_id=review_id,
+        )
+        return True
+
+    async def report_biz_review(
+        self,
+        token: str,
+        review_id: str,
+        reason: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        result = await self.user_repository.report_biz_review(
+            user_id=user_id,
+            review_id=review_id,
+            reason=reason,
+        )
+        return True
+
     async def fetch_biz_review_list(
         self,
         token: str,
@@ -1310,6 +1402,7 @@ class UserService:
         user_id = await get_user_id_from_token(token)
 
         reviews = await self.user_repository.fetch_biz_review_list(
+            user_id=user_id,
             biz_id=biz_id,
         )
         review_list: List[BizReviewResponse] = []
@@ -1321,7 +1414,14 @@ class UserService:
                     userNickname=review.nickname,
                     bizId=review.biz_id,
                     content=review.content,
+                    rating=review.rating,
                     createdAt=review.created_at,
+                    answer=(
+                        {
+                            "content": review.answer_content,
+                            "createdAt": review.answer_created_at,
+                        }
+                    ),
                 )
             )
         return review_list
@@ -1347,7 +1447,12 @@ class UserService:
         follow_list = await self.user_repository.fetch_follow_list(user_id=user_id)
         return follow_list
 
-    # async def fetch_follower_list
+    async def fetch_follower_list(self, token: str):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        follower_list = await self.user_repository.fetch_follower_list(user_id=user_id)
+        return follower_list
 
     async def insert_refferal_code(
         self,

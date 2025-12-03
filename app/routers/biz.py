@@ -3,7 +3,12 @@ from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, HTTPException, Form, UploadFile, File, status, Query
 from fastapi import BackgroundTasks, Depends
 from typing import Optional
-from app.db.biz import BizAccountRequest, BizCouponRequest, BizUpdateRequest
+from app.db.biz import (
+    BizAccountRequest,
+    BizCouponRequest,
+    BizUpdateRequest,
+    BizAnswerRequest,
+)
 from app.services.user_service import UserService
 from app.services.push_service import PushService
 from app.repository.user_repository import UserRepository
@@ -46,6 +51,20 @@ async def get_my_biz_account_info(
         "success": True,
         "message": "비즈 계정 정보 조회 성공",
         "data": biz_info,
+    }
+
+
+@router.get("/{biz_id}")
+@inject
+async def get_biz_detail(
+    biz_id: str,
+    biz_service=Depends(Provide[Container.biz_service]),
+):
+    biz_detail = await biz_service.get_biz_detail(biz_id=biz_id)
+    return {
+        "success": True,
+        "message": "비즈 상세 정보 조회 성공",
+        "data": biz_detail,
     }
 
 
@@ -144,5 +163,21 @@ async def fetch_biz_coupons(
     }
 
 
-# 비즈가 리뷰다는건 어떻게 할 생각인지.
-# @router.post("/review")
+# 비즈 리뷰 답변하기
+@router.post("/review/{review_id}")
+@inject
+async def answer_biz_review(
+    review_id: int,
+    answer_request: BizAnswerRequest,
+    token: str = Depends(oauth2_scheme),
+    biz_service=Depends(Provide[Container.biz_service]),
+):
+    await biz_service.answer_biz_review(
+        token=token,
+        review_id=review_id,
+        answer=answer_request.answer,
+    )
+    return {
+        "success": True,
+        "message": "비즈 리뷰 답변 성공",
+    }

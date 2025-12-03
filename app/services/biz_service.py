@@ -6,6 +6,7 @@ from app.services.image_service import ImageService
 from app.db.biz import (
     BizProfileResponse,
     BizCouponResponse,
+    BizDetailResponse,
 )
 from app.utils.security import verify_password, hash_password
 from app.utils.token import (
@@ -103,6 +104,49 @@ class BizService:
             hasSecretFeed=biz.has_secret_feed,
         )
 
+    async def get_biz_detail(self, biz_id: str):
+        biz = await self.biz_repository.get_biz_detail(biz_id=biz_id)
+
+        if not biz:
+            raise HTTPException(
+                status_code=404, detail="존재하지 않는 비즈 계정입니다."
+            )
+
+        return BizDetailResponse(
+            id=biz.id,
+            bizId=biz.biz_id,
+            storeType=biz.store_type,
+            storeName=biz.store_name,
+            tags=biz.tags,
+            address=biz.address,
+            businessHours=biz.business_hours,
+            phoneNumber=biz.phone,
+            managerPhone=biz.manager_phone,
+            latitude=biz.latitude,
+            longitude=biz.longitude,
+            credit=biz.credit,
+            marketingAlarm=biz.marketing_agree,
+            nightAlarm=biz.night_agree,
+            personalChatAlarm=biz.personal_chat_alarm_agree,
+            groupChatAlarm=biz.group_chat_alarm_agree,
+            postCommentAlarm=biz.post_comment_alarm_agree,
+            postLikeAlarm=biz.post_like_alarm_agree,
+            profileAlarm=biz.profile_alarm_agree,
+            secretAlarm=biz.secret_alarm_agree,
+            feedLikeAlarm=biz.feed_like_alarm_agree,
+            feedCommentAlarm=biz.feed_comment_alarm_agree,
+            profileImage=json.loads(biz.image_urls) if biz.image_urls else [],
+            blockUserList=(
+                json.loads(biz.block_user_list) if biz.block_user_list else []
+            ),
+            favoriteUserList=(
+                json.loads(biz.favorite_user_list) if biz.favorite_user_list else []
+            ),
+            pushRead=biz.push_read,
+            profileRead=biz.profile_read,
+            hasSecretFeed=biz.has_secret_feed,
+        )
+
     async def upload_biz_images(
         self,
         biz_id: str,
@@ -136,10 +180,9 @@ class BizService:
         expired_date: str,
     ):
         user_id = await get_user_id_from_token(token)
-        biz_id = await self.biz_repository.get_biz_id(user_id)
 
         coupon = await self.biz_repository.create_biz_coupon(
-            biz_id=biz_id,
+            biz_id=user_id,
             title=title,
             content=content,
             amount=amount,
@@ -159,10 +202,9 @@ class BizService:
         expired_date: str,
     ):
         user_id = await get_user_id_from_token(token)
-        biz_id = await self.biz_repository.get_biz_id(user_id)
 
         result = await self.biz_repository.update_biz_coupon(
-            biz_id=biz_id,
+            biz_id=user_id,
             coupon_id=coupon_id,
             title=title,
             content=content,
@@ -185,10 +227,9 @@ class BizService:
         coupon_id: int,
     ):
         user_id = await get_user_id_from_token(token)
-        biz_id = await self.biz_repository.get_biz_id(user_id)
 
         result = await self.biz_repository.delete_biz_coupon(
-            biz_id=biz_id,
+            biz_id=user_id,
             coupon_id=coupon_id,
         )
         if result is False:
@@ -204,9 +245,8 @@ class BizService:
         token: str,
     ):
         user_id = await get_user_id_from_token(token)
-        biz_id = await self.biz_repository.get_biz_id(user_id)
 
-        coupons = await self.biz_repository.fetch_biz_coupons(biz_id=biz_id)
+        coupons = await self.biz_repository.fetch_biz_coupons(biz_id=user_id)
         coupon_list = []
         for coupon in coupons:
             coupon_list.append(
@@ -221,3 +261,25 @@ class BizService:
                 )
             )
         return coupon_list
+
+    async def answer_biz_review(
+        self,
+        token: str,
+        review_id: int,
+        answer: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+        biz_id = await self.biz_repository.get_biz_id(user_id)
+
+        result = await self.biz_repository.answer_biz_review(
+            biz_id=biz_id,
+            review_id=review_id,
+            content=answer,
+        )
+        if result is False:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="존재하지 않는 리뷰이거나 답변 권한이 없습니다.",
+            )
+
+        return True

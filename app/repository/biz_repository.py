@@ -161,6 +161,108 @@ class BizRepository:
                 row_dict = dict(zip(columns, row))
                 return BizDetailRow(**row_dict)
 
+    async def get_biz_detail(self, biz_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT  
+                        b.id,
+                        b.biz_id,
+                        b.store_type,
+                        b.store_name,
+                        b.tags,
+                        b.address,
+                        b.business_hours,
+                        b.phone,
+                        b.manager_phone,
+                        b.latitude,
+                        b.longitude,
+                        b.credit,
+                        b.marketing_agree,
+                        b.night_agree,
+                        b.personal_chat_alarm_agree,
+                        b.group_chat_alarm_agree,
+                        b.post_comment_alarm_agree,
+                        b.post_like_alarm_agree,
+                        b.profile_alarm_agree,
+                        b.secret_alarm_agree,
+                        b.feed_like_alarm_agree,
+                        b.feed_comment_alarm_agree,
+
+                        -- 비즈 이미지
+                        (
+                            SELECT JSON_ARRAYAGG(t.url)
+                            FROM (
+                                SELECT bi.url
+                                FROM biz_images bi
+                                WHERE bi.biz_id = b.biz_id
+                                ORDER BY bi.index
+                            ) t
+                        ) AS image_urls,
+
+                        -- 차단 목록
+                        (
+                            SELECT JSON_ARRAYAGG(ub.blocked_user_id)
+                            FROM user_block_list ub
+                            WHERE ub.block_user_id = u.id
+                        ) AS block_user_list,
+
+                        -- 즐겨찾기 목록
+                        (
+                            SELECT JSON_ARRAYAGG(favorite_user_id)
+                            FROM users_favorite_list
+                            WHERE user_id = u.id
+                        ) AS favorite_user_list,
+
+                        -- pushRead
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM push_user_log pul
+                                WHERE pul.user_no = u.user_no 
+                                AND pul.delivery_state = 'DELIVERED'
+                            )
+                        ) AS push_read,
+
+                        -- profileRead
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM push_user_log pul
+                                WHERE pul.user_no = u.user_no 
+                                AND pul.status = 'SUCCESS'
+                                AND pul.delivery_state = 'DELIVERED' 
+                                AND pul.push_type = 'profile'
+                            )
+                        ) AS profile_read,
+
+                        -- hasSecretFeed
+                        (
+                            SELECT EXISTS(
+                                SELECT 1
+                                FROM feeds f
+                                WHERE f.user_id = u.id
+                                AND f.secret_status = TRUE
+                                AND f.deleted = FALSE
+                            )
+                        ) AS has_secret_feed
+
+                    FROM biz_account b
+                    LEFT JOIN users u ON u.id = b.id
+                    WHERE b.id = %s
+                    """,
+                    (biz_id,),
+                )
+
+                row = await cur.fetchone()
+                if not row:
+                    return None
+
+                columns = [col[0] for col in cur.description]
+                row_dict = dict(zip(columns, row))
+                return BizDetailRow(**row_dict)
+
     async def upload_biz_images(
         self, biz_id: str, image_urls: List[str], start_index: int
     ):
@@ -307,3 +409,49 @@ class BizRepository:
                     result.append(BizCouponRow(**row_dict))
 
                 return result
+
+    async def answer_biz_review(
+        self,
+        biz_id: str,
+        review_id: int,
+        content: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+
+                # 리뷰가 해당 업장의 리뷰인지 체크
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM biz_review
+                    WHERE id = %s AND biz_id = %s AND deleted = FALSE
+                    """,
+                    (review_id, biz_id),
+                )
+                (count,) = await cur.fetchone()
+                if count == 0:
+                    return False
+
+                # 이미 답변 달린 리뷰인지 체크
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM biz_review_answer_list
+                    WHERE review_id = %s AND biz_id = %s
+                    """,
+                    (review_id, biz_id),
+                )
+                (exists,) = await cur.fetchone()
+                if exists > 0:
+                    return False
+
+                await cur.execute(
+                    """
+                    INSERT INTO biz_review_answer_list (biz_id, review_id, content)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (biz_id, review_id, content),
+                )
+                await conn.commit()
+
+                return True

@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 from fastapi import Form
+from typing import Any, Dict
 
 
 class Hashtags(BaseModel):
@@ -529,8 +530,30 @@ class BizReviewRequest(BaseModel):
         )
 
 
-class BizListResponse(BaseModel):
-    id: int
+class BizReviewUpdateRequest(BaseModel):
+    reviewId: str
+    rating: int
+    content: str
+    images: Optional[List[str]] = None
+
+    @classmethod
+    def create_form(
+        cls,
+        reviewId: str = Form(...),
+        rating: int = Form(...),
+        content: str = Form(...),
+        images: Optional[List[str]] = Form(default=None),
+    ) -> "BizReviewUpdateRequest":
+        return cls(
+            reviewId=reviewId,
+            rating=rating,
+            content=content,
+            images=images,
+        )
+
+
+class BizDetailResponse(BaseModel):
+    id: str
     bizId: str
     storeType: str
     storeName: str
@@ -544,28 +567,16 @@ class BizListResponse(BaseModel):
     longitude: Optional[float]
 
 
-class BizDetailResponse(BaseModel):
-    id: int
-    bizId: str
-    storeType: str
-    storeName: str
-    email: str
-    tags: str
-    address: str
-    businessHours: str
-    phone: str
-    managerPhone: str
-    latitude: Optional[float]
-    logitude: Optional[float]
-
-
 class BizReviewRow(BaseModel):
     id: int
     user_id: str
     nickname: str
     biz_id: str
     content: str
+    rating: int
     created_at: datetime
+    answer_content: Optional[str] = None
+    answer_created_at: Optional[datetime] = None
 
 
 class BizReviewResponse(BaseModel):
@@ -574,8 +585,33 @@ class BizReviewResponse(BaseModel):
     userNickname: str
     bizId: str
     content: str
+    rating: int
+    answer: Optional[Dict[str, Any]] = None
     createdAt: datetime
+
+
+class BizReviewUpdateRequest(BaseModel):
+    content: str
+    rating: int
+    image: Optional[List[str]]
+
+    @classmethod
+    def create_form(
+        cls,
+        content: str = Form(...),
+        rating: int = Form(...),
+        image: Optional[List[str]] = Form(default=None),
+    ) -> "BizReviewUpdateRequest":
+        return cls(
+            content=content,
+            rating=rating,
+            image=image,
+        )
 
 
 class UserFollowRequest(BaseModel):
     userId: str
+
+
+class ReviewReportRequest(BaseModel):
+    reason: str

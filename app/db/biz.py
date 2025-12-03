@@ -21,9 +21,9 @@ class BizUpdateRequest(BaseModel):
     couponId: int
     title: str
     content: str
-    amount: int
-    startDate: str
-    expiredDate: str
+    amount: Optional[int] = None
+    startDate: Optional[str] = None
+    expiredDate: Optional[str] = None
 
 
 class Hashtags(BaseModel):
@@ -95,6 +95,37 @@ class BizProfileResponse(BaseModel):
     hasSecretFeed: bool
 
 
+class BizDetailResponse(BaseModel):
+    id: str
+    bizId: str
+    storeType: str
+    storeName: str
+    tags: str
+    address: str
+    businessHours: str
+    phoneNumber: str
+    managerPhone: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+    credit: int
+    marketingAlarm: bool
+    nightAlarm: bool
+    personalChatAlarm: bool
+    groupChatAlarm: bool
+    postCommentAlarm: bool
+    postLikeAlarm: bool
+    profileAlarm: bool
+    secretAlarm: bool
+    feedLikeAlarm: bool
+    feedCommentAlarm: bool
+    profileImage: Optional[List[str]]
+    blockUserList: Optional[List[str]]
+    favoriteUserList: Optional[List[str]]
+    pushRead: bool
+    profileRead: bool
+    hasSecretFeed: bool
+
+
 class BizCouponRow(BaseModel):
     id: int
     biz_id: str
@@ -113,3 +144,7 @@ class BizCouponResponse(BaseModel):
     start_date: Optional[datetime]
     expired_date: Optional[datetime]
     amount: Optional[int]
+
+
+class BizAnswerRequest(BaseModel):
+    answer: str
