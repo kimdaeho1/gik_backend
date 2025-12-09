@@ -62,6 +62,9 @@ class BizDetailRow(BaseModel):
     push_read: bool
     profile_read: bool
     has_secret_feed: bool
+    follower_count: int
+    following_count: int
+    following_list: Optional[str]
 
 
 class BizProfileResponse(BaseModel):
@@ -93,6 +96,9 @@ class BizProfileResponse(BaseModel):
     pushRead: bool
     profileRead: bool
     hasSecretFeed: bool
+    followerCount: int
+    followingCount: int
+    followingList: Optional[List[str]]
 
 
 class BizDetailResponse(BaseModel):
@@ -124,6 +130,8 @@ class BizDetailResponse(BaseModel):
     pushRead: bool
     profileRead: bool
     hasSecretFeed: bool
+    followerCount: int
+    followingCount: int
 
 
 class BizCouponRow(BaseModel):

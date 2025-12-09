@@ -126,6 +126,7 @@ class UserService:
             favorite_list = (
                 json.loads(row.favoriteUserList) if row.favoriteUserList else []
             )
+            following_list = json.loads(row.followingList) if row.followingList else []
 
             return UserProfileResponse(
                 id=row.id,
@@ -170,6 +171,7 @@ class UserService:
                 latitude=row.latitude,
                 longitude=row.longitude,
                 hasSecretFeed=row.hasSecretFeed,
+                followingList=following_list,
             )
 
         except HTTPException:

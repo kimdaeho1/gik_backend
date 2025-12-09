@@ -232,7 +232,15 @@ class UserRepository:
                                 AND f.secret_status = TRUE
                                 AND f.deleted = FALSE
                             )
-                        ) AS hasSecretFeed
+                        ) AS hasSecretFeed,
+                        
+                        -- 팔로잉 리스트
+                        (
+                            SELECT JSON_ARRAYAGG(uf.following_user_id)
+                            FROM users_follow_list uf
+                            WHERE uf.follower_user_id = u.id
+                        )
+                        AS followingList
 
                     FROM users u
                     WHERE u.id = %s
@@ -2813,6 +2821,40 @@ class UserRepository:
                 await conn.commit()
                 return True
 
+    async def fetch_follow_list(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT following_user_id
+                    FROM users_follow_list
+                    WHERE follower_user_id = %s
+                    """,
+                    (user_id,),
+                )
+                rows = await cur.fetchall()
+                return [row[0] for row in rows]
+
+    async def fetch_follower_list(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT follower_user_id
+                    FROM users_follow_list
+                    WHERE following_user_id = %s
+                    """,
+                    (user_id,),
+                )
+                rows = await cur.fetchall()
+                return [row[0] for row in rows]
+
     async def insert_refferal_code(
         self,
         user_id: str,
@@ -3119,11 +3161,6 @@ class UserRepository:
 
                 columns = [col[0] for col in cur.description]
                 return [BizReviewRow(**dict(zip(columns, row))) for row in rows]
-
-    async def fetch_follow_list(
-        self,
-        user_id: str,
-    ): ...
 
     async def fetch_biz_list(
         self,

@@ -144,8 +144,29 @@ class BizRepository:
                                 AND f.secret_status = TRUE
                                 AND f.deleted = FALSE
                             )
-                        ) AS has_secret_feed
+                        ) AS has_secret_feed,
+                        
+                        -- 팔로워 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.following_user_id = b.id
+                        ) AS follower_count,
+                        
+                        -- 팔로잉 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = b.id
+                        ) AS following_count,
 
+                        -- 팔로잉 리스트
+                        (
+                            SELECT JSON_ARRAYAGG(fl.following_user_id)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = b.id
+                        ) AS following_list
+                        
                     FROM biz_account b
                     LEFT JOIN users u ON u.id = b.id
                     WHERE b.id = %s
@@ -246,7 +267,22 @@ class BizRepository:
                                 AND f.secret_status = TRUE
                                 AND f.deleted = FALSE
                             )
-                        ) AS has_secret_feed
+                        ) AS has_secret_feed,
+                        
+                        -- 팔로워 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.following_user_id = b.id
+                        )
+                        AS follower_count,
+                        -- 팔로잉 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = b.id
+                        )
+                        AS following_count
 
                     FROM biz_account b
                     LEFT JOIN users u ON u.id = b.id

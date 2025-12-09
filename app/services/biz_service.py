@@ -69,6 +69,8 @@ class BizService:
                 status_code=404, detail="존재하지 않는 비즈 계정입니다."
             )
 
+        following_list = json.loads(biz.following_list) if biz.following_list else []
+
         return BizProfileResponse(
             id=biz.id,
             bizId=biz.biz_id,
@@ -102,6 +104,9 @@ class BizService:
             pushRead=biz.push_read,
             profileRead=biz.profile_read,
             hasSecretFeed=biz.has_secret_feed,
+            followerCount=biz.follower_count,
+            followingCount=biz.following_count,
+            followingList=following_list,
         )
 
     async def get_biz_detail(self, biz_id: str):
@@ -145,6 +150,8 @@ class BizService:
             pushRead=biz.push_read,
             profileRead=biz.profile_read,
             hasSecretFeed=biz.has_secret_feed,
+            followerCount=biz.follower_count,
+            followingCount=biz.following_count,
         )
 
     async def upload_biz_images(

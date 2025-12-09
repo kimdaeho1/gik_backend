@@ -178,6 +178,7 @@ class UserProfileResponse(BaseModel):
     latitude: Optional[float]
     longitude: Optional[float]
     hasSecretFeed: bool
+    followingList: Optional[List[str]]
 
 
 class UserDetailResponse(BaseModel):
@@ -419,6 +420,7 @@ class UserDetailRow(BaseModel):
     profileRead: bool
     todayAdCount: int
     hasSecretFeed: bool
+    followingList: Optional[str]
 
 
 class UserDetailViewRow(BaseModel):
