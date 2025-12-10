@@ -3366,7 +3366,7 @@ class UserRepository:
                     """
                     SELECT 1
                     FROM biz_account
-                    WHERE biz_id = %s AND deleted = FALSE
+                    WHERE biz_id = %s AND leaved = FALSE
                     LIMIT 1
                     """,
                     (user_id,),
