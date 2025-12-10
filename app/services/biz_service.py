@@ -152,6 +152,11 @@ class BizService:
             hasSecretFeed=biz.has_secret_feed,
             followerCount=biz.follower_count,
             followingCount=biz.following_count,
+            coupons=(
+                [BizCouponResponse(**coupon.dict()) for coupon in biz.coupons]
+                if biz.coupons
+                else []
+            ),
         )
 
     async def upload_biz_images(

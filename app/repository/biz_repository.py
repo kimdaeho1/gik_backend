@@ -185,6 +185,7 @@ class BizRepository:
     async def get_biz_detail(self, biz_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+                # 기존 비즈 정보 조회
                 await cur.execute(
                     """
                     SELECT  
@@ -211,7 +212,6 @@ class BizRepository:
                         b.feed_like_alarm_agree,
                         b.feed_comment_alarm_agree,
 
-                        -- 비즈 이미지
                         (
                             SELECT JSON_ARRAYAGG(t.url)
                             FROM (
@@ -222,21 +222,18 @@ class BizRepository:
                             ) t
                         ) AS image_urls,
 
-                        -- 차단 목록
                         (
                             SELECT JSON_ARRAYAGG(ub.blocked_user_id)
                             FROM user_block_list ub
                             WHERE ub.block_user_id = u.id
                         ) AS block_user_list,
 
-                        -- 즐겨찾기 목록
                         (
                             SELECT JSON_ARRAYAGG(favorite_user_id)
                             FROM users_favorite_list
                             WHERE user_id = u.id
                         ) AS favorite_user_list,
 
-                        -- pushRead
                         (
                             SELECT EXISTS(
                                 SELECT 1
@@ -246,19 +243,17 @@ class BizRepository:
                             )
                         ) AS push_read,
 
-                        -- profileRead
                         (
                             SELECT EXISTS(
                                 SELECT 1
                                 FROM push_user_log pul
                                 WHERE pul.user_no = u.user_no 
                                 AND pul.status = 'SUCCESS'
-                                AND pul.delivery_state = 'DELIVERED' 
+                                AND pul.delivery_state = 'DELIVERED'
                                 AND pul.push_type = 'profile'
                             )
                         ) AS profile_read,
 
-                        -- hasSecretFeed
                         (
                             SELECT EXISTS(
                                 SELECT 1
@@ -268,22 +263,19 @@ class BizRepository:
                                 AND f.deleted = FALSE
                             )
                         ) AS has_secret_feed,
-                        
-                        -- 팔로워 수
+
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.following_user_id = b.id
-                        )
-                        AS follower_count,
-                        -- 팔로잉 수
+                        ) AS follower_count,
+
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
-                        )
-                        AS following_count,
-                        -- 팔로잉 리스트
+                        ) AS following_count,
+
                         (
                             SELECT JSON_ARRAYAGG(fl.following_user_id)
                             FROM users_follow_list fl
@@ -303,7 +295,11 @@ class BizRepository:
 
                 columns = [col[0] for col in cur.description]
                 row_dict = dict(zip(columns, row))
-                return BizDetailRow(**row_dict)
+
+        coupons = await self.fetch_biz_coupons(biz_id)
+        row_dict["coupons"] = coupons
+
+        return BizDetailRow(**row_dict)
 
     async def upload_biz_images(
         self, biz_id: str, image_urls: List[str], start_index: int

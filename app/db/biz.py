@@ -4,6 +4,26 @@ from datetime import datetime
 from fastapi import Form
 
 
+class BizCouponRow(BaseModel):
+    id: int
+    biz_id: str
+    title: str
+    content: str
+    start_date: Optional[datetime]
+    expired_date: Optional[datetime]
+    amount: Optional[int]
+
+
+class BizCouponResponse(BaseModel):
+    id: int
+    biz_id: str
+    title: str
+    content: str
+    start_date: Optional[datetime]
+    expired_date: Optional[datetime]
+    amount: Optional[int]
+
+
 class BizAccountRequest(BaseModel):
     bizId: str
     bizPassword: str
@@ -65,6 +85,7 @@ class BizDetailRow(BaseModel):
     follower_count: int
     following_count: int
     following_list: Optional[str]
+    coupons: Optional[List[BizCouponRow]] = None
 
 
 class BizProfileResponse(BaseModel):
@@ -132,26 +153,7 @@ class BizDetailResponse(BaseModel):
     hasSecretFeed: bool
     followerCount: int
     followingCount: int
-
-
-class BizCouponRow(BaseModel):
-    id: int
-    biz_id: str
-    title: str
-    content: str
-    start_date: Optional[datetime]
-    expired_date: Optional[datetime]
-    amount: Optional[int]
-
-
-class BizCouponResponse(BaseModel):
-    id: int
-    biz_id: str
-    title: str
-    content: str
-    start_date: Optional[datetime]
-    expired_date: Optional[datetime]
-    amount: Optional[int]
+    coupons: Optional[List[BizCouponResponse]] = None
 
 
 class BizAnswerRequest(BaseModel):

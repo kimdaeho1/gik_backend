@@ -171,6 +171,8 @@ class UserService:
                 latitude=row.latitude,
                 longitude=row.longitude,
                 hasSecretFeed=row.hasSecretFeed,
+                followerCount=row.followerCount,
+                followingCount=row.followingCount,
                 followingList=following_list,
             )
 
@@ -374,6 +376,8 @@ class UserService:
                 isBlocked=is_blocked,
                 todayViewCount=today_view_count,
                 totalViewCount=total_view_count,
+                followerCount=row.followerCount,
+                followingCount=row.followingCount,
             )
         except Exception as e:
             logger.error(f"유저 정보 조회 실패: {str(e)}")
@@ -453,6 +457,8 @@ class UserService:
                     isBlocked=user_row.isBlocked,
                     latitude=user_row.latitude,
                     longitude=user_row.longitude,
+                    followerCount=user_row.followerCount,
+                    followingCount=user_row.followingCount,
                 )
             )
         return user_profiles

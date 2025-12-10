@@ -178,6 +178,8 @@ class UserProfileResponse(BaseModel):
     latitude: Optional[float]
     longitude: Optional[float]
     hasSecretFeed: bool
+    followerCount: int
+    followingCount: int
     followingList: Optional[List[str]]
 
 
@@ -211,6 +213,8 @@ class UserDetailResponse(BaseModel):
     isBlocked: bool
     todayViewCount: int
     totalViewCount: int
+    followerCount: int
+    followingCount: int
 
 
 class UserListResponse(BaseModel):
@@ -241,6 +245,8 @@ class UserListResponse(BaseModel):
     lastConnectedAt: datetime
     latitude: Optional[float]
     longitude: Optional[float]
+    followerCount: int
+    followingCount: int
 
 
 class UserNicknameRequest(BaseModel):
@@ -420,6 +426,8 @@ class UserDetailRow(BaseModel):
     profileRead: bool
     todayAdCount: int
     hasSecretFeed: bool
+    followerCount: int
+    followingCount: int
     followingList: Optional[str]
 
 
@@ -451,6 +459,8 @@ class UserDetailViewRow(BaseModel):
     profileImages: Optional[str]
     secretImages: Optional[str]
     blockUserList: Optional[str]
+    followerCount: int
+    followingCount: int
 
 
 class UserListRow(BaseModel):
@@ -481,6 +491,8 @@ class UserListRow(BaseModel):
     secretImages: Optional[List[str]] = []
     blockUserList: Optional[List[str]] = []
     isBlocked: Optional[bool] = False
+    followerCount: int
+    followingCount: int
 
 
 class ProfileViewRow(BaseModel):

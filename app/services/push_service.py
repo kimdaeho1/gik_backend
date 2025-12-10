@@ -343,6 +343,11 @@ class PushService:
         if is_blocked:
             return
 
+        # 비즈 계정인 경우, 푸시를 보내지 않는다.
+        is_biz = await self.user_repository.check_biz_account(user_id=user_id)
+        if is_biz:
+            return
+
         # fcm 가져오기
         target_token = await self.user_repository.fetch_user_fcm(user_id)
 

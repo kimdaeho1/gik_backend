@@ -233,6 +233,19 @@ class UserRepository:
                                 AND f.deleted = FALSE
                             )
                         ) AS hasSecretFeed,
+                        -- 팔로워 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.following_user_id = u.id
+                        ) AS followerCount,
+                        
+                        -- 팔로잉 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = u.id
+                        ) AS followingCount,
                         
                         -- 팔로잉 리스트
                         (
@@ -258,9 +271,6 @@ class UserRepository:
                 row_dict = dict(zip(columns, row))
                 return UserDetailRow(**row_dict)
 
-    # 상대방 유저의 block_list 가져오기.
-    # 상대방의 차단 여부 및 조회수 가져오기(total, today)
-    # 상대방의 프로필 이미지, 상대방의(피드?)????
     async def fetch_user_profile(self, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -329,7 +339,21 @@ class UserRepository:
                             SELECT JSON_ARRAYAGG(ub.blocked_user_id)
                             FROM user_block_list ub
                             WHERE ub.block_user_id = u.id
-                        ) AS blockUserList
+                        ) AS blockUserList,
+                        
+                        -- 팔로워 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.following_user_id = u.id
+                        ) AS followerCount,
+                        
+                        -- 팔로잉 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = u.id
+                        ) AS followingCount
 
                     FROM users u
                     WHERE u.id = %s AND u.leaved = FALSE
@@ -902,7 +926,21 @@ class UserRepository:
                                 AND b.blocked_user_id = %s
                             ) THEN TRUE 
                             ELSE FALSE 
-                        END AS isBlocked
+                        END AS isBlocked,
+                        
+                        -- 팔로워 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.following_user_id = u.id
+                        ) AS followerCount,
+                        
+                        -- 팔로잉 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = u.id
+                        ) AS followingCount
 
                     FROM users u
                     LEFT JOIN user_images ui 
@@ -3317,3 +3355,21 @@ class UserRepository:
 
                 await conn.commit()
                 return True
+
+    async def check_biz_account(
+        self,
+        user_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM biz_account
+                    WHERE biz_id = %s AND deleted = FALSE
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                row = await cur.fetchone()
+                return bool(row)
