@@ -70,13 +70,14 @@ class BizService:
             )
 
         following_list = json.loads(biz.following_list) if biz.following_list else []
+        tags = (biz.tags.split(",") if biz.tags else [],)
 
         return BizProfileResponse(
             id=biz.id,
             bizId=biz.biz_id,
             storeType=biz.store_type,
             storeName=biz.store_name,
-            tags=biz.tags,
+            tags=tags,
             address=biz.address,
             businessHours=biz.business_hours,
             phoneNumber=biz.phone,
@@ -134,12 +135,14 @@ class BizService:
                     )
                 )
 
+        tags = (biz.tags.split(",") if biz.tags else [],)
+
         return BizDetailResponse(
             id=biz.id,
             bizId=biz.biz_id,
             storeType=biz.store_type,
             storeName=biz.store_name,
-            tags=biz.tags,
+            tags=tags,
             address=biz.address,
             businessHours=biz.business_hours,
             phoneNumber=biz.phone,

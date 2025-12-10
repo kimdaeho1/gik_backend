@@ -95,7 +95,7 @@ class BizProfileResponse(BaseModel):
     bizId: str
     storeType: str
     storeName: str
-    tags: str
+    tags: List[str]
     address: str
     businessHours: str
     phoneNumber: str
@@ -129,7 +129,7 @@ class BizDetailResponse(BaseModel):
     bizId: str
     storeType: str
     storeName: str
-    tags: str
+    tags: List[str]
     address: str
     businessHours: str
     phoneNumber: str
