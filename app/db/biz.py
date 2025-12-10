@@ -12,16 +12,18 @@ class BizCouponRow(BaseModel):
     start_date: Optional[datetime]
     expired_date: Optional[datetime]
     amount: Optional[int]
+    use_amount: Optional[int]
 
 
 class BizCouponResponse(BaseModel):
     id: int
-    biz_id: str
+    bizId: str
     title: str
     content: str
-    start_date: Optional[datetime]
-    expired_date: Optional[datetime]
+    startDate: Optional[datetime]
+    expiredDate: Optional[datetime]
     amount: Optional[int]
+    remainAmount: Optional[int]
 
 
 class BizAccountRequest(BaseModel):

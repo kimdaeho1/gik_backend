@@ -428,7 +428,8 @@ class BizRepository:
                         content,
                         start_date,
                         expired_date,
-                        amount
+                        amount,
+                        use_amount
                     FROM biz_coupon
                     WHERE biz_id = %s AND deleted = FALSE
                     ORDER BY id DESC

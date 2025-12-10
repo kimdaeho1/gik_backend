@@ -3289,7 +3289,7 @@ class UserRepository:
                 # 쿠폰 정보 조회
                 await cur.execute(
                     """
-                    SELECT start_date, expired_date, amount
+                    SELECT start_date, expired_date, amount, use_amount
                     FROM biz_coupon
                     WHERE id = %s AND deleted = FALSE
                     FOR UPDATE
@@ -3314,7 +3314,7 @@ class UserRepository:
                 if used_before:
                     return "used"
 
-                start_date, expired_date, amount = row
+                start_date, expired_date, amount, use_amount = row
                 start_date = to_datetime(start_date)
                 expired_date = to_datetime(expired_date)
                 now = datetime.utcnow()
@@ -3331,14 +3331,14 @@ class UserRepository:
                 # 수량 체크하기
                 if amount is not None:
                     # 수량 소진
-                    if amount <= 0:
+                    if amount - use_amount <= 0:
                         return "amount"
 
                     # 수량 1 감소
                     await cur.execute(
                         """
                         UPDATE biz_coupon
-                        SET amount = amount - 1
+                        SET use_amount = use_amount + 1
                         WHERE id = %s
                         """,
                         (coupon_id,),

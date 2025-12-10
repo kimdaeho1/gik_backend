@@ -117,6 +117,23 @@ class BizService:
                 status_code=404, detail="존재하지 않는 비즈 계정입니다."
             )
 
+        coupons = []
+        if biz.coupons:
+            for coupon in biz.coupons:
+                remain_amount = coupon.amount - coupon.use_amount
+                coupons.append(
+                    BizCouponResponse(
+                        id=coupon.id,
+                        bizId=coupon.biz_id,
+                        title=coupon.title,
+                        content=coupon.content,
+                        amount=coupon.amount,
+                        remainAmount=remain_amount,
+                        startDate=coupon.start_date,
+                        expiredDate=coupon.expired_date,
+                    )
+                )
+
         return BizDetailResponse(
             id=biz.id,
             bizId=biz.biz_id,
@@ -152,11 +169,7 @@ class BizService:
             hasSecretFeed=biz.has_secret_feed,
             followerCount=biz.follower_count,
             followingCount=biz.following_count,
-            coupons=(
-                [BizCouponResponse(**coupon.dict()) for coupon in biz.coupons]
-                if biz.coupons
-                else []
-            ),
+            coupons=coupons,
         )
 
     async def upload_biz_images(
@@ -261,15 +274,17 @@ class BizService:
         coupons = await self.biz_repository.fetch_biz_coupons(biz_id=user_id)
         coupon_list = []
         for coupon in coupons:
+            remain_amount = coupon.amount - coupon.use_amount
             coupon_list.append(
                 BizCouponResponse(
                     id=coupon.id,
-                    biz_id=coupon.biz_id,
+                    bizId=coupon.biz_id,
                     title=coupon.title,
                     content=coupon.content,
                     amount=coupon.amount,
-                    start_date=coupon.start_date,
-                    expired_date=coupon.expired_date,
+                    remainAmount=remain_amount,
+                    startDate=coupon.start_date,
+                    expiredDate=coupon.expired_date,
                 )
             )
         return coupon_list
