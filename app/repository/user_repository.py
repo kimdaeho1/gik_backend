@@ -260,7 +260,7 @@ class UserRepository:
                             FROM biz_coupon_history bch
                             WHERE bch.user_id = u.id
                         )
-                        AS couponList
+                        AS useCouponList
 
                     FROM users u
                     WHERE u.id = %s
