@@ -7,6 +7,8 @@ from app.db.biz import (
     BizProfileResponse,
     BizCouponResponse,
     BizDetailResponse,
+    BizDetailRow,
+    BizCouponRow,
 )
 from app.utils.security import verify_password, hash_password
 from app.utils.token import (
@@ -171,6 +173,90 @@ class BizService:
             followingCount=biz.following_count,
             coupons=coupons,
         )
+
+    async def fetch_biz_list(self, page: int) -> List[BizDetailResponse]:
+        rows, columns = await self.biz_repository.fetch_biz_list(page)
+
+        result = []
+
+        for row in rows:
+            row_dict = dict(zip(columns, row))
+
+            coupon_json = json.loads(row_dict["coupons"]) if row_dict["coupons"] else []
+
+            coupon_rows = [
+                BizCouponRow(
+                    id=c["id"],
+                    biz_id=c["biz_id"],
+                    title=c["title"],
+                    content=c["content"],
+                    amount=c["amount"],
+                    use_amount=c["use_amount"],
+                    start_date=c["start_date"],
+                    expired_date=c["expired_date"],
+                )
+                for c in coupon_json
+            ]
+
+            row_dict["coupons"] = coupon_rows
+
+            biz = BizDetailRow(**row_dict)
+
+            result.append(
+                BizDetailResponse(
+                    id=biz.id,
+                    bizId=biz.biz_id,
+                    storeType=biz.store_type,
+                    storeName=biz.store_name,
+                    tags=biz.tags,
+                    address=biz.address,
+                    businessHours=biz.business_hours,
+                    phoneNumber=biz.phone,
+                    managerPhone=biz.manager_phone,
+                    latitude=biz.latitude,
+                    longitude=biz.longitude,
+                    credit=biz.credit,
+                    marketingAlarm=biz.marketing_agree,
+                    nightAlarm=biz.night_agree,
+                    personalChatAlarm=biz.personal_chat_alarm_agree,
+                    groupChatAlarm=biz.group_chat_alarm_agree,
+                    postCommentAlarm=biz.post_comment_alarm_agree,
+                    postLikeAlarm=biz.post_like_alarm_agree,
+                    profileAlarm=biz.profile_alarm_agree,
+                    secretAlarm=biz.secret_alarm_agree,
+                    feedLikeAlarm=biz.feed_like_alarm_agree,
+                    feedCommentAlarm=biz.feed_comment_alarm_agree,
+                    profileImage=json.loads(biz.image_urls) if biz.image_urls else [],
+                    blockUserList=(
+                        json.loads(biz.block_user_list) if biz.block_user_list else []
+                    ),
+                    favoriteUserList=(
+                        json.loads(biz.favorite_user_list)
+                        if biz.favorite_user_list
+                        else []
+                    ),
+                    pushRead=biz.push_read,
+                    profileRead=biz.profile_read,
+                    hasSecretFeed=biz.has_secret_feed,
+                    followerCount=biz.follower_count,
+                    followingCount=biz.following_count,
+                    coupons=[
+                        BizCouponResponse(
+                            id=c.id,
+                            bizId=c.biz_id,
+                            title=c.title,
+                            content=c.content,
+                            amount=c.amount,
+                            remainAmount=((c.amount or 0) - (c.use_amount or 0)),
+                            startDate=c.start_date,
+                            expiredDate=c.expired_date,
+                        )
+                        for c in (biz.coupons or [])
+                    ],
+                )
+            )
+
+        return result
 
     async def upload_biz_images(
         self,

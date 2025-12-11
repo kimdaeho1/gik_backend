@@ -54,20 +54,6 @@ async def get_my_biz_account_info(
     }
 
 
-@router.get("/{biz_id}")
-@inject
-async def get_biz_detail(
-    biz_id: str,
-    biz_service=Depends(Provide[Container.biz_service]),
-):
-    biz_detail = await biz_service.get_biz_detail(biz_id=biz_id)
-    return {
-        "success": True,
-        "message": "비즈 상세 정보 조회 성공",
-        "data": biz_detail,
-    }
-
-
 @router.post("/upload-image")
 @inject
 async def upload_biz_images(
@@ -83,6 +69,36 @@ async def upload_biz_images(
         "success": True,
         "message": "비즈 이미지 업로드 성공",
         "image_urls": image_urls,
+    }
+
+
+@router.get("/list")
+@inject
+async def fetch_biz_list(
+    page: int = Query(...),
+    biz_service=Depends(Provide[Container.biz_service]),
+):
+    biz_list = await biz_service.fetch_biz_list(
+        page=page,
+    )
+    return {
+        "success": True,
+        "message": "비즈 목록 불러오기 성공",
+        "data": biz_list,
+    }
+
+
+@router.get("/{biz_id}")
+@inject
+async def get_biz_detail(
+    biz_id: str,
+    biz_service=Depends(Provide[Container.biz_service]),
+):
+    biz_detail = await biz_service.get_biz_detail(biz_id=biz_id)
+    return {
+        "success": True,
+        "message": "비즈 상세 정보 조회 성공",
+        "data": biz_detail,
     }
 
 
