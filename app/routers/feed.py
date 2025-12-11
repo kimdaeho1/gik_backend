@@ -393,6 +393,27 @@ async def purchase_secret_feed(
     }
 
 
+@router.get("/secret/secret-list", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_secret_feed_list(
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    feed_service: FeedService = Depends(Provide[Container.feed_service]),
+):
+    """
+    시크릿 피드 리스트를 전부 불러오기
+    """
+    result = await feed_service.fetch_secret_feed_list(
+        page=page,
+        token=token,
+    )
+    return {
+        "success": True,
+        "message": "시크릿 피드 리스트를 성공적으로 가져왔습니다.",
+        "feeds": result,
+    }
+
+
 @router.get("/secret/list/{feed_id}", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_feed_purchase_list_with_blind_profile(
