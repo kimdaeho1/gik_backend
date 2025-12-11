@@ -253,7 +253,14 @@ class UserRepository:
                             FROM users_follow_list uf
                             WHERE uf.follower_user_id = u.id
                         )
-                        AS followingList
+                        AS followingList,
+                        
+                        (
+                            SELECT JSON_ARRAYAGG(bch.coupon_id)
+                            FROM biz_coupon_history bch
+                            WHERE bch.user_id = u.id
+                        )
+                        AS couponList
 
                     FROM users u
                     WHERE u.id = %s

@@ -181,6 +181,7 @@ class UserProfileResponse(BaseModel):
     followerCount: int
     followingCount: int
     followingList: Optional[List[str]]
+    couponList: Optional[List[int]]
 
 
 class UserDetailResponse(BaseModel):
@@ -429,6 +430,7 @@ class UserDetailRow(BaseModel):
     followerCount: int
     followingCount: int
     followingList: Optional[str]
+    couponList: Optional[str]
 
 
 class UserDetailViewRow(BaseModel):

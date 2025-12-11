@@ -127,6 +127,7 @@ class UserService:
                 json.loads(row.favoriteUserList) if row.favoriteUserList else []
             )
             following_list = json.loads(row.followingList) if row.followingList else []
+            coupon_list = json.loads(row.couponList) if row.couponList else []
 
             return UserProfileResponse(
                 id=row.id,
@@ -174,6 +175,7 @@ class UserService:
                 followerCount=row.followerCount,
                 followingCount=row.followingCount,
                 followingList=following_list,
+                couponList=coupon_list,
             )
 
         except HTTPException:
