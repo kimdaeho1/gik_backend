@@ -19,6 +19,7 @@ from app.db.user import (
 )
 from datetime import datetime
 import math
+from app.utils.utils import kst, to_datetime
 
 logger = get_logger(__name__)
 
@@ -3324,9 +3325,8 @@ class UserRepository:
                 start_date, expired_date, amount, use_amount = row
                 start_date = to_datetime(start_date)
                 expired_date = to_datetime(expired_date)
-                now = datetime.utcnow()
+                now = kst()
 
-                # 유효기간 체크하기
                 if expired_date is not None:
                     if start_date is not None:
                         if not (start_date <= now <= expired_date):
@@ -3335,13 +3335,10 @@ class UserRepository:
                         if now > expired_date:
                             return "expired"
 
-                # 수량 체크하기
                 if amount > 0:
-                    # 수량 소진
                     if amount - use_amount <= 0:
                         return "amount"
 
-                    # 수량 1 감소
                     await cur.execute(
                         """
                         UPDATE biz_coupon
@@ -3351,7 +3348,6 @@ class UserRepository:
                         (coupon_id,),
                     )
 
-                # 쿠폰 사용기록 저장
                 await cur.execute(
                     """
                     INSERT INTO biz_coupon_history (coupon_id, user_id, used_at)

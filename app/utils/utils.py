@@ -10,21 +10,36 @@ def kst():
     return datetime.now(ZoneInfo("Asia/Seoul"))
 
 
+KST = ZoneInfo("Asia/Seoul")
+
+
 def to_datetime(value):
-    """datetime 변환"""
+    """datetime 변환 + KST timezone-aware 로 통일"""
+
     if value is None:
         return None
 
+    # 이미 datetime 객체인 경우
     if isinstance(value, datetime):
+        # tzinfo 없으면 KST 부여, 있으면 그대로 사용
+        if value.tzinfo is None:
+            return value.replace(tzinfo=KST)
         return value
 
+    # 문자열 → datetime 변환
     if isinstance(value, str):
+        dt = None
         try:
-            return datetime.fromisoformat(value)
+            dt = datetime.fromisoformat(value)
         except:
-            pass
+            try:
+                dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            except:
+                return None
 
-        try:
-            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-        except:
-            pass
+        # timezone 정보 없다면 KST 부여
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=KST)
+        return dt
+
+    return None
