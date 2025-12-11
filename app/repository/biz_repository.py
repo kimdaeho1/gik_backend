@@ -217,7 +217,7 @@ class BizRepository:
                             FROM (
                                 SELECT bi.url
                                 FROM biz_images bi
-                                WHERE bi.biz_id = b.biz_id
+                                WHERE bi.biz_id = b.id
                                 ORDER BY bi.index
                             ) t
                         ) AS image_urls,
@@ -338,7 +338,7 @@ class BizRepository:
                             FROM (
                                 SELECT bi.url
                                 FROM biz_images bi
-                                WHERE bi.biz_id = b.biz_id
+                                WHERE bi.biz_id = b.id
                                 ORDER BY bi.index
                             ) t
                         ) AS image_urls,
