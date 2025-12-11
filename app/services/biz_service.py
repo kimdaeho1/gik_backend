@@ -40,9 +40,9 @@ class BizService:
                 detail="존재하지 않는 비즈 계정입니다.",
             )
         # 유저 ID
-        user_id = biz[1]
+        user_id = biz[2]
         # 비밀번호
-        stored_hash = biz[3]
+        stored_hash = biz[4]
         # 1. 아이디가 다를경우, PW가 다를경우, 그리고 PW decode 과정이 필요하다.
         if not verify_password(biz_password, stored_hash):
             raise HTTPException(

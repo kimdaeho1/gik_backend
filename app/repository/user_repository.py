@@ -3336,7 +3336,7 @@ class UserRepository:
                             return "expired"
 
                 # 수량 체크하기
-                if amount is not None:
+                if amount > 0:
                     # 수량 소진
                     if amount - use_amount <= 0:
                         return "amount"
