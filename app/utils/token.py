@@ -77,8 +77,12 @@ def verify_token(token: str) -> Optional[str]:
 
 # TODO: access_token, refresh_token만 하면 되는거 아님? user_id, expires_in이 필요한건가?
 def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dict]:
-    user_id = verify_token(refresh_token)
-    if user_id:
+    payload = verify_token(refresh_token)
+    if payload:
+        user_id = payload.get("user_id")
+        if not user_id:
+            return None
+
         return {
             "user_id": user_id,
             "access_token": create_access_token(user_id),

@@ -1309,14 +1309,18 @@ async def fetch_user_credit_history(
 @inject
 async def follow_user(
     target_user_id: UserFollowRequest,
+    background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
     service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     유저 팔로우/언팔로우
     user_id: token에서 추출, 팔로우 주체
     target_user_id: 팔로우할 대상 유저 ID
     """
+    user_id = await get_user_id_from_token(token)
+    nickname = await service.fetch_user_nickname(user_id)
     result = await service.follow_user(token, target_user_id.userId)
     if result is False:
         return {
@@ -1324,10 +1328,65 @@ async def follow_user(
             "message": "유저 언팔로우 성공.",
         }
     else:
+        await push_service.send_push_to_user(
+            background_tasks=background_tasks,
+            user_id=user_id,
+            target_user_id=target_user_id.userId,
+            title_content=f"‘{nickname}’님이 회원님을 팔로우 했습니다.",
+            body_content="지금 확인해 맞팔로우 보세요!",
+            data={
+                "type": "profile",
+                "follow_id": user_id,
+            },
+            collapse_key=f"follow-{user_id}",
+            activity_type="follow",
+        )
         return {
             "success": True,
             "message": "유저 팔로우 성공.",
         }
+
+
+@router.get("/user/folloings/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_followings(
+    user_id: str,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    유저 팔로잉 목록 조회
+    user_id: 팔로잉 목록을 조회할 유저 ID
+    viewer_id: token에서 추출, 팔로잉 목록 조회 주체
+    """
+    followings = await service.fetch_follow_list(token)
+
+    return {
+        "success": True,
+        "message": "유저 팔로잉 목록 조회 성공",
+        "followings": followings,
+    }
+
+
+@router.get("/user/followers/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_followers(
+    user_id: str,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    유저 팔로워 목록 조회
+    user_id: 팔로워 목록을 조회할 유저 ID
+    viewer_id: token에서 추출, 팔로워 목록 조회 주체
+    """
+    followers = await service.fetch_follower_list(token)
+
+    return {
+        "success": True,
+        "message": "유저 팔로워 목록 조회 성공",
+        "followers": followers,
+    }
 
 
 # [유저] 상대 유저 상세정보 조회

@@ -1670,26 +1670,35 @@ class UserRepository:
                 result = await cur.fetchone()
                 return result[0] if result else None
 
-    async def fetch_user_no(self, user_id: str) -> int:
+    async def fetch_user_nickname(self, user_id: str) -> str:
         """
-        유저의 user_no를 가져오기
+        유저 또는 비즈 계정의 닉네임(또는 store_name)을 가져오기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT user_no
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
+                    SELECT 
+                        u.nickname AS user_nickname,
+                        b.store_name AS biz_nickname
+                    FROM 
+                        (SELECT %s AS id) AS x
+                    LEFT JOIN users u
+                        ON u.id = x.id AND u.leaved = FALSE
+                    LEFT JOIN biz_account b
+                        ON b.id = x.id
                     LIMIT 1
                     """,
                     (user_id,),
                 )
-                result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                return result[0]
+                row = await cur.fetchone()
+
+                if not row:
+                    return None
+
+                user_nickname, biz_nickname = row
+
+                return user_nickname if user_nickname else biz_nickname
 
     async def fetch_push_user_logs(
         self, user_no: int, push_type: Optional[str], page: int
@@ -2867,39 +2876,172 @@ class UserRepository:
                 await conn.commit()
                 return True
 
-    async def fetch_follow_list(
-        self,
-        user_id: str,
-    ):
+    async def fetch_follow_list(self, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT following_user_id
-                    FROM users_follow_list
-                    WHERE follower_user_id = %s
-                    """,
-                    (user_id,),
-                )
-                rows = await cur.fetchall()
-                return [row[0] for row in rows]
+                    SELECT
+                        fl.following_user_id AS id,
 
-    async def fetch_follower_list(
-        self,
-        user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT follower_user_id
-                    FROM users_follow_list
-                    WHERE following_user_id = %s
+                        -- 일반 유저 정보
+                        u.nickname AS user_nickname,
+                        u.age AS user_age,
+                        u.height AS user_height,
+                        u.weight AS user_weight,
+                        (
+                            SELECT bi.url
+                            FROM user_images bi
+                            WHERE bi.user_id = u.id AND bi.use_yn = TRUE
+                            ORDER BY bi.index
+                            LIMIT 1
+                        ) AS user_profile_image,
+
+                        -- 비즈 계정 정보
+                        b.store_name AS biz_nickname,
+                        b.store_type AS biz_store_type,
+                        (
+                            SELECT bi.url
+                            FROM biz_images bi
+                            WHERE bi.biz_id = b.id
+                            ORDER BY bi.index
+                            LIMIT 1
+                        ) AS biz_profile_image
+
+                    FROM users_follow_list fl
+                    LEFT JOIN users u
+                        ON fl.following_user_id = u.id
+                    LEFT JOIN biz_account b
+                        ON fl.following_user_id = b.id
+                    WHERE fl.follower_user_id = %s
                     """,
                     (user_id,),
                 )
                 rows = await cur.fetchall()
-                return [row[0] for row in rows]
+
+                result = []
+                for (
+                    id,
+                    user_nickname,
+                    user_age,
+                    user_height,
+                    user_weight,
+                    user_profile_image,
+                    biz_nickname,
+                    biz_store_type,
+                    biz_profile_image,
+                ) in rows:
+
+                    if user_nickname:  # 일반 유저인 경우
+                        result.append(
+                            {
+                                "id": id,
+                                "nickname": user_nickname,
+                                "age": user_age,
+                                "height": user_height,
+                                "weight": user_weight,
+                                "profileImage": user_profile_image,
+                                "storeType": None,
+                            }
+                        )
+                    else:  # 비즈 계정
+                        result.append(
+                            {
+                                "id": id,
+                                "nickname": biz_nickname,  # store_name
+                                "age": None,
+                                "height": None,
+                                "weight": None,
+                                "profileImage": biz_profile_image,
+                                "storeType": biz_store_type,
+                            }
+                        )
+
+                return result
+
+    async def fetch_follower_list(self, user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT
+                        fl.follower_user_id AS id,
+
+                        -- 일반 유저 정보
+                        u.nickname AS user_nickname,
+                        u.age AS user_age,
+                        u.height AS user_height,
+                        u.weight AS user_weight,
+                        (
+                            SELECT ui.url
+                            FROM user_images ui
+                            WHERE ui.user_id = u.id 
+                            AND ui.use_yn = TRUE
+                            ORDER BY ui.`index`
+                            LIMIT 1
+                        ) AS user_profile_image,
+
+                        -- 비즈 계정 정보
+                        b.store_name AS biz_nickname,
+                        b.store_type AS biz_store_type,
+                        (
+                            SELECT bi.url
+                            FROM biz_images bi
+                            WHERE bi.biz_id = b.id
+                            ORDER BY bi.`index`
+                            LIMIT 1
+                        ) AS biz_profile_image
+
+                    FROM users_follow_list fl
+                    LEFT JOIN users u
+                        ON fl.follower_user_id = u.id
+                    LEFT JOIN biz_account b
+                        ON fl.follower_user_id = b.id
+                    WHERE fl.following_user_id = %s
+                    """,
+                    (user_id,),
+                )
+
+                rows = await cur.fetchall()
+
+                result = []
+                for (
+                    id,
+                    user_nickname,
+                    user_age,
+                    user_height,
+                    user_weight,
+                    user_profile_image,
+                    biz_nickname,
+                    biz_store_type,
+                    biz_profile_image,
+                ) in rows:
+                    if user_nickname:
+                        result.append(
+                            {
+                                "id": id,
+                                "nickname": user_nickname,
+                                "age": user_age,
+                                "height": user_height,
+                                "weight": user_weight,
+                                "profileImage": user_profile_image,
+                                "storeType": None,
+                            }
+                        )
+                    else:
+                        result.append(
+                            {
+                                "id": id,
+                                "nickname": biz_nickname,
+                                "age": None,
+                                "height": None,
+                                "weight": None,
+                                "profileImage": biz_profile_image,
+                                "storeType": biz_store_type,
+                            }
+                        )
+
+                return result
 
     async def insert_refferal_code(
         self,

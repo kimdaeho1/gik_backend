@@ -1508,3 +1508,13 @@ class UserService:
             raise HTTPException(status_code=400, detail="잔여 쿠폰 수량이 없습니다.")
         else:
             return True
+
+    async def fetch_user_nickname(
+        self,
+        user_id: str,
+    ):
+        nickname = await self.user_repository.fetch_user_nickname(user_id=user_id)
+        print(nickname)
+        if not nickname:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
+        return nickname
