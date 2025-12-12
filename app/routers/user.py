@@ -1328,19 +1328,19 @@ async def follow_user(
             "message": "유저 언팔로우 성공.",
         }
     else:
-        await push_service.send_push_to_user(
-            background_tasks=background_tasks,
-            user_id=target_user_id.userId,
-            target_user_id=user_id,
-            title_content=f"‘{nickname}’님이 회원님을 팔로우 했습니다.",
-            body_content="지금 확인해 맞팔로우 보세요!",
-            data={
-                "type": "follow",
-                "follow_id": user_id,
-            },
-            collapse_key=f"follow-{user_id}",
-            activity_type="follow",
-        )
+        # await push_service.send_push_to_user(
+        #     background_tasks=background_tasks,
+        #     user_id=target_user_id.userId,
+        #     target_user_id=user_id,
+        #     title_content=f"‘{nickname}’님이 회원님을 팔로우 했습니다.",
+        #     body_content="지금 확인해 맞팔로우 보세요!",
+        #     data={
+        #         "type": "follow",
+        #         "follow_id": user_id,
+        #     },
+        #     collapse_key=f"follow-{user_id}",
+        #     activity_type="follow",
+        # )
         return {
             "success": True,
             "message": "유저 팔로우 성공.",
