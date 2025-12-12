@@ -158,6 +158,7 @@ class BizDetailResponse(BaseModel):
     followerCount: int
     followingCount: int
     coupons: Optional[List[BizCouponResponse]] = None
+    useCouponList: Optional[List[int]]
 
 
 class BizAnswerRequest(BaseModel):

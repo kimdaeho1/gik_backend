@@ -287,8 +287,14 @@ class BizRepository:
                             SELECT JSON_ARRAYAGG(fl.following_user_id)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
-                        ) AS following_list
+                        ) AS following_list,
 
+                        (
+                            SELECT JSON_ARRAYAGG(bch.coupon_id)
+                            FROM biz_coupon_history bch
+                            WHERE bch.user_id = b.id
+                        )
+                        AS use_coupon_list
                     FROM biz_account b
                     LEFT JOIN users u ON u.id = b.id
                     WHERE b.id = %s
@@ -427,8 +433,14 @@ class BizRepository:
                             SELECT JSON_ARRAYAGG(fl.following_user_id)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
-                        ) AS following_list
+                        ) AS following_list,
 
+                        (
+                            SELECT JSON_ARRAYAGG(bch.coupon_id)
+                            FROM biz_coupon_history bch
+                            WHERE bch.user_id = b.id
+                        )
+                        AS use_coupon_list
                     FROM biz_account b
                     LEFT JOIN users u ON u.id = b.id
                     ORDER BY b.created_at DESC

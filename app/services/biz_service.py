@@ -174,6 +174,7 @@ class BizService:
             followerCount=biz.follower_count,
             followingCount=biz.following_count,
             coupons=coupons,
+            useCouponList=biz.use_coupon_list,
         )
 
     async def fetch_biz_list(self, page: int) -> List[BizDetailResponse]:
@@ -255,6 +256,7 @@ class BizService:
                         )
                         for c in (biz.coupons or [])
                     ],
+                    useCouponList=biz.use_coupon_list,
                 )
             )
 
