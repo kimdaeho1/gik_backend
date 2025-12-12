@@ -1328,19 +1328,19 @@ async def follow_user(
             "message": "유저 언팔로우 성공.",
         }
     else:
-        # await push_service.send_push_to_user(
-        #     background_tasks=background_tasks,
-        #     user_id=target_user_id.userId,
-        #     target_user_id=user_id,
-        #     title_content=f"‘{nickname}’님이 회원님을 팔로우 했습니다.",
-        #     body_content="지금 확인해 맞팔로우 보세요!",
-        #     data={
-        #         "type": "follow",
-        #         "follow_id": user_id,
-        #     },
-        #     collapse_key=f"follow-{user_id}",
-        #     activity_type="follow",
-        # )
+        await push_service.send_push_to_user(
+            background_tasks=background_tasks,
+            user_id=target_user_id.userId,
+            target_user_id=user_id,
+            title_content=f"{nickname}님이 회원님을 팔로우 했습니다.",
+            body_content="지금 확인해 맞팔로우 보세요!",
+            data={
+                "type": "follow",
+                "followId": user_id,
+            },
+            collapse_key=f"follow-{user_id}",
+            activity_type="follow",
+        )
         return {
             "success": True,
             "message": "유저 팔로우 성공.",
@@ -1409,10 +1409,12 @@ async def fetch_user_profile(
 @router.post("/user/biz/review", status_code=status.HTTP_200_OK)
 @inject
 async def create_biz_review(
+    background_tasks: BackgroundTasks,
     biz_review: BizReviewRequest = Depends(BizReviewRequest.create_form),
     reviewImages: Optional[List[UploadFile]] = File(default=None),
     token: str = Depends(oauth2_scheme),
     service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
 ):
     """
     비즈니스 유저 리뷰 작성
@@ -1431,6 +1433,18 @@ async def create_biz_review(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="유저 리뷰 작성 실패.",
         )
+    user_id = await get_user_id_from_token(token)
+    target_user_id = await service.fetch_biz_owner_id(biz_review.bizId)
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=target_user_id,
+        target_user_id=user_id,
+        title_content="🥰누군가 소중한 리뷰를 작성했어요!",
+        body_content="지금 바로 확인해 보세요!",
+        data={"type": "review", "reviewerId": user_id},
+        collapse_key=f"review-{user_id}",
+        activity_type="review",
+    )
     return {"success": result, "message": "유저 리뷰 작성 성공."}
 
 

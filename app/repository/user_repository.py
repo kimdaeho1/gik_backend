@@ -150,6 +150,7 @@ class UserRepository:
                         u.secret_alarm_agree,
                         u.feed_like_alarm_agree,
                         u.feed_comment_alarm_agree,
+                        u.follow_alarm_agree,
                         u.banned,
                         u.unbanned_dt,
                         u.last_connected_at,
@@ -313,6 +314,7 @@ class UserRepository:
                         u.secret_alarm_agree,
                         u.feed_like_alarm_agree,
                         u.feed_comment_alarm_agree,
+                        u.follow_alarm_agree,
                         u.banned,
                         u.unbanned_dt,
                         u.last_connected_at,
@@ -629,6 +631,7 @@ class UserRepository:
             "group_chat": "group_chat_alarm_agree",  # 그룹 채팅 알람
             "post_like": "post_like_alarm_agree",  # 게시물 좋아요 알람
             "post_comment": "post_comment_alarm_agree",  # 게시물 댓글 알람
+            "follow_agree": "follow_alarm_agree",  # 팔로우 알람
         }
 
         if alarm_type not in column_map:
@@ -1633,7 +1636,9 @@ class UserRepository:
 
     async def fetch_user_fcm(self, user_id: str) -> str:
         """
-        유저의 fcm 코드를 가져오기
+        유저 또는 비즈 계정의 FCM 토큰을 가져오기
+        1) users.id 에서 조회
+        2) 없으면 biz_account.biz_id 에서 조회
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1642,14 +1647,29 @@ class UserRepository:
                     SELECT fcm
                     FROM users
                     WHERE id = %s
-                        AND leaved = FALSE
-                        AND fcm IS NOT NULL
+                    AND leaved = FALSE
+                    AND fcm IS NOT NULL
                     LIMIT 1
                     """,
                     (user_id,),
                 )
                 result = await cur.fetchone()
-                return result[0] if result else None
+
+                if result:
+                    return result[0]
+                await cur.execute(
+                    """
+                    SELECT fcm
+                    FROM biz_account
+                    WHERE id = %s
+                    AND fcm IS NOT NULL
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                biz_result = await cur.fetchone()
+
+                return biz_result[0] if biz_result else None
 
     async def fetch_user_nickname(self, user_id: str) -> str:
         """
@@ -1683,7 +1703,7 @@ class UserRepository:
 
     async def fetch_user_no(self, user_id: str) -> int:
         """
-        유저의 user_no를 가져오기
+        유저(user) 또는 비즈 계정(biz_account)의 user_no를 가져오기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1692,15 +1712,30 @@ class UserRepository:
                     SELECT user_no
                     FROM users
                     WHERE id = %s
-                        AND leaved = FALSE
+                    AND leaved = FALSE
                     LIMIT 1
                     """,
                     (user_id,),
                 )
                 result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                return result[0]
+
+                if result:
+                    return result[0]
+                await cur.execute(
+                    """
+                    SELECT user_no
+                    FROM biz_account
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                biz_result = await cur.fetchone()
+
+                if biz_result:
+                    return biz_result[0]
+
+                raise HTTPException(status_code=404, detail="User not found")
 
     async def fetch_push_user_logs(
         self, user_no: int, push_type: Optional[str], page: int
@@ -1718,7 +1753,7 @@ class UserRepository:
                         FROM push_user_log
                         WHERE user_no = %s
                           AND status IN ('SUCCESS', 'OPENED')
-                          AND push_type IN ('profile', 'postLike', 'postComment', 'secret', 'feedLike', 'feedComment', 'secretFeedComment', 'secretFeedLike')
+                          AND push_type IN ('profile', 'postLike', 'postComment', 'secret', 'feedLike', 'feedComment', 'secretFeedComment', 'secretFeedLike', 'follow', 'review')
                         ORDER BY delivered_at DESC
                         LIMIT 20 OFFSET %s
                         """,
@@ -2738,7 +2773,7 @@ class UserRepository:
 
     async def fetch_user_id(self, user_no: int) -> Optional[str]:
         """
-        유저의 user_id를 가져오기
+        유저(user) 또는 비즈 계정(biz_account)의 user_id(biz_id)를 가져오기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -2747,46 +2782,109 @@ class UserRepository:
                     SELECT id
                     FROM users
                     WHERE user_no = %s
-                        AND leaved = FALSE
+                    AND leaved = FALSE
                     LIMIT 1
                     """,
                     (user_no,),
                 )
                 result = await cur.fetchone()
-                if not result:
-                    return None
-                return result[0]
+
+                if result:
+                    return result[0]
+                await cur.execute(
+                    """
+                    SELECT id
+                    FROM biz_account
+                    WHERE user_no = %s
+                    AND leaved = FALSE
+                    LIMIT 1
+                    """,
+                    (user_no,),
+                )
+                biz_result = await cur.fetchone()
+
+                if biz_result:
+                    return biz_result[0]
+
+                return None
 
     async def fetch_user_alarm_setting(self, user_id: str) -> dict:
         """
-        유저의 알림 설정 상태 가져오기
+        유저 또는 비즈 계정의 알림 설정 상태 가져오기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT profile_alarm_agree, feed_like_alarm_agree, feed_comment_alarm_agree,
-                            post_like_alarm_agree, post_comment_alarm_agree, secret_alarm_agree,
-                            personal_chat_alarm_agree, group_chat_alarm_agree
+                    SELECT 
+                        profile_alarm_agree, 
+                        feed_like_alarm_agree, 
+                        feed_comment_alarm_agree,
+                        post_like_alarm_agree, 
+                        post_comment_alarm_agree, 
+                        secret_alarm_agree,
+                        personal_chat_alarm_agree, 
+                        group_chat_alarm_agree, 
+                        follow_alarm_agree
                     FROM users
                     WHERE id = %s
+                    LIMIT 1
                     """,
                     (user_id,),
                 )
                 result = await cur.fetchone()
-                if not result:
-                    return False
-                keys = [
-                    "profile",
-                    "feed_like",
-                    "feed_comment",
-                    "post_like",
-                    "post_comment",
-                    "secret",
-                    "personal_chat",
-                    "group_chat",
-                ]
-                return dict(zip(keys, result))
+
+                if result:
+                    keys = [
+                        "profile",
+                        "feed_like",
+                        "feed_comment",
+                        "post_like",
+                        "post_comment",
+                        "secret",
+                        "personal_chat",
+                        "group_chat",
+                        "follow",
+                    ]
+                    return dict(zip(keys, result))
+
+                await cur.execute(
+                    """
+                    SELECT 
+                        profile_alarm_agree, 
+                        feed_like_alarm_agree, 
+                        feed_comment_alarm_agree,
+                        post_like_alarm_agree, 
+                        post_comment_alarm_agree, 
+                        secret_alarm_agree,
+                        personal_chat_alarm_agree, 
+                        group_chat_alarm_agree, 
+                        follow_alarm_agree,
+                        review_alarm_agree
+                    FROM biz_account
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                biz_result = await cur.fetchone()
+
+                if biz_result:
+                    keys = [
+                        "profile",
+                        "feed_like",
+                        "feed_comment",
+                        "post_like",
+                        "post_comment",
+                        "secret",
+                        "personal_chat",
+                        "group_chat",
+                        "follow",
+                        "review",
+                    ]
+                    return dict(zip(keys, biz_result))
+
+                return False
 
     async def fetch_user_credit_history(
         self,
@@ -3502,3 +3600,23 @@ class UserRepository:
 
                 await conn.commit()
                 return True
+
+    async def fetch_biz_owner_id(
+        self,
+        biz_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT id
+                    FROM biz_account
+                    WHERE biz_id = %s
+                    LIMIT 1
+                    """,
+                    (biz_id,),
+                )
+                row = await cur.fetchone()
+                if row:
+                    return row[0]
+                return None

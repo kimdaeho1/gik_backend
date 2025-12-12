@@ -160,6 +160,7 @@ class UserService:
                 secretAlarm=row.secret_alarm_agree,
                 feedLikeAlarm=row.feed_like_alarm_agree,
                 feedCommentAlarm=row.feed_comment_alarm_agree,
+                followAlarm=row.follow_alarm_agree,
                 pushRead=row.pushRead,
                 profileRead=row.profileRead,
                 banned=row.banned,
@@ -1513,3 +1514,9 @@ class UserService:
         if not nickname:
             raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
         return nickname
+
+    async def fetch_biz_owner_id(self, biz_id: str):
+        owner_id = await self.user_repository.fetch_biz_owner_id(biz_id=biz_id)
+        if not owner_id:
+            raise HTTPException(status_code=404, detail="존재하지 않는 비즈입니다.")
+        return owner_id

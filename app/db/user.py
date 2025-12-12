@@ -166,6 +166,7 @@ class UserProfileResponse(BaseModel):
     secretAlarm: bool
     feedLikeAlarm: bool
     feedCommentAlarm: bool
+    followAlarm: bool
     pushRead: bool
     profileRead: bool
     banned: bool
@@ -414,6 +415,7 @@ class UserDetailRow(BaseModel):
     secret_alarm_agree: bool
     feed_like_alarm_agree: bool
     feed_comment_alarm_agree: bool
+    follow_alarm_agree: bool
     banned: bool
     unbanned_dt: Optional[datetime]
     last_connected_at: datetime

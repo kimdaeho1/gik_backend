@@ -78,6 +78,8 @@ class BizDetailRow(BaseModel):
     secret_alarm_agree: bool
     feed_like_alarm_agree: bool
     feed_comment_alarm_agree: bool
+    follow_alarm_agree: bool
+    review_alarm_agree: bool
     image_urls: Optional[str]
     block_user_list: Optional[str]
     favorite_user_list: Optional[str]
@@ -114,6 +116,8 @@ class BizProfileResponse(BaseModel):
     secretAlarm: bool
     feedLikeAlarm: bool
     feedCommentAlarm: bool
+    followAlarm: bool
+    reviewAlarm: bool
     profileImage: Optional[List[str]]
     blockUserList: Optional[List[str]]
     favoriteUserList: Optional[List[str]]
