@@ -575,7 +575,7 @@ class BizDetailResponse(BaseModel):
     bizId: str
     storeType: str
     storeName: str
-    email: str
+    email: Optional[str]
     tags: str
     address: str
     businessHours: str
