@@ -220,7 +220,8 @@ class BizRepository:
                         b.secret_alarm_agree,
                         b.feed_like_alarm_agree,
                         b.feed_comment_alarm_agree,
-
+                        b.follow_alarm_agree,
+                        b.review_alarm_agree,
                         (
                             SELECT JSON_ARRAYAGG(t.url)
                             FROM (
@@ -347,7 +348,8 @@ class BizRepository:
                         b.secret_alarm_agree,
                         b.feed_like_alarm_agree,
                         b.feed_comment_alarm_agree,
-
+                        b.follow_alarm_agree,
+                        b.review_alarm_agree,
                         (
                             SELECT JSON_ARRAYAGG(t.url)
                             FROM (

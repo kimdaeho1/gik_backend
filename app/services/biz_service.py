@@ -163,6 +163,8 @@ class BizService:
             secretAlarm=biz.secret_alarm_agree,
             feedLikeAlarm=biz.feed_like_alarm_agree,
             feedCommentAlarm=biz.feed_comment_alarm_agree,
+            followAlarm=biz.follow_alarm_agree,
+            reviewAlarm=biz.review_alarm_agree,
             profileImage=json.loads(biz.image_urls) if biz.image_urls else [],
             blockUserList=(
                 json.loads(biz.block_user_list) if biz.block_user_list else []
@@ -231,6 +233,8 @@ class BizService:
                     secretAlarm=biz.secret_alarm_agree,
                     feedLikeAlarm=biz.feed_like_alarm_agree,
                     feedCommentAlarm=biz.feed_comment_alarm_agree,
+                    followAlarm=biz.follow_alarm_agree,
+                    reviewAlarm=biz.review_alarm_agree,
                     profileImage=json.loads(biz.image_urls) if biz.image_urls else [],
                     blockUserList=(
                         json.loads(biz.block_user_list) if biz.block_user_list else []

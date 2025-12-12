@@ -161,7 +161,6 @@ class CommunityService:
                 new_image_urls.append(f"{CLOUDFRONT_URL}/{s3_key}{filename}")
 
             # 3) 첫 번째 이미지로 썸네일 생성
-            # ❗ 절대 images[0].file.read() 쓰지 않는다
             image = Image.open(io.BytesIO(first_image_bytes))
 
             image = ImageOps.exif_transpose(image)

@@ -153,6 +153,8 @@ class BizDetailResponse(BaseModel):
     secretAlarm: bool
     feedLikeAlarm: bool
     feedCommentAlarm: bool
+    followAlarm: bool
+    reviewAlarm: bool
     profileImage: Optional[List[str]]
     blockUserList: Optional[List[str]]
     favoriteUserList: Optional[List[str]]
