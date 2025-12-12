@@ -591,6 +591,7 @@ class BizReviewRow(BaseModel):
     nickname: str
     biz_id: str
     content: str
+    images: List[str] = []
     rating: int
     created_at: datetime
     answer_content: Optional[str] = None
@@ -603,6 +604,7 @@ class BizReviewResponse(BaseModel):
     userNickname: str
     bizId: str
     content: str
+    images: List[str] = []
     rating: int
     answer: Optional[Dict[str, Any]] = None
     createdAt: datetime

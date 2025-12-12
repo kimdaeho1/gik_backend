@@ -3412,7 +3412,11 @@ class UserRepository:
                         br.rating,
                         br.created_at,
                         bra.answer_content,
-                        bra.answer_created_at
+                        bra.answer_created_at,
+                        COALESCE(
+                            GROUP_CONCAT(DISTINCT bri.url ORDER BY bri.`index` SEPARATOR '||'),
+                            ''
+                        ) AS images
                     FROM biz_review br
                     JOIN users u 
                         ON br.user_id = u.id
@@ -3421,6 +3425,8 @@ class UserRepository:
                         FROM biz_review_answer_list
                     ) bra
                         ON bra.review_id = br.id
+                    LEFT JOIN biz_review_image bri
+                        ON bri.review_id = br.id  AND bri.use_yn = TRUE
                     WHERE br.biz_id = %s
                     AND br.deleted = FALSE
                     AND br.user_id NOT IN (
@@ -3438,6 +3444,7 @@ class UserRepository:
                         FROM biz_review_block_list
                         WHERE block_user_id = %s
                     )
+                    GROUP BY br.id
                     ORDER BY br.id DESC
                     """,
                     (biz_id, user_id, user_id, user_id),
@@ -3446,9 +3453,19 @@ class UserRepository:
                 rows = await cur.fetchall()
                 if not rows:
                     return []
-
                 columns = [col[0] for col in cur.description]
-                return [BizReviewRow(**dict(zip(columns, row))) for row in rows]
+                result_rows = []
+                for row in rows:
+                    row_dict = dict(zip(columns, row))
+
+                    if isinstance(row_dict.get("images"), str):
+                        row_dict["images"] = (
+                            row_dict["images"].split("||") if row_dict["images"] else []
+                        )
+
+                    result_rows.append(BizReviewRow(**row_dict))
+
+                return result_rows
 
     async def fetch_biz_list(
         self,

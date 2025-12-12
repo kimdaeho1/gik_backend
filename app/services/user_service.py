@@ -1425,6 +1425,7 @@ class UserService:
                     userNickname=review.nickname,
                     bizId=review.biz_id,
                     content=review.content,
+                    images=review.images,
                     rating=review.rating,
                     createdAt=review.created_at,
                     answer=(
