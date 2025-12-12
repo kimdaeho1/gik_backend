@@ -34,7 +34,6 @@ class JWTBearer(HTTPBearer):
                     detail="Invalid or expired token.",
                 )
 
-            # ⭐ 핵심 부분: user_id 또는 biz_id 둘 중 하나라도 있으면 인증 성공
             if not payload.get("user_id") and not payload.get("biz_id"):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,

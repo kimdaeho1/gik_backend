@@ -3611,7 +3611,7 @@ class UserRepository:
                     """
                     SELECT id
                     FROM biz_account
-                    WHERE biz_id = %s
+                    WHERE id = %s
                     LIMIT 1
                     """,
                     (biz_id,),
