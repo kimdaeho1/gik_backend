@@ -1347,7 +1347,7 @@ async def follow_user(
         }
 
 
-@router.get("/user/folloings/{user_id}", status_code=status.HTTP_200_OK)
+@router.get("/user/followings/{user_id}", status_code=status.HTTP_200_OK)
 @inject
 async def fetch_user_followings(
     user_id: str,
