@@ -72,6 +72,7 @@ class BizService:
             )
 
         following_list = json.loads(biz.following_list) if biz.following_list else []
+        use_coupon_list = json.loads(biz.use_coupon_list) if biz.use_coupon_list else []
 
         return BizProfileResponse(
             id=biz.id,
@@ -109,6 +110,7 @@ class BizService:
             followerCount=biz.follower_count,
             followingCount=biz.following_count,
             followingList=following_list,
+            useCouponList=use_coupon_list,
         )
 
     async def get_biz_detail(self, biz_id: str):
