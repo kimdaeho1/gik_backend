@@ -1450,16 +1450,12 @@ class UserService:
             follower_id=user_id, follow_id=follow_id
         )
 
-    async def fetch_follow_list(self, token: str):
-        # 토큰에서 user_id 추출
-        user_id = await get_user_id_from_token(token)
+    async def fetch_follow_list(self, user_id: str):
 
         follow_list = await self.user_repository.fetch_follow_list(user_id=user_id)
         return follow_list
 
-    async def fetch_follower_list(self, token: str):
-        # 토큰에서 user_id 추출
-        user_id = await get_user_id_from_token(token)
+    async def fetch_follower_list(self, user_id: str):
 
         follower_list = await self.user_repository.fetch_follower_list(user_id=user_id)
         return follower_list
@@ -1514,7 +1510,6 @@ class UserService:
         user_id: str,
     ):
         nickname = await self.user_repository.fetch_user_nickname(user_id=user_id)
-        print(nickname)
         if not nickname:
             raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
         return nickname

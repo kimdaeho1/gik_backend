@@ -1652,21 +1652,34 @@ class UserRepository:
                 return result[0] if result else None
 
     async def fetch_user_nickname(self, user_id: str) -> str:
-        """유저의 닉네임을 가져오기"""
+        """
+        유저 또는 비즈 계정의 닉네임(또는 store_name)을 가져오기
+        """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    """ 
-                    SELECT nickname 
-                    FROM users 
-                    WHERE id = %s 
-                    AND leaved = FALSE 
-                    LIMIT 1 
+                    """
+                    SELECT 
+                        u.nickname AS user_nickname,
+                        b.store_name AS biz_nickname
+                    FROM 
+                        (SELECT %s AS id) AS x
+                    LEFT JOIN users u
+                        ON u.id = x.id AND u.leaved = FALSE
+                    LEFT JOIN biz_account b
+                        ON b.id = x.id
+                    LIMIT 1
                     """,
                     (user_id,),
                 )
-                result = await cur.fetchone()
-                return result[0] if result else None
+                row = await cur.fetchone()
+
+                if not row:
+                    return None
+
+                user_nickname, biz_nickname = row
+
+                return user_nickname if user_nickname else biz_nickname
 
     async def fetch_user_no(self, user_id: str) -> int:
         """
@@ -3489,21 +3502,3 @@ class UserRepository:
 
                 await conn.commit()
                 return True
-
-    async def check_biz_account(
-        self,
-        user_id: str,
-    ):
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT 1
-                    FROM biz_account
-                    WHERE biz_id = %s AND leaved = FALSE
-                    LIMIT 1
-                    """,
-                    (user_id,),
-                )
-                row = await cur.fetchone()
-                return bool(row)
