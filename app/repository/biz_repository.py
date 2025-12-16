@@ -153,20 +153,63 @@ class BizRepository:
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.following_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS follower_count,
-                        
                         -- 팔로잉 수
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS following_count,
-
                         -- 팔로잉 리스트
                         (
                             SELECT JSON_ARRAYAGG(fl.following_user_id)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS following_list,
                         
                         (
@@ -274,22 +317,68 @@ class BizRepository:
                             )
                         ) AS has_secret_feed,
 
+                        -- 팔로워 수
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.following_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS follower_count,
-
+                        -- 팔로잉 수
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS following_count,
-
+                        -- 팔로잉 리스트
                         (
                             SELECT JSON_ARRAYAGG(fl.following_user_id)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS following_list,
 
                         (
@@ -421,22 +510,68 @@ class BizRepository:
                             )
                         ) AS has_secret_feed,
 
+                        -- 팔로워 수
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.following_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS follower_count,
-
+                        -- 팔로잉 수
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS following_count,
-
+                        -- 팔로잉 리스트
                         (
                             SELECT JSON_ARRAYAGG(fl.following_user_id)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = b.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS following_list,
 
                         (
