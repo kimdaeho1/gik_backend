@@ -10,10 +10,14 @@ from app.utils.token import (
     create_refresh_token,
     create_new_tokens_based_on_refresh_token,
     get_user_id_from_token,
+    JWTBearer,
 )
 from jose import jwt
+from app.utils.logging_config import get_logger
 
-oauth2_scheme = HTTPBearer()
+logger = get_logger(__name__)
+
+oauth2_scheme = JWTBearer(auto_error=False)
 router = APIRouter(prefix="/v1/gik-backend/token", tags=["Token"])
 
 
@@ -28,7 +32,7 @@ async def refresh_token(
     리프레시 토큰을 사용해 새로운 엑세스 토큰과 리프레스 토큰 발급
     token : 기존의 리프레시 토큰
     """
-    new_tokens = create_new_tokens_based_on_refresh_token(token.credentials)
+    new_tokens = create_new_tokens_based_on_refresh_token(token)
     success: bool = await token_service.refresh_user_token(
         new_tokens["user_id"], new_tokens["access_token"], new_tokens["refresh_token"]
     )
@@ -94,13 +98,15 @@ async def logout_user(
     token : 로그아웃할 유저의 액세스 토큰
     """
     # 토큰에서 유저 ID 추출
-    user_id = await get_user_id_from_token(token.credentials)
+    user_id = await get_user_id_from_token(token)
 
     # 유저 로그아웃
     success = await token_service.logout_user(user_id)
     if not success:
+        logger.error(f"로그아웃 실패 for user_id: {user_id}"),
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="로그아웃 실패"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="로그아웃 실패",
         )
 
     return {"success": True, "message": "로그아웃이 완료되었습니다."}
