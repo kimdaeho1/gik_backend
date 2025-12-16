@@ -178,6 +178,7 @@ class BizService:
             followerCount=biz.follower_count,
             followingCount=biz.following_count,
             coupons=coupons,
+            hasCoupon=len(coupons) > 0,
             useCouponList=biz.use_coupon_list,
         )
 
