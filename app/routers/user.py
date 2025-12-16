@@ -71,7 +71,7 @@ async def create_user_endpoint(
     return {"message": "유저가 성공적으로 등록되었습니다."}
 
 
-@router.post("/user/temp", status_code=status.HTTP_201_CREATED)
+@router.post("/user/no-auth", status_code=status.HTTP_201_CREATED)
 @inject
 async def create_user_endpoint_without_auth(
     service: UserService = Depends(Provide[Container.user_service]),
