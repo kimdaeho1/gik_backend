@@ -345,6 +345,7 @@ async def update_user_alarm(
         - group_chat = 그룹 채팅 알림
         - post_like = 게시물 좋아요 알림
         - post_comment = 게시물 댓글 알림
+        - review_alarm_agree = 리뷰 알림
     value: 변경된 알람 설정 값 (True/False)
     """
     result: bool = await service.update_user_alarm(

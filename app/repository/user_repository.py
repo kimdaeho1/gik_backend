@@ -261,13 +261,43 @@ class UserRepository:
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.following_user_id = u.id
-                        ) AS followerCount,
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followerCount, 
                         
                         -- 팔로잉 수
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS followingCount,
                         
                         -- 팔로잉 리스트
@@ -275,9 +305,22 @@ class UserRepository:
                             SELECT JSON_ARRAYAGG(uf.following_user_id)
                             FROM users_follow_list uf
                             WHERE uf.follower_user_id = u.id
-                        )
-                        AS followingList,
-                        
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = uf.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = uf.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followingList,
                         (
                             SELECT JSON_ARRAYAGG(bch.coupon_id)
                             FROM biz_coupon_history bch
@@ -378,13 +421,43 @@ class UserRepository:
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.following_user_id = u.id
-                        ) AS followerCount,
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followerCount, 
                         
                         -- 팔로잉 수
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS followingCount
 
                     FROM users u
@@ -968,13 +1041,43 @@ class UserRepository:
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.following_user_id = u.id
-                        ) AS followerCount,
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followerCount, 
                         
                         -- 팔로잉 수
                         (
                             SELECT COUNT(*)
                             FROM users_follow_list fl
                             WHERE fl.follower_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
                         ) AS followingCount
 
                     FROM users u
@@ -3044,6 +3147,10 @@ class UserRepository:
                     LEFT JOIN biz_account b
                         ON fl.following_user_id = b.id
                     WHERE fl.follower_user_id = %s
+                    AND (
+                        (u.id IS NOT NULL AND u.leaved = FALSE)
+                        OR (b.id IS NOT NULL AND b.leaved=FALSE)
+                    )
                     """,
                     (user_id,),
                 )
@@ -3128,6 +3235,10 @@ class UserRepository:
                     LEFT JOIN biz_account b
                         ON fl.follower_user_id = b.id
                     WHERE fl.following_user_id = %s
+                    AND (
+                            (u.id IS NOT NULL AND u.leaved = FALSE)
+                            OR (b.id IS NOT NULL AND b.leaved = FALSE)
+                        )
                     """,
                     (user_id,),
                 )
