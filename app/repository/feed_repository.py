@@ -353,7 +353,7 @@ class FeedRepository:
         status: bool,
         secret_status: bool,
     ):
-        offset = (page - 1) * 5
+        offset = (page - 1) * 20
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(

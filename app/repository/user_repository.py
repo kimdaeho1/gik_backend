@@ -1464,8 +1464,14 @@ class UserRepository:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        "UPDATE users SET leaved = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                        (user_id,),
+                        """
+                        UPDATE users 
+                        SET leaved = TRUE, 
+                            updated_at = CURRENT_TIMESTAMP, 
+                            id = CONCAT('leaved_', %s)
+                        WHERE id = %s
+                        """,
+                        (user_id, user_id),
                     )
 
                     await cur.execute(

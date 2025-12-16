@@ -262,6 +262,7 @@ class BizService:
                         )
                         for c in (biz.coupons or [])
                     ],
+                    hasCoupon=len(biz.coupons) > 0,
                     useCouponList=biz.use_coupon_list,
                 )
             )
