@@ -74,9 +74,6 @@ class TokenService:
                     )
                     row_biz = cur.rowcount
 
-                    if row_users == 0 and row_biz == 0:
-                        return False
-
                     await conn.commit()
                     return True
 
