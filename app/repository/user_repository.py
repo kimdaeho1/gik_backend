@@ -654,6 +654,7 @@ class UserRepository:
             "post_like": "post_like_alarm_agree",  # 게시물 좋아요 알람
             "post_comment": "post_comment_alarm_agree",  # 게시물 댓글 알람
             "follow_agree": "follow_alarm_agree",  # 팔로우 알람
+            "review_agree": "review_alarm_agree",  # 리뷰 알람
         }
 
         if alarm_type not in column_map:
