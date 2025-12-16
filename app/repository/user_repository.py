@@ -66,7 +66,7 @@ class UserRepository:
                         marketing_agree, service_agree, personal_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
-                        night_agree, leaved, test_yn
+                        night_agree, leaved, test_yn, auth_yn
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s, %s,
@@ -74,7 +74,7 @@ class UserRepository:
                         %s, %s, %s,
                         %s, %s,
                         %s, %s,
-                        %s, %s, %s
+                        %s, %s, %s, %s
                     )
                 """
                 # 리턴값이 필요하지 않음
@@ -114,6 +114,26 @@ class UserRepository:
                 await cur.execute(
                     "UPDATE users SET secret_yn = TRUE WHERE id = %s",
                     (user_id,),
+                )
+
+    async def verify_user(
+        self,
+        user_id: str,
+        name: str,
+        phone: str,
+        birthday: str,
+        provider: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET name = %s, phone = %s, birthday = %s, provider = %s,
+                        auth_yn = TRUE, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s AND leaved = FALSE
+                    """,
+                    (name, phone, birthday, provider, user_id),
                 )
 
     async def fetch_my_profile(self, user_id: str):
@@ -156,6 +176,7 @@ class UserRepository:
                         u.last_connected_at,
                         u.latitude,
                         u.longitude,
+                        u.auth_yn,
 
                         -- 프로필 이미지 리스트
                         (
@@ -321,6 +342,7 @@ class UserRepository:
                         u.latitude,
                         u.longitude,
                         u.leaved,
+                        u.auth_yn,
 
                         -- 프로필 이미지 리스트
                         (
@@ -919,6 +941,7 @@ class UserRepository:
                         u.leaved,
                         u.talk_style,
                         u.secret_yn,
+                        u.auth_yn,
                         u.personal_chat_alarm_agree,
                         u.group_chat_alarm_agree,
                         u.post_comment_alarm_agree,

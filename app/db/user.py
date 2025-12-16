@@ -12,6 +12,7 @@ class Hashtags(BaseModel):
     personality: List[str]
 
 
+# name, phone, birthday
 class UserCreateRequest(BaseModel):
     id: str
     fcm: str
@@ -41,6 +42,7 @@ class UserCreateRequest(BaseModel):
     night_agree: bool
     leave: bool
     test: Optional[str] = ""
+    auth: bool = True
 
     @classmethod
     def create_form(
@@ -73,6 +75,7 @@ class UserCreateRequest(BaseModel):
         night_agree: bool = Form(...),
         leave: bool = Form(...),
         test: Optional[str] = Form(default=""),
+        auth: bool = Form(default=True),
     ) -> "UserCreateRequest":
         return cls(
             id=id,
@@ -103,6 +106,93 @@ class UserCreateRequest(BaseModel):
             night_agree=night_agree,
             leave=leave,
             test=test,
+            auth=auth,
+        )
+
+
+# name, phone, birthday, provider
+class NoAuthUserCreateRequest(BaseModel):
+    id: str
+    fcm: str
+    email: str
+    sns: str
+    nickname: str
+    age: int
+    height: int
+    weight: int
+    country: str
+    position: str
+    relation: str
+    hashtags: str
+    self_introduction: Optional[str] = None
+    bdsm_type: Optional[str] = None
+    personal_chat_alarm: bool
+    group_chat_alarm: bool
+    post_comment_alarm: bool
+    post_like_alarm: bool
+    service_agree: bool
+    personal_agree: bool
+    marketing_agree: bool
+    night_agree: bool
+    leave: bool
+    test: Optional[str] = ""
+    auth: bool = False
+
+    @classmethod
+    def create_form(
+        cls,
+        id: str = Form(...),
+        fcm: str = Form(...),
+        email: str = Form(...),
+        sns: str = Form(...),
+        nickname: str = Form(...),
+        age: int = Form(...),
+        height: int = Form(...),
+        weight: int = Form(...),
+        country: str = Form(...),
+        position: str = Form(...),
+        relation: str = Form(...),
+        hashtags: str = Form(...),
+        selfIntroduction: Optional[str] = Form(default=None),
+        bdsmType: Optional[str] = Form(default=None),
+        personalChatAlarm: bool = Form(...),
+        groupChatAlarm: bool = Form(...),
+        postCommentAlarm: bool = Form(...),
+        postLikeAlarm: bool = Form(...),
+        serviceAgree: bool = Form(...),
+        personalAgree: bool = Form(...),
+        marketingAgree: bool = Form(...),
+        nightAgree: bool = Form(...),
+        leave: bool = Form(...),
+        test: Optional[str] = Form(default=""),
+        auth: bool = Form(default=False),
+    ):
+        return cls(
+            id=id,
+            fcm=fcm,
+            email=email,
+            sns=sns,
+            nickname=nickname,
+            age=age,
+            height=height,
+            weight=weight,
+            country=country,
+            position=position,
+            relation=relation,
+            hashtags=hashtags,
+            self_introduction=selfIntroduction,
+            bdsm_type=bdsmType,
+            personal_chat_alarm=personalChatAlarm,
+            group_chat_alarm=groupChatAlarm,
+            post_comment_alarm=postCommentAlarm,
+            post_like_alarm=postLikeAlarm,
+            service_agree=serviceAgree,
+            personal_agree=personalAgree,
+            marketing_agree=marketingAgree,
+            night_agree=nightAgree,
+            leave=leave,
+            test=test,
+            auth=auth,
         )
 
 
@@ -171,6 +261,7 @@ class UserProfileResponse(BaseModel):
     profileRead: bool
     banned: bool
     unBannedDate: Optional[datetime]
+    auth: bool
     blockUserList: Optional[List[str]]
     blockPostList: Optional[List[str]]
     blockCommentList: Optional[List[str]]
@@ -203,6 +294,7 @@ class UserDetailResponse(BaseModel):
     talkStyle: Optional[str]
     secretYn: bool
     secretImages: Optional[List[str]]
+    auth: bool
     leaved: bool
     blockUserList: Optional[List[str]]
     personalChatAlarm: bool
@@ -236,6 +328,7 @@ class UserListResponse(BaseModel):
     bdsmType: Optional[str]
     talkStyle: Optional[str]
     secretYn: bool
+    auth: bool
     secretImages: List[str]
     leaved: bool
     blockUserList: Optional[List[str]]
@@ -418,6 +511,7 @@ class UserDetailRow(BaseModel):
     follow_alarm_agree: bool
     banned: bool
     unbanned_dt: Optional[datetime]
+    auth_yn: bool
     last_connected_at: datetime
     latitude: Optional[float]
     longitude: Optional[float]
@@ -452,6 +546,7 @@ class UserDetailViewRow(BaseModel):
     bdsm_type: Optional[str]
     talk_style: Optional[str]
     secret_yn: bool
+    auth_yn: bool
     leaved: bool
     last_connected_at: datetime
     latitude: Optional[float]
@@ -484,6 +579,7 @@ class UserListRow(BaseModel):
     leaved: bool
     talk_style: Optional[str]
     secret_yn: bool
+    auth_yn: bool
     personal_chat_alarm_agree: bool
     group_chat_alarm_agree: bool
     post_comment_alarm_agree: bool
@@ -635,3 +731,10 @@ class UserFollowRequest(BaseModel):
 
 class ReviewReportRequest(BaseModel):
     reason: str
+
+
+class VerifyUserRequest(BaseModel):
+    name: str
+    phone: str
+    birthday: str
+    provider: str

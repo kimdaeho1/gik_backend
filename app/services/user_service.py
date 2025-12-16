@@ -7,6 +7,7 @@ from app.db.user import (
     UserDetailResponse,
     UserListResponse,
     UserCreateRequest,
+    NoAuthUserCreateRequest,
     UserCreditHistoryResponse,
     BizDetailResponse,
     BizReviewResponse,
@@ -78,10 +79,79 @@ class UserService:
                 user_form.night_agree,
                 user_form.leave,
                 user_form.test or "",
+                user_form.auth,
             )
 
             await self.user_repository.insert_user(user_data)
 
+            profile_urls = await self.image_service.upload_images(
+                user_id=user_form.id,
+                images=profile_images,
+                image_label="user_profile",
+            )
+            await self.user_repository.insert_user_images(
+                user_form.id, profile_urls, start_index=0
+            )
+
+            secret_urls = await self.image_service.upload_images(
+                user_id=user_form.id,
+                images=secret_images,
+                image_label="user_secret_profile",
+            )
+            if secret_urls:
+                await self.user_repository.insert_secret_images(
+                    user_form.id, secret_urls
+                )
+
+            user_row, columns = await self.user_repository.get_user_row(user_form.id)
+            if user_row and columns:
+                await self.user_repository.insert_user_history(user_row, columns)
+            logger.info(f"유저 생성을 완료했습니다. user_id: {user_form.id}")
+            return True
+        except Exception as e:
+            logger.error(f"유저 생성을 실패했습니다: {str(e)}")
+            raise HTTPException(status_code=500, detail="사용자 생성 실패")
+
+    async def create_user_endpoint_without_auth(
+        self,
+        user_form: NoAuthUserCreateRequest,
+        profile_images: List[UploadFile],
+        secret_images: Optional[List[UploadFile]] = None,
+    ) -> bool:
+        hashtags = Hashtags.parse_raw(user_form.hashtags)
+        try:
+            user_data = (
+                user_form.id,
+                user_form.fcm,
+                user_form.sns,
+                "",
+                "",
+                "",
+                user_form.email,
+                user_form.nickname,
+                "",
+                user_form.age,
+                user_form.height,
+                user_form.weight,
+                user_form.country,
+                user_form.position,
+                user_form.relation,
+                hashtags.json(),
+                user_form.self_introduction,
+                user_form.bdsm_type,
+                user_form.marketing_agree,
+                user_form.service_agree,
+                user_form.personal_agree,
+                user_form.personal_chat_alarm,
+                user_form.group_chat_alarm,
+                user_form.post_comment_alarm,
+                user_form.post_like_alarm,
+                user_form.night_agree,
+                user_form.leave,
+                user_form.test or "",
+                user_form.auth,
+            )
+            await self.user_repository.insert_user(user_data)
             profile_urls = await self.image_service.upload_images(
                 user_id=user_form.id,
                 images=profile_images,
@@ -165,6 +235,7 @@ class UserService:
                 profileRead=row.profileRead,
                 banned=row.banned,
                 unBannedDate=row.unbanned_dt,
+                auth=row.auth_yn,
                 blockUserList=block_user_list,
                 blockPostList=[],
                 blockCommentList=[],
@@ -184,6 +255,23 @@ class UserService:
         except Exception as e:
             logger.error(f"내 정보 조회 실패: {str(e)}")
             raise HTTPException(status_code=500, detail=f"내 정보 조회 실패: {str(e)}")
+
+    async def verify_user(
+        self,
+        token: str,
+        name: str,
+        phone: str,
+        birthday: str,
+        provider: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+        await self.user_repository.verify_user(
+            user_id=user_id,
+            name=name,
+            phone=phone,
+            birthday=birthday,
+            provider=provider,
+        )
 
     async def check_nickname(self, nickname: str) -> bool:
         return await self.user_repository.check_nickname(nickname)
@@ -367,6 +455,7 @@ class UserService:
                 secretYn=row.secret_yn,
                 profileImages=profile_images,
                 secretImages=secret_images if row.secret_yn else [],
+                auth=row.auth_yn,
                 leaved=row.leaved,
                 personalChatAlarm=row.personal_chat_alarm_agree,
                 groupChatAlarm=row.group_chat_alarm_agree,
@@ -448,6 +537,7 @@ class UserService:
                     bdsmType=user_row.bdsm_type,
                     talkStyle=user_row.talk_style,
                     secretYn=user_row.secret_yn,
+                    auth=user_row.auth_yn,
                     secretImages=user_row.secretImages,
                     profileImages=user_row.profileImages,
                     leaved=user_row.leaved,

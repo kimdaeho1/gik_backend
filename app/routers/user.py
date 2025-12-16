@@ -29,6 +29,8 @@ from app.db.user import (
     UserFollowRequest,
     BizReviewUpdateRequest,
     ReviewReportRequest,
+    NoAuthUserCreateRequest,
+    VerifyUserRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -44,6 +46,7 @@ router = APIRouter(prefix="/v1/gik-backend", tags=["User"])
 
 
 # user.py로 적어놓았으면 컨벤션을 user로 써야하지 않을까.
+# 인증이 없다면 name, phone, birth, provider가 없다.
 # [유저] 회원가입
 @router.post("/user", status_code=status.HTTP_201_CREATED)
 @inject
@@ -66,6 +69,45 @@ async def create_user_endpoint(
             status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 유저입니다."
         )
     return {"message": "유저가 성공적으로 등록되었습니다."}
+
+
+@router.post("/user/temp", status_code=status.HTTP_201_CREATED)
+@inject
+async def create_user_endpoint_without_auth(
+    service: UserService = Depends(Provide[Container.user_service]),
+    user_form: NoAuthUserCreateRequest = Depends(NoAuthUserCreateRequest.create_form),
+    profile_images: List[UploadFile] = File(default=[]),
+    secret_images: Optional[List[UploadFile]] = File(default=[]),
+):
+    """
+    유저 회원가입 / 인증 없이
+    """
+    result: bool = await service.create_user_endpoint_without_auth(
+        user_form=user_form,
+        profile_images=profile_images,
+        secret_images=secret_images,
+    )
+    return {"message": "유저가 성공적으로 등록되었습니다."}
+
+
+@router.post("/user/verify", status_code=status.HTTP_200_OK)
+@inject
+async def verify_user(
+    verify_data: VerifyUserRequest,
+    service: UserService = Depends(Provide[Container.user_service]),
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    유저 본인인증
+    """
+    result: bool = await service.verify_user(
+        token=token,
+        name=verify_data.name,
+        phone=verify_data.phone,
+        birthday=verify_data.birthday,
+        provider=verify_data.provider,
+    )
+    return {"message": "유저 본인인증이 완료되었습니다."}
 
 
 # [유저] 닉네임 중복 확인
