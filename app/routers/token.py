@@ -103,10 +103,12 @@ async def logout_user(
     # 유저 로그아웃
     success = await token_service.logout_user(user_id)
     if not success:
-        logger.error(f"로그아웃 실패 for user_id: {user_id}"),
+        logger.error(
+            f"로그아웃 실패 for user_id: {user_id}, token: {token.credentials}"
+        ),
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="로그아웃 실패",
         )
-
+    logger.info(f"로그아웃 성공 for user_id: {user_id}, token: {token.credentials}")
     return {"success": True, "message": "로그아웃이 완료되었습니다."}
