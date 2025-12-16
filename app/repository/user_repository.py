@@ -4,6 +4,7 @@ from app.db.db_connection import db
 from typing import List, Optional
 from app.utils.logging_config import get_logger
 from app.utils.firebase_init import init_firebase_admin
+from app.utils.utils import to_datetime
 from firebase_admin import auth
 from app.utils.logging_config import get_logger
 from app.db.user import (
@@ -14,8 +15,11 @@ from app.db.user import (
     ViewCountRow,
     CountRow,
     ProfileViewRow,
+    BizReviewRow,
 )
+from datetime import datetime
 import math
+from app.utils.utils import kst, to_datetime
 
 logger = get_logger(__name__)
 
@@ -32,9 +36,12 @@ class UserRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT 1
-                    FROM users
-                    WHERE id = %s AND leaved = FALSE
+                    SELECT 1 FROM (
+                        SELECT id FROM users WHERE leaved = FALSE
+                        UNION
+                        SELECT id FROM biz_account WHERE leaved = FALSE
+                    ) AS all_accounts
+                    WHERE id = %s
                     """,
                     (user_id,),
                 )
@@ -59,7 +66,7 @@ class UserRepository:
                         marketing_agree, service_agree, personal_agree,
                         personal_chat_alarm_agree, group_chat_alarm_agree,
                         post_comment_alarm_agree, post_like_alarm_agree,
-                        night_agree, leaved, test_yn
+                        night_agree, leaved, test_yn, auth_yn
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s, %s,
@@ -67,7 +74,7 @@ class UserRepository:
                         %s, %s, %s,
                         %s, %s,
                         %s, %s,
-                        %s, %s, %s
+                        %s, %s, %s, %s
                     )
                 """
                 # 리턴값이 필요하지 않음
@@ -109,6 +116,26 @@ class UserRepository:
                     (user_id,),
                 )
 
+    async def verify_user(
+        self,
+        user_id: str,
+        name: str,
+        phone: str,
+        birthday: str,
+        provider: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET name = %s, phone = %s, birthday = %s, provider = %s,
+                        auth_yn = TRUE, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s AND leaved = FALSE
+                    """,
+                    (name, phone, birthday, provider, user_id),
+                )
+
     async def fetch_my_profile(self, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -143,11 +170,13 @@ class UserRepository:
                         u.secret_alarm_agree,
                         u.feed_like_alarm_agree,
                         u.feed_comment_alarm_agree,
+                        u.follow_alarm_agree,
                         u.banned,
                         u.unbanned_dt,
                         u.last_connected_at,
                         u.latitude,
                         u.longitude,
+                        u.auth_yn,
 
                         -- 프로필 이미지 리스트
                         (
@@ -226,7 +255,78 @@ class UserRepository:
                                 AND f.secret_status = TRUE
                                 AND f.deleted = FALSE
                             )
-                        ) AS hasSecretFeed
+                        ) AS hasSecretFeed,
+                        -- 팔로워 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.following_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followerCount, 
+                        
+                        -- 팔로잉 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followingCount,
+                        
+                        -- 팔로잉 리스트
+                        (
+                            SELECT JSON_ARRAYAGG(uf.following_user_id)
+                            FROM users_follow_list uf
+                            WHERE uf.follower_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = uf.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = uf.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followingList,
+                        (
+                            SELECT JSON_ARRAYAGG(bch.coupon_id)
+                            FROM biz_coupon_history bch
+                            WHERE bch.user_id = u.id
+                        )
+                        AS useCouponList
 
                     FROM users u
                     WHERE u.id = %s
@@ -244,9 +344,6 @@ class UserRepository:
                 row_dict = dict(zip(columns, row))
                 return UserDetailRow(**row_dict)
 
-    # 상대방 유저의 block_list 가져오기.
-    # 상대방의 차단 여부 및 조회수 가져오기(total, today)
-    # 상대방의 프로필 이미지, 상대방의(피드?)????
     async def fetch_user_profile(self, user_id: str):
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -281,12 +378,14 @@ class UserRepository:
                         u.secret_alarm_agree,
                         u.feed_like_alarm_agree,
                         u.feed_comment_alarm_agree,
+                        u.follow_alarm_agree,
                         u.banned,
                         u.unbanned_dt,
                         u.last_connected_at,
                         u.latitude,
                         u.longitude,
                         u.leaved,
+                        u.auth_yn,
 
                         -- 프로필 이미지 리스트
                         (
@@ -315,7 +414,51 @@ class UserRepository:
                             SELECT JSON_ARRAYAGG(ub.blocked_user_id)
                             FROM user_block_list ub
                             WHERE ub.block_user_id = u.id
-                        ) AS blockUserList
+                        ) AS blockUserList,
+                        
+                        -- 팔로워 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.following_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followerCount, 
+                        
+                        -- 팔로잉 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followingCount
 
                     FROM users u
                     WHERE u.id = %s AND u.leaved = FALSE
@@ -483,9 +626,6 @@ class UserRepository:
                     raise HTTPException(status_code=500, detail="사용자 정보 수정 실패")
 
     async def update_user_fcm(self, user_id: str, fcm: str):
-        """
-        유저 fcm코드 변경
-        """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 try:
@@ -493,12 +633,21 @@ class UserRepository:
                         """
                         UPDATE users
                         SET fcm = %s, updated_at = CURRENT_TIMESTAMP
-                        WHERE id = %s
+                        WHERE id = %s AND leaved = FALSE
+                        """,
+                        (fcm, user_id),
+                    )
+                    await cur.execute(
+                        """
+                        UPDATE biz_account
+                        SET fcm = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s AND leaved = FALSE
                         """,
                         (fcm, user_id),
                     )
                     await conn.commit()
-                except Exception as e:
+                    return True
+                except Exception:
                     await conn.rollback()
                     raise HTTPException(status_code=500, detail="FCM 수정 실패")
 
@@ -577,6 +726,8 @@ class UserRepository:
             "group_chat": "group_chat_alarm_agree",  # 그룹 채팅 알람
             "post_like": "post_like_alarm_agree",  # 게시물 좋아요 알람
             "post_comment": "post_comment_alarm_agree",  # 게시물 댓글 알람
+            "follow_agree": "follow_alarm_agree",  # 팔로우 알람
+            "review_agree": "review_alarm_agree",  # 리뷰 알람
         }
 
         if alarm_type not in column_map:
@@ -586,17 +737,42 @@ class UserRepository:
 
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
+
+                # users 테이블 확인
+                await cur.execute(
+                    "SELECT 1 FROM users WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                exists_user = await cur.fetchone()
+
+                # biz_account 테이블 확인
+                await cur.execute(
+                    "SELECT 1 FROM biz_account WHERE id = %s AND leaved = FALSE",
+                    (user_id,),
+                )
+                exists_biz = await cur.fetchone()
+
+                if exists_user:
+                    target_table = "users"
+                elif exists_biz:
+                    target_table = "biz_account"
+                else:
+                    raise HTTPException(
+                        status_code=404, detail="존재하지 않는 계정입니다."
+                    )
+
                 try:
-                    query = """
-                        UPDATE users
-                        SET {column_name} = %s, updated_at = CURRENT_TIMESTAMP
+                    query = f"""
+                        UPDATE {target_table}
+                        SET {column_name} = %s,
+                            updated_at = CURRENT_TIMESTAMP
                         WHERE id = %s
                     """
-                    query_template = query.format(column_name=column_name)
 
-                    await cur.execute(query_template, (value, user_id))
+                    await cur.execute(query, (value, user_id))
                     await conn.commit()
-                except Exception:
+
+                except Exception as e:
                     await conn.rollback()
                     raise HTTPException(status_code=500, detail="알람 설정 수정 실패")
 
@@ -839,6 +1015,7 @@ class UserRepository:
                         u.leaved,
                         u.talk_style,
                         u.secret_yn,
+                        u.auth_yn,
                         u.personal_chat_alarm_agree,
                         u.group_chat_alarm_agree,
                         u.post_comment_alarm_agree,
@@ -857,7 +1034,51 @@ class UserRepository:
                                 AND b.blocked_user_id = %s
                             ) THEN TRUE 
                             ELSE FALSE 
-                        END AS isBlocked
+                        END AS isBlocked,
+                        
+                        -- 팔로워 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.following_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.follower_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.follower_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followerCount, 
+                        
+                        -- 팔로잉 수
+                        (
+                            SELECT COUNT(*)
+                            FROM users_follow_list fl
+                            WHERE fl.follower_user_id = u.id
+                            AND (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM users uu
+                                    WHERE uu.id = fl.following_user_id
+                                    AND uu.leaved = FALSE
+                                )
+                                OR
+                                EXISTS (
+                                    SELECT 1
+                                    FROM biz_account ba
+                                    WHERE ba.id = fl.following_user_id
+                                    AND ba.leaved = FALSE
+                                )
+                            )
+                        ) AS followingCount
 
                     FROM users u
                     LEFT JOIN user_images ui 
@@ -874,6 +1095,12 @@ class UserRepository:
                             WHERE bx.block_user_id = %s 
                             AND bx.blocked_user_id = u.id
                         )
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list by2
+                            WHERE by2.block_user_id = u.id
+                            AND by2.blocked_user_id = %s
+                        )
                     GROUP BY u.id
                     ORDER BY FIELD(u.id, {placeholders})
                 """
@@ -881,7 +1108,8 @@ class UserRepository:
                 params = (
                     [viewer_id]  # isBlocked용
                     + user_id_list  # IN (...)
-                    + [viewer_id]  # NOT EXISTS용
+                    + [viewer_id]
+                    + [viewer_id]
                     + user_id_list  # ORDER BY FIELD(...)
                 )
 
@@ -1021,6 +1249,7 @@ class UserRepository:
                 rows = await cur.fetchall()
                 return [row[0] for row in rows]
 
+    # TODOTODO
     async def fetch_near_user_id_list(
         self,
         user_id: str,
@@ -1174,6 +1403,7 @@ class UserRepository:
 
                 return near_rows + null_rows
 
+    # TODO
     async def fetch_nearby_user_list(
         self,
         user_id: str,
@@ -1305,175 +1535,6 @@ class UserRepository:
                 rows = await cur.fetchall()
                 return [row[0] for row in rows]
 
-    # async def fetch_nearby_user_list(
-    #     self,
-    #     user_id: str,
-    #     page: int,
-    #     age: str,
-    #     position: str,
-    #     relation: str,
-    #     bdsm_type: str,
-    #     talk_style: str,
-    #     secret: bool,
-    # ) -> List[str]:
-    #     offset = (page - 1) * 30
-
-    #     async with self.db.get_connection() as conn:
-    #         async with conn.cursor() as cur:
-    #             # ✅ 내 위치 조회
-    #             await cur.execute(
-    #                 "SELECT latitude, longitude FROM users WHERE id = %s AND leaved = FALSE",
-    #                 (user_id,),
-    #             )
-    #             location = await cur.fetchone()
-    #             if not location:
-    #                 raise HTTPException(
-    #                     status_code=404, detail="탈퇴하거나 존재하지 않는 사용자입니다."
-    #                 )
-
-    #             lat, lng = map(float, location)
-
-    #             # ✅ 문자열 파싱
-    #             position = [p.strip() for p in position.split(",")] if position else []
-    #             relation = [r.strip() for r in relation.split(",")] if relation else []
-    #             bdsm_type = (
-    #                 [b.strip() for b in bdsm_type.split(",")] if bdsm_type else []
-    #             )
-    #             talk_style = (
-    #                 [t.strip() for t in talk_style.split(",")] if talk_style else []
-    #             )
-    #             age = [a.strip() for a in age.split(",")] if age else []
-
-    #             # ✅ Bounding Box 계산 (50km 반경 기준)
-    #             distance_limit_km = 50
-    #             lat_delta = distance_limit_km / 111.0
-    #             lng_delta = distance_limit_km / (111.0 * math.cos(math.radians(lat)))
-
-    #             lat_min = lat - lat_delta
-    #             lat_max = lat + lat_delta
-    #             lng_min = lng - lng_delta
-    #             lng_max = lng + lng_delta
-
-    #             # ✅ 기본 쿼리 (Bounding Box만)
-    #             query = """
-    #                 SELECT
-    #                     u.id, u.latitude, u.longitude
-    #                 FROM users u
-    #                 LEFT JOIN user_block_list b1 ON b1.block_user_id = %s AND b1.blocked_user_id = u.id
-    #                 LEFT JOIN user_block_list b2 ON b2.block_user_id = u.id AND b2.blocked_user_id = %s
-    #                 WHERE u.leaved = FALSE
-    #                   AND u.latitude BETWEEN %s AND %s
-    #                   AND u.longitude BETWEEN %s AND %s
-    #                   AND u.id != %s
-    #                   AND b1.id IS NULL
-    #                   AND b2.id IS NULL
-    #             """
-
-    #             arguments = [
-    #                 user_id,
-    #                 user_id,
-    #                 lat_min,
-    #                 lat_max,
-    #                 lng_min,
-    #                 lng_max,
-    #                 user_id,
-    #             ]
-    #             filters = []
-
-    #             # ✅ 필터 조건들
-    #             if position:
-    #                 filters.append(
-    #                     "("
-    #                     + " OR ".join(["FIND_IN_SET(%s, u.position)"] * len(position))
-    #                     + ")"
-    #                 )
-    #                 arguments.extend(position)
-    #             if relation:
-    #                 filters.append(
-    #                     "("
-    #                     + " OR ".join(["FIND_IN_SET(%s, u.relation)"] * len(relation))
-    #                     + ")"
-    #                 )
-    #                 arguments.extend(relation)
-    #             if talk_style:
-    #                 filters.append(
-    #                     "("
-    #                     + " OR ".join(
-    #                         ["FIND_IN_SET(%s, u.talk_style)"] * len(talk_style)
-    #                     )
-    #                     + ")"
-    #                 )
-    #                 arguments.extend(talk_style)
-    #             if bdsm_type:
-    #                 filters.append(
-    #                     "("
-    #                     + " OR ".join(["FIND_IN_SET(%s, u.bdsm_type)"] * len(bdsm_type))
-    #                     + ")"
-    #                 )
-    #                 arguments.extend(bdsm_type)
-    #             if len(age) == 2:
-    #                 filters.append(
-    #                     """
-    #                     TIMESTAMPDIFF(
-    #                         YEAR,
-    #                         STR_TO_DATE(u.birthday, '%%Y%%m%%d'),
-    #                         CURDATE()
-    #                     ) BETWEEN %s AND %s
-    #                 """
-    #                 )
-    #                 arguments.extend(age)
-    #             if secret is not None:
-    #                 secret_exists = "EXISTS" if secret else "NOT EXISTS"
-    #                 filters.append(
-    #                     f"""
-    #                     {secret_exists} (
-    #                         SELECT 1
-    #                         FROM user_secret_images si
-    #                         WHERE si.user_id = u.id
-    #                         AND si.use_yn = TRUE
-    #                     )
-    #                 """
-    #                 )
-
-    #             if filters:
-    #                 query += " AND " + " AND ".join(filters)
-
-    #             # ✅ LIMIT은 Python 정렬 후 적용하므로 생략 가능하지만 안전하게 추가
-    #             query += " LIMIT 500"
-
-    #             # ✅ 실행
-    #             await cur.execute(query, arguments)
-    #             rows = await cur.fetchall()
-
-    #             # ✅ Python에서 거리 계산
-    #             def calc_distance(lat1, lon1, lat2, lon2):
-    #                 R = 6371
-    #                 d_lat = math.radians(lat2 - lat1)
-    #                 d_lon = math.radians(lon2 - lon1)
-    #                 a = (
-    #                     math.sin(d_lat / 2) ** 2
-    #                     + math.cos(math.radians(lat1))
-    #                     * math.cos(math.radians(lat2))
-    #                     * math.sin(d_lon / 2) ** 2
-    #                 )
-    #                 c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    #                 return R * c
-
-    #             # ✅ 거리 계산 및 정렬
-    #             user_distances = []
-    #             for user_id_val, lat2, lon2 in rows:
-    #                 if lat2 is None or lon2 is None:
-    #                     continue
-    #                 distance = calc_distance(lat, lng, float(lat2), float(lon2))
-    #                 user_distances.append((user_id_val, distance))
-
-    #             # 거리순 정렬 및 페이징
-    #             user_distances.sort(key=lambda x: x[1])
-    #             paginated = user_distances[offset : offset + 30]
-
-    #             # ✅ 결과 반환
-    #             return [user_id for user_id, _ in paginated]
-
     async def fetch_user_fcm_list(self, user_id_list: List[str]) -> List[str]:
         """
         유저들의 fcm리스트를 가져오기
@@ -1507,8 +1568,14 @@ class UserRepository:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        "UPDATE users SET leaved = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-                        (user_id,),
+                        """
+                        UPDATE users 
+                        SET leaved = TRUE, 
+                            updated_at = CURRENT_TIMESTAMP, 
+                            id = CONCAT('leaved_', %s)
+                        WHERE id = %s
+                        """,
+                        (user_id, user_id),
                     )
 
                     await cur.execute(
@@ -1534,6 +1601,7 @@ class UserRepository:
                     await conn.rollback()
                     raise HTTPException(status_code=500, detail="사용자 탈퇴 실패")
 
+    # TODO
     async def user_health_check(
         self, user_id: str, latitude: Optional[float], longitude: Optional[float]
     ):
@@ -1701,7 +1769,9 @@ class UserRepository:
 
     async def fetch_user_fcm(self, user_id: str) -> str:
         """
-        유저의 fcm 코드를 가져오기
+        유저 또는 비즈 계정의 FCM 토큰을 가져오기
+        1) users.id 에서 조회
+        2) 없으면 biz_account.biz_id 에서 조회
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1710,37 +1780,63 @@ class UserRepository:
                     SELECT fcm
                     FROM users
                     WHERE id = %s
-                        AND leaved = FALSE
-                        AND fcm IS NOT NULL
+                    AND leaved = FALSE
+                    AND fcm IS NOT NULL
                     LIMIT 1
                     """,
                     (user_id,),
                 )
                 result = await cur.fetchone()
-                return result[0] if result else None
+
+                if result:
+                    return result[0]
+                await cur.execute(
+                    """
+                    SELECT fcm
+                    FROM biz_account
+                    WHERE id = %s
+                    AND fcm IS NOT NULL
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                biz_result = await cur.fetchone()
+
+                return biz_result[0] if biz_result else None
 
     async def fetch_user_nickname(self, user_id: str) -> str:
         """
-        유저의 닉네임을 가져오기
+        유저 또는 비즈 계정의 닉네임(또는 store_name)을 가져오기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT nickname
-                    FROM users
-                    WHERE id = %s
-                        AND leaved = FALSE
+                    SELECT 
+                        u.nickname AS user_nickname,
+                        b.store_name AS biz_nickname
+                    FROM 
+                        (SELECT %s AS id) AS x
+                    LEFT JOIN users u
+                        ON u.id = x.id AND u.leaved = FALSE
+                    LEFT JOIN biz_account b
+                        ON b.id = x.id
                     LIMIT 1
                     """,
                     (user_id,),
                 )
-                result = await cur.fetchone()
-                return result[0] if result else None
+                row = await cur.fetchone()
+
+                if not row:
+                    return None
+
+                user_nickname, biz_nickname = row
+
+                return user_nickname if user_nickname else biz_nickname
 
     async def fetch_user_no(self, user_id: str) -> int:
         """
-        유저의 user_no를 가져오기
+        유저(user) 또는 비즈 계정(biz_account)의 user_no를 가져오기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -1749,15 +1845,30 @@ class UserRepository:
                     SELECT user_no
                     FROM users
                     WHERE id = %s
-                        AND leaved = FALSE
+                    AND leaved = FALSE
                     LIMIT 1
                     """,
                     (user_id,),
                 )
                 result = await cur.fetchone()
-                if not result:
-                    raise HTTPException(status_code=404, detail="User not found")
-                return result[0]
+
+                if result:
+                    return result[0]
+                await cur.execute(
+                    """
+                    SELECT user_no
+                    FROM biz_account
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                biz_result = await cur.fetchone()
+
+                if biz_result:
+                    return biz_result[0]
+
+                raise HTTPException(status_code=404, detail="User not found")
 
     async def fetch_push_user_logs(
         self, user_no: int, push_type: Optional[str], page: int
@@ -1775,7 +1886,7 @@ class UserRepository:
                         FROM push_user_log
                         WHERE user_no = %s
                           AND status IN ('SUCCESS', 'OPENED')
-                          AND push_type IN ('profile', 'postLike', 'postComment', 'secret', 'feedLike', 'feedComment', 'secretFeedComment', 'secretFeedLike')
+                          AND push_type IN ('profile', 'postLike', 'postComment', 'secret', 'feedLike', 'feedComment', 'secretFeedComment', 'secretFeedLike', 'follow', 'review')
                         ORDER BY delivered_at DESC
                         LIMIT 20 OFFSET %s
                         """,
@@ -1955,10 +2066,16 @@ class UserRepository:
                             WHERE ubl.block_user_id = %s
                               AND ubl.blocked_user_id = upv.viewer_id
                       )
+                      AND NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl2
+                            WHERE ubl2.block_user_id = upv.viewer_id
+                                AND ubl2.blocked_user_id = %s
+                      )
                     ORDER BY upv.updated_at DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, user_id, offset),
+                    (user_id, user_id, user_id, offset),
                 )
 
                 rows = await cur.fetchall()
@@ -2045,8 +2162,8 @@ class UserRepository:
                 await cur.execute(
                     """
                     SELECT usv.viewer_id AS viewerId,
-                           usv.updated_at As viewedAt,
-                           upv.view_count As viewCount,
+                           usv.updated_at AS viewedAt,
+                           upv.view_count AS viewCount,
                            COALESCE(today_views.today_count, 0) AS todayViewCount
                     FROM users_secret_view usv
                     JOIN users u
@@ -2219,11 +2336,17 @@ class UserRepository:
                             WHERE 
                                 ubl.block_user_id = %s AND ubl.blocked_user_id = ucsv.viewed_id
                         )
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl2
+                            WHERE 
+                                ubl2.block_user_id = ucsv.viewed_id AND ubl2.blocked_user_id = %s
+                        )
                     GROUP BY ucsv.viewed_id
                     ORDER BY viewed_at DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, user_id, offset),
+                    (user_id, user_id, user_id, offset),
                 )
 
                 rows = await cur.fetchall()
@@ -2409,6 +2532,7 @@ class UserRepository:
                 )
                 await conn.commit()
 
+    # TODO
     async def fetch_user_credit(self, user_id: str) -> int:
         """
         유저의 고래코인 개수 조회하기
@@ -2422,6 +2546,7 @@ class UserRepository:
                 row = await cur.fetchone()
                 return row[0] if row else 0
 
+    # TODO
     async def add_user_credit(self, user_id: str, amount: int, reason: str) -> None:
         """
         유저의 고래코인 지급하기
@@ -2536,11 +2661,17 @@ class UserRepository:
                             WHERE 
                                 ubl.block_user_id = %s AND ubl.blocked_user_id = ucpv.viewed_id
                         )
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM user_block_list ubl2
+                            WHERE 
+                                ubl2.block_user_id = ucpv.viewed_id AND ubl2.blocked_user_id = %s
+                        )
                     GROUP BY ucpv.viewed_id, upv.view_count, today_views.today_count
                     ORDER BY viewedAt DESC
                     LIMIT 20 OFFSET %s
                     """,
-                    (user_id, user_id, user_id, user_id, user_id, offset),
+                    (user_id, user_id, user_id, user_id, user_id, user_id, offset),
                 )
 
                 rows = await cur.fetchall()
@@ -2741,6 +2872,12 @@ class UserRepository:
                                 WHERE ubl.block_user_id = %s
                                   AND ubl.blocked_user_id = ucpv.viewed_id
                             )
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM user_block_list ubl2
+                                WHERE ubl2.block_user_id = ucpv.viewed_id
+                                    AND ubl2.blocked_user_id = %s
+                            )
                         ) AS profileCount,
                         (
                             SELECT COUNT(DISTINCT ucsv.viewed_id) 
@@ -2753,9 +2890,15 @@ class UserRepository:
                                 WHERE ubl.block_user_id = %s
                                   AND ubl.blocked_user_id = ucsv.viewed_id
                             )
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM user_block_list ubl2
+                                WHERE ubl2.block_user_id = ucsv.viewed_id
+                                    AND ubl2.blocked_user_id = %s
+                            )
                         ) AS secretCount
                     """,
-                    (user_id, user_id, user_id, user_id),
+                    (user_id, user_id, user_id, user_id, user_id, user_id),
                 )
                 rows = await cur.fetchone()
                 columns = [col[0] for col in cur.description]
@@ -2763,7 +2906,7 @@ class UserRepository:
 
     async def fetch_user_id(self, user_no: int) -> Optional[str]:
         """
-        유저의 user_id를 가져오기
+        유저(user) 또는 비즈 계정(biz_account)의 user_id(biz_id)를 가져오기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -2772,46 +2915,109 @@ class UserRepository:
                     SELECT id
                     FROM users
                     WHERE user_no = %s
-                        AND leaved = FALSE
+                    AND leaved = FALSE
                     LIMIT 1
                     """,
                     (user_no,),
                 )
                 result = await cur.fetchone()
-                if not result:
-                    return None
-                return result[0]
+
+                if result:
+                    return result[0]
+                await cur.execute(
+                    """
+                    SELECT id
+                    FROM biz_account
+                    WHERE user_no = %s
+                    AND leaved = FALSE
+                    LIMIT 1
+                    """,
+                    (user_no,),
+                )
+                biz_result = await cur.fetchone()
+
+                if biz_result:
+                    return biz_result[0]
+
+                return None
 
     async def fetch_user_alarm_setting(self, user_id: str) -> dict:
         """
-        유저의 알림 설정 상태 가져오기
+        유저 또는 비즈 계정의 알림 설정 상태 가져오기
         """
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT profile_alarm_agree, feed_like_alarm_agree, feed_comment_alarm_agree,
-                            post_like_alarm_agree, post_comment_alarm_agree, secret_alarm_agree,
-                            personal_chat_alarm_agree, group_chat_alarm_agree
+                    SELECT 
+                        profile_alarm_agree, 
+                        feed_like_alarm_agree, 
+                        feed_comment_alarm_agree,
+                        post_like_alarm_agree, 
+                        post_comment_alarm_agree, 
+                        secret_alarm_agree,
+                        personal_chat_alarm_agree, 
+                        group_chat_alarm_agree, 
+                        follow_alarm_agree
                     FROM users
                     WHERE id = %s
+                    LIMIT 1
                     """,
                     (user_id,),
                 )
                 result = await cur.fetchone()
-                if not result:
-                    return False
-                keys = [
-                    "profile",
-                    "feed_like",
-                    "feed_comment",
-                    "post_like",
-                    "post_comment",
-                    "secret",
-                    "personal_chat",
-                    "group_chat",
-                ]
-                return dict(zip(keys, result))
+
+                if result:
+                    keys = [
+                        "profile",
+                        "feed_like",
+                        "feed_comment",
+                        "post_like",
+                        "post_comment",
+                        "secret",
+                        "personal_chat",
+                        "group_chat",
+                        "follow",
+                    ]
+                    return dict(zip(keys, result))
+
+                await cur.execute(
+                    """
+                    SELECT 
+                        profile_alarm_agree, 
+                        feed_like_alarm_agree, 
+                        feed_comment_alarm_agree,
+                        post_like_alarm_agree, 
+                        post_comment_alarm_agree, 
+                        secret_alarm_agree,
+                        personal_chat_alarm_agree, 
+                        group_chat_alarm_agree, 
+                        follow_alarm_agree,
+                        review_alarm_agree
+                    FROM biz_account
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                biz_result = await cur.fetchone()
+
+                if biz_result:
+                    keys = [
+                        "profile",
+                        "feed_like",
+                        "feed_comment",
+                        "post_like",
+                        "post_comment",
+                        "secret",
+                        "personal_chat",
+                        "group_chat",
+                        "follow",
+                        "review",
+                    ]
+                    return dict(zip(keys, biz_result))
+
+                return False
 
     async def fetch_user_credit_history(
         self,
@@ -2861,3 +3067,714 @@ class UserRepository:
                     )
                     credit_history = await cur.fetchall()
                     return credit_history
+
+    async def follow_user(
+        self,
+        follower_id: str,
+        follow_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM users_follow_list
+                    WHERE follower_user_id = %s AND following_user_id = %s 
+                    """,
+                    (follower_id, follow_id),
+                )
+                is_followed = await cur.fetchone()
+                # 팔로우 취소
+                if is_followed:
+                    await cur.execute(
+                        """
+                        DELETE FROM users_follow_list
+                        WHERE follower_user_id = %s AND following_user_id = %s
+                        """,
+                        (
+                            follower_id,
+                            follow_id,
+                        ),
+                    )
+                    await conn.commit()
+                    return False
+                # 팔로우
+                await cur.execute(
+                    """
+                    INSERT INTO users_follow_list (follower_user_id, following_user_id, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (follower_id, follow_id),
+                )
+                await conn.commit()
+                return True
+
+    async def fetch_follow_list(self, user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT
+                        fl.following_user_id AS id,
+
+                        -- 일반 유저 정보
+                        u.nickname AS user_nickname,
+                        u.age AS user_age,
+                        u.height AS user_height,
+                        u.weight AS user_weight,
+                        (
+                            SELECT bi.url
+                            FROM user_images bi
+                            WHERE bi.user_id = u.id AND bi.use_yn = TRUE
+                            ORDER BY bi.index
+                            LIMIT 1
+                        ) AS user_profile_image,
+
+                        -- 비즈 계정 정보
+                        b.store_name AS biz_nickname,
+                        b.store_type AS biz_store_type,
+                        (
+                            SELECT bi.url
+                            FROM biz_images bi
+                            WHERE bi.biz_id = b.id
+                            ORDER BY bi.index
+                            LIMIT 1
+                        ) AS biz_profile_image
+
+                    FROM users_follow_list fl
+                    LEFT JOIN users u
+                        ON fl.following_user_id = u.id
+                    LEFT JOIN biz_account b
+                        ON fl.following_user_id = b.id
+                    WHERE fl.follower_user_id = %s
+                    AND (
+                        (u.id IS NOT NULL AND u.leaved = FALSE)
+                        OR (b.id IS NOT NULL AND b.leaved=FALSE)
+                    )
+                    """,
+                    (user_id,),
+                )
+                rows = await cur.fetchall()
+
+                result = []
+                for (
+                    id,
+                    user_nickname,
+                    user_age,
+                    user_height,
+                    user_weight,
+                    user_profile_image,
+                    biz_nickname,
+                    biz_store_type,
+                    biz_profile_image,
+                ) in rows:
+
+                    if user_nickname:  # 일반 유저인 경우
+                        result.append(
+                            {
+                                "id": id,
+                                "nickname": user_nickname,
+                                "age": user_age,
+                                "height": user_height,
+                                "weight": user_weight,
+                                "profileImage": user_profile_image,
+                                "storeType": None,
+                            }
+                        )
+                    else:  # 비즈 계정
+                        result.append(
+                            {
+                                "id": id,
+                                "nickname": biz_nickname,  # store_name
+                                "age": None,
+                                "height": None,
+                                "weight": None,
+                                "profileImage": biz_profile_image,
+                                "storeType": biz_store_type,
+                            }
+                        )
+
+                return result
+
+    async def fetch_follower_list(self, user_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT
+                        fl.follower_user_id AS id,
+
+                        -- 일반 유저 정보
+                        u.nickname AS user_nickname,
+                        u.age AS user_age,
+                        u.height AS user_height,
+                        u.weight AS user_weight,
+                        (
+                            SELECT ui.url
+                            FROM user_images ui
+                            WHERE ui.user_id = u.id 
+                            AND ui.use_yn = TRUE
+                            ORDER BY ui.`index`
+                            LIMIT 1
+                        ) AS user_profile_image,
+
+                        -- 비즈 계정 정보
+                        b.store_name AS biz_nickname,
+                        b.store_type AS biz_store_type,
+                        (
+                            SELECT bi.url
+                            FROM biz_images bi
+                            WHERE bi.biz_id = b.id
+                            ORDER BY bi.`index`
+                            LIMIT 1
+                        ) AS biz_profile_image
+
+                    FROM users_follow_list fl
+                    LEFT JOIN users u
+                        ON fl.follower_user_id = u.id
+                    LEFT JOIN biz_account b
+                        ON fl.follower_user_id = b.id
+                    WHERE fl.following_user_id = %s
+                    AND (
+                            (u.id IS NOT NULL AND u.leaved = FALSE)
+                            OR (b.id IS NOT NULL AND b.leaved = FALSE)
+                        )
+                    """,
+                    (user_id,),
+                )
+
+                rows = await cur.fetchall()
+
+                result = []
+                for (
+                    id,
+                    user_nickname,
+                    user_age,
+                    user_height,
+                    user_weight,
+                    user_profile_image,
+                    biz_nickname,
+                    biz_store_type,
+                    biz_profile_image,
+                ) in rows:
+                    if user_nickname:
+                        result.append(
+                            {
+                                "id": id,
+                                "nickname": user_nickname,
+                                "age": user_age,
+                                "height": user_height,
+                                "weight": user_weight,
+                                "profileImage": user_profile_image,
+                                "storeType": None,
+                            }
+                        )
+                    else:
+                        result.append(
+                            {
+                                "id": id,
+                                "nickname": biz_nickname,
+                                "age": None,
+                                "height": None,
+                                "weight": None,
+                                "profileImage": biz_profile_image,
+                                "storeType": biz_store_type,
+                            }
+                        )
+
+                return result
+
+    async def insert_refferal_code(
+        self,
+        user_id: str,
+        referral_code: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM users_refferal_code
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                is_exist = await cur.fetchone()
+                if is_exist:
+                    return False
+
+                await cur.execute(
+                    """
+                    INSERT INTO users_refferal_code (user_id, referral_code, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        user_id,
+                        referral_code,
+                    ),
+                )
+                await conn.commit()
+                return True
+
+    async def create_biz_review(
+        self,
+        user_id: str,
+        biz_id: str,
+        content: str,
+        rating: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO biz_review (user_id, biz_id, content, rating)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        biz_id,
+                        content,
+                        rating,
+                    ),
+                )
+
+                review_id = cur.lastrowid
+                await conn.commit()
+                return review_id
+
+    async def insert_biz_review_images(
+        self,
+        review_id: int,
+        user_id: str,
+        image_urls: list[str],
+        start_index=0,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                for index, url in enumerate(image_urls):
+                    await cur.execute(
+                        """
+                        INSERT INTO biz_review_image (review_id, user_id, url, `index`, created_at)
+                        VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                        """,
+                        (
+                            review_id,
+                            user_id,
+                            url,
+                            start_index + index,
+                        ),
+                    )
+                await conn.commit()
+                return True
+
+    async def delete_biz_review(
+        self,
+        user_id: str,
+        review_id: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE biz_review
+                    SET deleted = TRUE
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (
+                        review_id,
+                        user_id,
+                    ),
+                )
+                if cur.rowcount == 0:
+                    return False
+                await conn.commit()
+                return True
+
+    async def is_owner(self, user_id: str, review_id: int) -> bool:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM biz_review
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (review_id, user_id),
+                )
+                result = await cur.fetchone()
+                return result[0] > 0
+
+    async def get_review_images(self, review_id: int) -> List[str]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT url
+                    FROM biz_review_image
+                    WHERE review_id = %s AND use_yn = TRUE
+                    ORDER BY `index`
+                    """,
+                    (review_id,),
+                )
+                rows = await cur.fetchall()
+                return [url for (url,) in rows]
+
+    async def update_review_images(
+        self,
+        review_id: int,
+        user_id: str,
+        keep_images: List[str],
+        remove_images: List[str],
+        uploaded_urls: List[str],
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await conn.begin()
+
+                # 삭제할 이미지 use_yn = FALSE
+                if remove_images:
+                    for url in remove_images:
+                        await cur.execute(
+                            """
+                            UPDATE biz_review_image
+                            SET use_yn = FALSE, updated_at = NOW()
+                            WHERE review_id = %s AND url = %s
+                            """,
+                            (review_id, url),
+                        )
+
+                # 유지할 이미지 index 재정렬
+                for idx, url in enumerate(keep_images):
+                    await cur.execute(
+                        """
+                        UPDATE biz_review_image
+                        SET `index` = %s, updated_at = NOW()
+                        WHERE review_id = %s AND url = %s AND use_yn = TRUE
+                        """,
+                        (idx, review_id, url),
+                    )
+
+                # 새 이미지 삽입
+                start_index = len(keep_images)
+                for idx, url in enumerate(uploaded_urls, start=start_index):
+                    await cur.execute(
+                        """
+                        INSERT INTO biz_review_image (review_id, user_id, `index`, url)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (review_id, user_id, idx, url),
+                    )
+
+                await conn.commit()
+
+    async def update_biz_review(
+        self,
+        review_id: int,
+        content: str,
+        rating: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE biz_review
+                    SET content = %s, rating = %s
+                    WHERE id = %s
+                    """,
+                    (content, rating, review_id),
+                )
+
+    async def get_review(self, review_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT review_id, user_id, biz_id, content, rating, created_at, updated_at
+                    FROM biz_review
+                    WHERE id = %s AND deleted = FALSE
+                    """,
+                    (review_id,),
+                )
+                return await cur.fetchone()
+
+    async def block_biz_review(
+        self,
+        user_id: str,
+        review_id: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO biz_review_block_list (block_user_id, review_id, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        user_id,
+                        review_id,
+                    ),
+                )
+                await conn.commit()
+                return True
+
+    async def report_biz_review(
+        self,
+        user_id: str,
+        review_id: int,
+        reason: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    INSERT INTO biz_review_report_list (review_id, report_user_id, reason, status, created_at)
+                    VALUES (%s, %s, %s, 'PENDING', CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        review_id,
+                        user_id,
+                        reason,
+                    ),
+                )
+                await conn.commit()
+                return True
+
+    async def fetch_biz_review_list(self, user_id: str, biz_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT 
+                        br.id,
+                        br.user_id,
+                        u.nickname,
+                        br.biz_id,
+                        br.content,
+                        br.rating,
+                        br.created_at,
+                        bra.answer_content,
+                        bra.answer_created_at,
+                        COALESCE(
+                            GROUP_CONCAT(DISTINCT bri.url ORDER BY bri.`index` SEPARATOR '||'),
+                            ''
+                        ) AS images
+                    FROM biz_review br
+                    JOIN users u 
+                        ON br.user_id = u.id
+                    LEFT JOIN (
+                        SELECT review_id, content AS answer_content, created_at AS answer_created_at
+                        FROM biz_review_answer_list
+                    ) bra
+                        ON bra.review_id = br.id
+                    LEFT JOIN biz_review_image bri
+                        ON bri.review_id = br.id  AND bri.use_yn = TRUE
+                    WHERE br.biz_id = %s
+                    AND br.deleted = FALSE
+                    AND br.user_id NOT IN (
+                        SELECT blocked_user_id
+                        FROM user_block_list
+                        WHERE block_user_id = %s
+                    )
+                    AND br.user_id NOT IN (
+                        SELECT block_user_id
+                        FROM user_block_list
+                        WHERE blocked_user_id = %s
+                    )
+                    AND br.id NOT IN (
+                        SELECT review_id
+                        FROM biz_review_block_list
+                        WHERE block_user_id = %s
+                    )
+                    GROUP BY br.id
+                    ORDER BY br.id DESC
+                    """,
+                    (biz_id, user_id, user_id, user_id),
+                )
+
+                rows = await cur.fetchall()
+                if not rows:
+                    return []
+                columns = [col[0] for col in cur.description]
+                result_rows = []
+                for row in rows:
+                    row_dict = dict(zip(columns, row))
+
+                    if isinstance(row_dict.get("images"), str):
+                        row_dict["images"] = (
+                            row_dict["images"].split("||") if row_dict["images"] else []
+                        )
+
+                    result_rows.append(BizReviewRow(**row_dict))
+
+                return result_rows
+
+    async def fetch_biz_list(
+        self,
+        user_id: str,
+        page: int,
+    ):
+        offset = (page - 1) * 20
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT b.id, 
+                           b.biz_id, 
+                           b.store_type, 
+                           b.store_name,
+                           b.email,
+                           b.tags,
+                           b.address,
+                           b.business_hours,
+                           b.phone, 
+                           b.manager_phone, 
+                           b.latitude,
+                           b.longitude
+                    FROM biz_account b
+                    ORDER BY b.created_at DESC
+                    LIMIT 20 OFFSET %s
+                    """,
+                    (offset,),
+                )
+                rows = await cur.fetchall()
+                return rows
+
+    async def fetch_biz_detail(
+        self,
+        user_id: str,
+        biz_pk: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+
+                await cur.execute(
+                    """
+                    SELECT 
+                        b.id,
+                        b.biz_id,
+                        b.store_type,
+                        b.store_name,
+                        b.email,
+                        b.tags,
+                        b.address,
+                        b.business_hours,
+                        b.phone,
+                        b.manager_phone,
+                        b.latitude,
+                        b.longitude,
+
+                        CASE 
+                            WHEN f.user_id IS NOT NULL THEN TRUE
+                            ELSE FALSE
+                        END AS is_follow
+
+                    FROM biz_account b
+                    LEFT JOIN biz_follow_list f
+                        ON f.biz_id = b.biz_id
+                        AND f.user_id = %s 
+
+                    WHERE b.id = %s
+                    LIMIT 1
+                    """,
+                    (user_id, biz_pk),
+                )
+
+                row = await cur.fetchone()
+                if not row:
+                    return None
+
+                columns = [col[0] for col in cur.description]
+                return dict(zip(columns, row))
+
+    async def use_biz_coupon(
+        self,
+        user_id: str,
+        coupon_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+
+                # 쿠폰 정보 조회
+                await cur.execute(
+                    """
+                    SELECT start_date, expired_date, amount, use_amount
+                    FROM biz_coupon
+                    WHERE id = %s AND deleted = FALSE
+                    FOR UPDATE
+                    """,
+                    (coupon_id,),
+                )
+
+                row = await cur.fetchone()
+                if not row:
+                    return "none"
+
+                await cur.execute(
+                    """
+                    SELECT 1
+                    FROM biz_coupon_history
+                    WHERE coupon_id = %s AND user_id = %s
+                    LIMIT 1
+                    """,
+                    (coupon_id, user_id),
+                )
+                used_before = await cur.fetchone()
+                if used_before:
+                    return "used"
+
+                start_date, expired_date, amount, use_amount = row
+                start_date = to_datetime(start_date)
+                expired_date = to_datetime(expired_date)
+                now = kst()
+
+                if expired_date is not None:
+                    if start_date is not None:
+                        if not (start_date <= now <= expired_date):
+                            return "expired"
+                    else:
+                        if now > expired_date:
+                            return "expired"
+
+                if amount > 0:
+                    if amount - use_amount <= 0:
+                        return "amount"
+
+                    await cur.execute(
+                        """
+                        UPDATE biz_coupon
+                        SET use_amount = use_amount + 1
+                        WHERE id = %s
+                        """,
+                        (coupon_id,),
+                    )
+
+                await cur.execute(
+                    """
+                    INSERT INTO biz_coupon_history (coupon_id, user_id, used_at)
+                    VALUES (%s, %s, NOW())
+                    """,
+                    (coupon_id, user_id),
+                )
+
+                await conn.commit()
+                return True
+
+    async def fetch_biz_owner_id(
+        self,
+        biz_id: str,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT id
+                    FROM biz_account
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (biz_id,),
+                )
+                row = await cur.fetchone()
+                if row:
+                    return row[0]
+                return None

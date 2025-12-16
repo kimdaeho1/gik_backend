@@ -285,9 +285,18 @@ class PushService:
                     (user_no,),
                 )
                 result = await cur.fetchone()
-                if result:
+                if result is not None:
                     return result[0]
-        return False
+
+                await cur.execute(
+                    "SELECT profile_alarm_agree FROM biz_account WHERE user_no = %s",
+                    (user_no,),
+                )
+                result = await cur.fetchone()
+                if result is not None:
+                    return result[0]
+
+                return False
 
     async def push_task(
         self,

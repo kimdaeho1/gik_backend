@@ -404,17 +404,17 @@ class FeedService:
     ):
         user_id = await get_user_id_from_token(token)
 
-        # is_secret = await self.feed_repository.fetch_secret_feed_status(user_id)
-        # if not is_secret:
-        #     credit_amount = 10
-        #     credit_description = "우회한 시크릿 피드 구매"
-        # else:
-        #     credit_amount = 5
-        #     credit_description = "시크릿 피드 구매"
+        is_secret = await self.feed_repository.fetch_secret_feed_status(user_id)
+        if not is_secret:
+            credit_amount = 10
+            credit_description = "우회한 시크릿 피드 구매"
+        else:
+            credit_amount = 5
+            credit_description = "시크릿 피드 구매"
 
-        price = await self.feed_repository.get_feed_price(feed_id=feed_id)
-        credit_amount = price
-        credit_description = "시크릿 피드 구매"
+        # price = await self.feed_repository.get_feed_price(feed_id=feed_id)
+        # credit_amount = 5
+        # credit_description = "시크릿 피드 구매"
 
         purchased = await self.feed_repository.fetch_purchase_secret_feed(
             user_id=user_id, feed_id=feed_id
@@ -528,6 +528,50 @@ class FeedService:
         user_id = await get_user_id_from_token(token)
 
         feeds = await self.feed_repository.favorite_user_feed_list(
+            user_id=user_id,
+            page=page,
+        )
+        feed_list: List[FeedDetailResponse] = []
+        for feed in feeds:
+            images = await self.feed_repository.get_feed_images(feed[0])
+            like_count = await self.feed_repository.get_feed_like_count(
+                feed_id=feed[0], user_id=user_id
+            )
+            comment_count = await self.feed_repository.get_feed_comment_count(
+                feed_id=feed[0], user_id=user_id
+            )
+            is_liked = await self.feed_repository.is_liked_feed(
+                feed_id=feed[0], user_id=user_id
+            )
+            is_purchased = await self.feed_repository.fetch_purchase_secret_feed(
+                user_id=user_id, feed_id=feed[0]
+            )
+            feed_list.append(
+                FeedDetailResponse(
+                    feedId=feed[0],
+                    userId=feed[1],
+                    content=feed[2],
+                    images=images,
+                    status=feed[3],
+                    secretStatus=feed[4],
+                    price=feed[5],
+                    likeCount=like_count,
+                    commentCount=comment_count,
+                    isLiked=is_liked,
+                    isPurchased=is_purchased,
+                    createdAt=feed[6],
+                )
+            )
+        return feed_list
+
+    async def fetch_secret_feed_list(
+        self,
+        token: str,
+        page: int,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        feeds = await self.feed_repository.fetch_secret_feed_list(
             user_id=user_id,
             page=page,
         )

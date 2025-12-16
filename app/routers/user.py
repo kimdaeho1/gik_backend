@@ -25,6 +25,12 @@ from app.db.user import (
     UserCreditSecretRequest,
     UserFavoriteRequest,
     UserCreditProfileRequest,
+    BizReviewRequest,
+    UserFollowRequest,
+    BizReviewUpdateRequest,
+    ReviewReportRequest,
+    NoAuthUserCreateRequest,
+    VerifyUserRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -40,6 +46,7 @@ router = APIRouter(prefix="/v1/gik-backend", tags=["User"])
 
 
 # user.py로 적어놓았으면 컨벤션을 user로 써야하지 않을까.
+# 인증이 없다면 name, phone, birth, provider가 없다.
 # [유저] 회원가입
 @router.post("/user", status_code=status.HTTP_201_CREATED)
 @inject
@@ -62,6 +69,45 @@ async def create_user_endpoint(
             status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 유저입니다."
         )
     return {"message": "유저가 성공적으로 등록되었습니다."}
+
+
+@router.post("/user/no-auth", status_code=status.HTTP_201_CREATED)
+@inject
+async def create_user_endpoint_without_auth(
+    service: UserService = Depends(Provide[Container.user_service]),
+    user_form: NoAuthUserCreateRequest = Depends(NoAuthUserCreateRequest.create_form),
+    profile_images: List[UploadFile] = File(default=[]),
+    secret_images: Optional[List[UploadFile]] = File(default=[]),
+):
+    """
+    유저 회원가입 / 인증 없이
+    """
+    result: bool = await service.create_user_endpoint_without_auth(
+        user_form=user_form,
+        profile_images=profile_images,
+        secret_images=secret_images,
+    )
+    return {"message": "유저가 성공적으로 등록되었습니다."}
+
+
+@router.post("/user/verify", status_code=status.HTTP_200_OK)
+@inject
+async def verify_user(
+    verify_data: VerifyUserRequest,
+    service: UserService = Depends(Provide[Container.user_service]),
+    token: str = Depends(oauth2_scheme),
+):
+    """
+    유저 본인인증
+    """
+    result: bool = await service.verify_user(
+        token=token,
+        name=verify_data.name,
+        phone=verify_data.phone,
+        birthday=verify_data.birthday,
+        provider=verify_data.provider,
+    )
+    return {"message": "유저 본인인증이 완료되었습니다."}
 
 
 # [유저] 닉네임 중복 확인
@@ -299,6 +345,7 @@ async def update_user_alarm(
         - group_chat = 그룹 채팅 알림
         - post_like = 게시물 좋아요 알림
         - post_comment = 게시물 댓글 알림
+        - review_alarm_agree = 리뷰 알림
     value: 변경된 알람 설정 값 (True/False)
     """
     result: bool = await service.update_user_alarm(
@@ -1301,6 +1348,90 @@ async def fetch_user_credit_history(
     }
 
 
+@router.post("/user/follow", status_code=status.HTTP_200_OK)
+@inject
+async def follow_user(
+    target_user_id: UserFollowRequest,
+    background_tasks: BackgroundTasks,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
+):
+    """
+    유저 팔로우/언팔로우
+    user_id: token에서 추출, 팔로우 주체
+    target_user_id: 팔로우할 대상 유저 ID
+    """
+    user_id = await get_user_id_from_token(token)
+    nickname = await service.fetch_user_nickname(user_id)
+    result = await service.follow_user(token, target_user_id.userId)
+    if result is False:
+        return {
+            "success": True,
+            "message": "유저 언팔로우 성공.",
+        }
+    else:
+        await push_service.send_push_to_user(
+            background_tasks=background_tasks,
+            user_id=target_user_id.userId,
+            target_user_id=user_id,
+            title_content=f"{nickname}님이 회원님을 팔로우 했습니다.",
+            body_content="지금 확인해 맞팔로우 보세요!",
+            data={
+                "type": "follow",
+                "followId": user_id,
+            },
+            collapse_key=f"follow-{user_id}",
+            activity_type="follow",
+        )
+        return {
+            "success": True,
+            "message": "유저 팔로우 성공.",
+        }
+
+
+@router.get("/user/followings/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_followings(
+    user_id: str,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    유저 팔로잉 목록 조회
+    user_id: 팔로잉 목록을 조회할 유저 ID
+    viewer_id: token에서 추출, 팔로잉 목록 조회 주체
+    """
+    followings = await service.fetch_follow_list(user_id)
+
+    return {
+        "success": True,
+        "message": "유저 팔로잉 목록 조회 성공",
+        "followings": followings,
+    }
+
+
+@router.get("/user/followers/{user_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_user_followers(
+    user_id: str,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    유저 팔로워 목록 조회
+    user_id: 팔로워 목록을 조회할 유저 ID
+    viewer_id: token에서 추출, 팔로워 목록 조회 주체
+    """
+    followers = await service.fetch_follower_list(user_id)
+
+    return {
+        "success": True,
+        "message": "유저 팔로워 목록 조회 성공",
+        "followers": followers,
+    }
+
+
 # [유저] 상대 유저 상세정보 조회
 @router.get("/user/{user_id}", status_code=status.HTTP_200_OK)
 @inject
@@ -1316,3 +1447,242 @@ async def fetch_user_profile(
     user = await service.fetch_user_profile(user_id, viewer_id)
 
     return {"success": True, "message": "유저 정보 조회 성공", "user": user}
+
+
+@router.post("/user/biz/review", status_code=status.HTTP_200_OK)
+@inject
+async def create_biz_review(
+    background_tasks: BackgroundTasks,
+    biz_review: BizReviewRequest = Depends(BizReviewRequest.create_form),
+    reviewImages: Optional[List[UploadFile]] = File(default=None),
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+    push_service: PushService = Depends(Provide[Container.push_service]),
+):
+    """
+    비즈니스 유저 리뷰 작성
+    user_id: token에서 추출, 리뷰 작성 주체
+    biz_review: 리뷰 내용
+    """
+    result = await service.create_biz_review(
+        token=token,
+        biz_id=biz_review.bizId,
+        content=biz_review.content,
+        rating=biz_review.rating,
+        review_images=reviewImages,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 리뷰 작성 실패.",
+        )
+    user_id = await get_user_id_from_token(token)
+    target_user_id = await service.fetch_biz_owner_id(biz_review.bizId)
+    await push_service.send_push_to_user(
+        background_tasks=background_tasks,
+        user_id=target_user_id,
+        target_user_id=user_id,
+        title_content="🥰누군가 소중한 리뷰를 작성했어요!",
+        body_content="지금 바로 확인해 보세요!",
+        data={"type": "review", "reviewerId": user_id},
+        collapse_key=f"review-{user_id}",
+        activity_type="review",
+    )
+    return {"success": result, "message": "유저 리뷰 작성 성공."}
+
+
+@router.patch("/user/biz/review/{review_id}", status_code=status.HTTP_200_OK)
+@inject
+async def update_biz_review(
+    review_id: int,
+    biz_review: BizReviewUpdateRequest = Depends(BizReviewUpdateRequest.create_form),
+    reviewImages: Optional[List[UploadFile]] = File(default=None),
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 유저 리뷰 수정
+    user_id: token에서 추출, 리뷰 수정 주체
+    review_id: 수정할 리뷰 ID
+    biz_review: 수정할 리뷰 내용
+    """
+    result = await service.update_biz_review(
+        token=token,
+        review_id=review_id,
+        content=biz_review.content,
+        rating=biz_review.rating,
+        images=biz_review.image,
+        review_images=reviewImages,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 리뷰 수정 실패.",
+        )
+    return {"success": result, "message": "유저 리뷰 수정 성공."}
+
+
+# 리뷰 삭제
+@router.delete("/user/biz/review/{review_id}", status_code=status.HTTP_200_OK)
+@inject
+async def delete_biz_review(
+    review_id: int,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 유저 리뷰 삭제
+    user_id: token에서 추출, 리뷰 삭제 주체
+    review_id: 삭제할 리뷰 ID
+    """
+    result = await service.delete_biz_review(
+        token=token,
+        review_id=review_id,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 리뷰 삭제 실패.",
+        )
+    return {"success": result, "message": "유저 리뷰 삭제 성공."}
+
+
+# 리뷰 차단
+@router.post("/user/biz/review/block/{review_id}", status_code=status.HTTP_200_OK)
+@inject
+async def block_biz_review(
+    review_id: int,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 유저 리뷰 차단
+    user_id: token에서 추출, 리뷰 차단 주체
+    review_id: 차단할 리뷰 ID
+    """
+    result = await service.block_biz_review(
+        token=token,
+        review_id=review_id,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 리뷰 차단 실패.",
+        )
+    return {"success": result, "message": "유저 리뷰 차단 성공."}
+
+
+# 리뷰 신고
+@router.post("/user/biz/review/report/{review_id}", status_code=status.HTTP_200_OK)
+@inject
+async def report_biz_review(
+    review_id: int,
+    report_reason: ReviewReportRequest,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 유저 리뷰 신고
+    user_id: token에서 추출, 리뷰 신고 주체
+    review_id: 신고할 리뷰 ID
+    report_reason: 신고 사유
+    """
+    result = await service.report_biz_review(
+        token=token,
+        review_id=review_id,
+        reason=report_reason.reason,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유저 리뷰 신고 실패.",
+        )
+    return {"success": result, "message": "유저 리뷰 신고 성공."}
+
+
+# 리뷰 조회
+@router.get("/user/biz/review/list/{biz_id}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_biz_review_list(
+    biz_id: str,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 유저 리뷰 조회
+    biz_id: 리뷰 조회할 비즈니스 유저 ID
+    """
+    reviews = await service.fetch_biz_review_list(
+        token=token,
+        biz_id=biz_id,
+    )
+    return {
+        "success": True,
+        "message": "비즈니스 유저 리뷰 조회 성공",
+        "reviews": reviews,
+    }
+
+
+@router.post("/user/biz/coupon/{coupon_id}", status_code=status.HTTP_200_OK)
+@inject
+async def use_biz_coupon(
+    coupon_id: int,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 쿠폰 사용 처리
+    """
+    result = await service.use_biz_coupon(
+        token=token,
+        coupon_id=coupon_id,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="비즈니스 쿠폰 사용 처리 실패.",
+        )
+    return {"success": result, "message": "비즈니스 쿠폰 사용 처리 성공."}
+
+
+@router.get("/user/biz/list", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_biz_user_list(
+    page: int = Query(...),
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 계정 유저 목록 조회(매장 리스트 조회)
+    user_id: token에서 추출, 비즈니스 유저 목록 조회 주체
+    """
+    biz_users = await service.fetch_biz_list(
+        token=token,
+        page=page,
+    )
+    return {
+        "success": True,
+        "message": "비즈니스 유저 목록 조회 성공",
+        "bizUsers": biz_users,
+    }
+
+
+@router.get("/user/biz/{biz_pk}", status_code=status.HTTP_200_OK)
+@inject
+async def fetch_biz_detail(
+    biz_pk: str,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    비즈니스 계정 상세정보 조회(매장 상세정보 조회)
+    """
+    biz_user = await service.fetch_biz_detail(
+        token=token,
+        biz_pk=biz_pk,
+    )
+    return {
+        "success": True,
+        "message": "비즈니스 유저 상세정보 조회 성공",
+        "bizUser": biz_user,
+    }

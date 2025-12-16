@@ -1,0 +1,172 @@
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from datetime import datetime
+from fastapi import Form
+
+
+class BizCouponRow(BaseModel):
+    id: int
+    biz_id: str
+    title: str
+    content: str
+    start_date: Optional[datetime]
+    expired_date: Optional[datetime]
+    amount: Optional[int]
+    use_amount: Optional[int]
+
+
+class BizCouponResponse(BaseModel):
+    id: int
+    bizId: str
+    title: str
+    content: str
+    startDate: Optional[datetime]
+    expiredDate: Optional[datetime]
+    amount: Optional[int]
+    remainAmount: Optional[int]
+
+
+class BizAccountRequest(BaseModel):
+    bizId: str
+    bizPassword: str
+
+
+class BizCouponRequest(BaseModel):
+    title: str
+    content: str
+    startDate: Optional[str] = None
+    expiredDate: Optional[str] = None
+    amount: Optional[int] = None
+
+
+class BizUpdateRequest(BaseModel):
+    couponId: int
+    title: str
+    content: str
+    amount: Optional[int] = None
+    startDate: Optional[str] = None
+    expiredDate: Optional[str] = None
+
+
+class Hashtags(BaseModel):
+    bodyType: List[str]
+    hobbies: List[str]
+    outfitStyle: List[str]
+    personality: List[str]
+
+
+class BizDetailRow(BaseModel):
+    id: str
+    biz_id: str
+    store_type: str
+    store_name: str
+    tags: str
+    address: str
+    business_hours: str
+    phone: str
+    manager_phone: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+    credit: int
+    marketing_agree: bool
+    night_agree: bool
+    personal_chat_alarm_agree: bool
+    group_chat_alarm_agree: bool
+    post_comment_alarm_agree: bool
+    post_like_alarm_agree: bool
+    profile_alarm_agree: bool
+    secret_alarm_agree: bool
+    feed_like_alarm_agree: bool
+    feed_comment_alarm_agree: bool
+    follow_alarm_agree: bool
+    review_alarm_agree: bool
+    image_urls: Optional[str]
+    block_user_list: Optional[str]
+    favorite_user_list: Optional[str]
+    push_read: bool
+    profile_read: bool
+    has_secret_feed: bool
+    follower_count: int
+    following_count: int
+    following_list: Optional[str]
+    coupons: Optional[List[BizCouponRow]] = None
+    use_coupon_list: Optional[str]
+
+
+class BizProfileResponse(BaseModel):
+    id: str
+    bizId: str
+    storeType: str
+    storeName: str
+    tags: str
+    address: str
+    businessHours: str
+    phoneNumber: str
+    managerPhone: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+    credit: int
+    marketingAlarm: bool
+    nightAlarm: bool
+    personalChatAlarm: bool
+    groupChatAlarm: bool
+    postCommentAlarm: bool
+    postLikeAlarm: bool
+    profileAlarm: bool
+    secretAlarm: bool
+    feedLikeAlarm: bool
+    feedCommentAlarm: bool
+    followAlarm: bool
+    reviewAlarm: bool
+    profileImage: Optional[List[str]]
+    blockUserList: Optional[List[str]]
+    favoriteUserList: Optional[List[str]]
+    pushRead: bool
+    profileRead: bool
+    hasSecretFeed: bool
+    followerCount: int
+    followingCount: int
+    followingList: Optional[List[str]]
+    useCouponList: Optional[List[int]]
+
+
+class BizDetailResponse(BaseModel):
+    id: str
+    bizId: str
+    storeType: str
+    storeName: str
+    tags: str
+    address: str
+    businessHours: str
+    phoneNumber: str
+    managerPhone: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+    credit: int
+    marketingAlarm: bool
+    nightAlarm: bool
+    personalChatAlarm: bool
+    groupChatAlarm: bool
+    postCommentAlarm: bool
+    postLikeAlarm: bool
+    profileAlarm: bool
+    secretAlarm: bool
+    feedLikeAlarm: bool
+    feedCommentAlarm: bool
+    followAlarm: bool
+    reviewAlarm: bool
+    profileImage: Optional[List[str]]
+    blockUserList: Optional[List[str]]
+    favoriteUserList: Optional[List[str]]
+    pushRead: bool
+    profileRead: bool
+    hasSecretFeed: bool
+    followerCount: int
+    followingCount: int
+    coupons: Optional[List[BizCouponResponse]] = None
+    hasCoupon: bool
+    useCouponList: Optional[List[int]]
+
+
+class BizAnswerRequest(BaseModel):
+    answer: str

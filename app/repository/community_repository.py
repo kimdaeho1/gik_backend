@@ -15,11 +15,32 @@ class CommunityRepository:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    "SELECT id FROM users WHERE id = %s AND leaved = %s",
+                    """
+                    SELECT id 
+                    FROM users 
+                    WHERE id = %s AND leaved = %s
+                    LIMIT 1
+                    """,
                     (user_id, False),
                 )
                 user_row = await cur.fetchone()
-                return user_row[0]
+
+                if user_row:
+                    return user_row[0]
+                await cur.execute(
+                    """
+                    SELECT biz_id
+                    FROM biz_account
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                biz_row = await cur.fetchone()
+
+                if biz_row:
+                    return biz_row[0]
+                return None
 
     async def check_duplicate_post(self, post_id: str):
         async with self.db.get_connection() as conn:

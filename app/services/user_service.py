@@ -1,13 +1,16 @@
 from fastapi import UploadFile, HTTPException
 from datetime import datetime
-from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL
+from app.utils.s3_upload import upload_file_to_s3, CLOUDFRONT_URL, generate_filename
 from app.db.user import (
     Hashtags,
     UserProfileResponse,
     UserDetailResponse,
     UserListResponse,
     UserCreateRequest,
+    NoAuthUserCreateRequest,
     UserCreditHistoryResponse,
+    BizDetailResponse,
+    BizReviewResponse,
 )
 from app.db.image import UserSecretResponse
 from app.db.db_connection import db
@@ -76,10 +79,79 @@ class UserService:
                 user_form.night_agree,
                 user_form.leave,
                 user_form.test or "",
+                user_form.auth,
             )
 
             await self.user_repository.insert_user(user_data)
 
+            profile_urls = await self.image_service.upload_images(
+                user_id=user_form.id,
+                images=profile_images,
+                image_label="user_profile",
+            )
+            await self.user_repository.insert_user_images(
+                user_form.id, profile_urls, start_index=0
+            )
+
+            secret_urls = await self.image_service.upload_images(
+                user_id=user_form.id,
+                images=secret_images,
+                image_label="user_secret_profile",
+            )
+            if secret_urls:
+                await self.user_repository.insert_secret_images(
+                    user_form.id, secret_urls
+                )
+
+            user_row, columns = await self.user_repository.get_user_row(user_form.id)
+            if user_row and columns:
+                await self.user_repository.insert_user_history(user_row, columns)
+            logger.info(f"유저 생성을 완료했습니다. user_id: {user_form.id}")
+            return True
+        except Exception as e:
+            logger.error(f"유저 생성을 실패했습니다: {str(e)}")
+            raise HTTPException(status_code=500, detail="사용자 생성 실패")
+
+    async def create_user_endpoint_without_auth(
+        self,
+        user_form: NoAuthUserCreateRequest,
+        profile_images: List[UploadFile],
+        secret_images: Optional[List[UploadFile]] = None,
+    ) -> bool:
+        hashtags = Hashtags.parse_raw(user_form.hashtags)
+        try:
+            user_data = (
+                user_form.id,
+                user_form.fcm,
+                user_form.sns,
+                "",
+                "",
+                "",
+                user_form.email,
+                user_form.nickname,
+                "",
+                user_form.age,
+                user_form.height,
+                user_form.weight,
+                user_form.country,
+                user_form.position,
+                user_form.relation,
+                hashtags.json(),
+                user_form.self_introduction,
+                user_form.bdsm_type,
+                user_form.marketing_agree,
+                user_form.service_agree,
+                user_form.personal_agree,
+                user_form.personal_chat_alarm,
+                user_form.group_chat_alarm,
+                user_form.post_comment_alarm,
+                user_form.post_like_alarm,
+                user_form.night_agree,
+                user_form.leave,
+                user_form.test or "",
+                user_form.auth,
+            )
+            await self.user_repository.insert_user(user_data)
             profile_urls = await self.image_service.upload_images(
                 user_id=user_form.id,
                 images=profile_images,
@@ -124,6 +196,8 @@ class UserService:
             favorite_list = (
                 json.loads(row.favoriteUserList) if row.favoriteUserList else []
             )
+            following_list = json.loads(row.followingList) if row.followingList else []
+            use_coupon_list = json.loads(row.useCouponList) if row.useCouponList else []
 
             return UserProfileResponse(
                 id=row.id,
@@ -156,10 +230,12 @@ class UserService:
                 secretAlarm=row.secret_alarm_agree,
                 feedLikeAlarm=row.feed_like_alarm_agree,
                 feedCommentAlarm=row.feed_comment_alarm_agree,
+                followAlarm=row.follow_alarm_agree,
                 pushRead=row.pushRead,
                 profileRead=row.profileRead,
                 banned=row.banned,
                 unBannedDate=row.unbanned_dt,
+                auth=row.auth_yn,
                 blockUserList=block_user_list,
                 blockPostList=[],
                 blockCommentList=[],
@@ -168,6 +244,10 @@ class UserService:
                 latitude=row.latitude,
                 longitude=row.longitude,
                 hasSecretFeed=row.hasSecretFeed,
+                followerCount=row.followerCount,
+                followingCount=row.followingCount,
+                followingList=following_list,
+                useCouponList=use_coupon_list,
             )
 
         except HTTPException:
@@ -175,6 +255,23 @@ class UserService:
         except Exception as e:
             logger.error(f"내 정보 조회 실패: {str(e)}")
             raise HTTPException(status_code=500, detail=f"내 정보 조회 실패: {str(e)}")
+
+    async def verify_user(
+        self,
+        token: str,
+        name: str,
+        phone: str,
+        birthday: str,
+        provider: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+        await self.user_repository.verify_user(
+            user_id=user_id,
+            name=name,
+            phone=phone,
+            birthday=birthday,
+            provider=provider,
+        )
 
     async def check_nickname(self, nickname: str) -> bool:
         return await self.user_repository.check_nickname(nickname)
@@ -358,6 +455,7 @@ class UserService:
                 secretYn=row.secret_yn,
                 profileImages=profile_images,
                 secretImages=secret_images if row.secret_yn else [],
+                auth=row.auth_yn,
                 leaved=row.leaved,
                 personalChatAlarm=row.personal_chat_alarm_agree,
                 groupChatAlarm=row.group_chat_alarm_agree,
@@ -370,6 +468,8 @@ class UserService:
                 isBlocked=is_blocked,
                 todayViewCount=today_view_count,
                 totalViewCount=total_view_count,
+                followerCount=row.followerCount,
+                followingCount=row.followingCount,
             )
         except Exception as e:
             logger.error(f"유저 정보 조회 실패: {str(e)}")
@@ -437,6 +537,7 @@ class UserService:
                     bdsmType=user_row.bdsm_type,
                     talkStyle=user_row.talk_style,
                     secretYn=user_row.secret_yn,
+                    auth=user_row.auth_yn,
                     secretImages=user_row.secretImages,
                     profileImages=user_row.profileImages,
                     leaved=user_row.leaved,
@@ -449,6 +550,8 @@ class UserService:
                     isBlocked=user_row.isBlocked,
                     latitude=user_row.latitude,
                     longitude=user_row.longitude,
+                    followerCount=user_row.followerCount,
+                    followingCount=user_row.followingCount,
                 )
             )
         return user_profiles
@@ -796,7 +899,8 @@ class UserService:
             )
             return credit_secret_list
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"시크릿 열람 내역 조회 실패: {str(e)}")
             raise HTTPException(status_code=500, detail="시크릿 열람 내역 조회 실패")
 
     async def accept_user_secret_images(
@@ -949,7 +1053,7 @@ class UserService:
             raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
         type_map = {
-            "history_reward": (1, "광고 시청 보상"),
+            "history_reward": (2, "광고 시청 보상"),
         }
 
         if type not in type_map:
@@ -1189,3 +1293,321 @@ class UserService:
         if not credit_history_list:
             return []
         return credit_history_list
+
+    async def fetch_biz_list(
+        self,
+        token: str,
+        page: int,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 리스트 조회 (레포지토리 호출)
+        bizs = await self.user_repository.fetch_biz_list(
+            user_id=user_id,
+            page=page,
+        )
+
+        # 응답 모델 배열 생성
+        biz_list: List[BizDetailResponse] = []
+
+        for biz in bizs:
+            biz_list.append(
+                BizDetailResponse(
+                    id=biz[0],
+                    bizId=biz[1],
+                    storeType=biz[2],
+                    storeName=biz[3],
+                    email=biz[4],
+                    tags=biz[5],
+                    address=biz[6],
+                    businessHours=biz[7],
+                    phone=biz[8],
+                    managerPhone=biz[9],
+                    latitude=biz[10],
+                    longitude=biz[11],
+                )
+            )
+
+        return biz_list
+
+    # 내가 쿠폰을 사용했는지 여부 표시.
+    async def fetch_biz_detail(
+        self,
+        token: str,
+        biz_pk: int,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        detail = await self.user_repository.fetch_biz_detail(
+            user_id=user_id,
+            biz_pk=biz_pk,
+        )
+
+        if detail is False:
+            raise HTTPException(status_code=404, detail="존재하지 않는 비즈입니다.")
+
+        biz_detail = BizDetailResponse()
+
+    async def create_biz_review(
+        self,
+        token: str,
+        biz_id: str,
+        content: str,
+        rating: int,
+        review_images: Optional[List[UploadFile]] = None,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 리뷰 업로드
+        review_id = await self.user_repository.create_biz_review(
+            user_id=user_id,
+            biz_id=biz_id,
+            content=content,
+            rating=rating,
+        )
+
+        if not review_images:
+            return True
+
+        image_urls = await self.image_service.upload_images(
+            user_id=biz_id,
+            images=review_images,
+            image_label="biz_review",
+        )
+
+        await self.user_repository.insert_biz_review_images(
+            review_id=review_id, user_id=user_id, image_urls=image_urls, start_index=0
+        )
+        return True
+
+    async def update_biz_review(
+        self,
+        token: str,
+        review_id: int,
+        content: str,
+        rating: int,
+        images: Optional[List[str]] = None,
+        review_images: Optional[List[UploadFile]] = None,
+    ):
+        # 1. 토큰 → userId 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 2. 작성자 체크
+        is_owner = await self.user_repository.is_owner(
+            user_id=user_id, review_id=review_id
+        )
+        if not is_owner:
+            logger.error("리뷰 수정 권한 없음")
+            return False
+
+        # 3. 기존 이미지 조회
+        origin_images = await self.user_repository.get_review_images(review_id)
+
+        # 4. 이미지 URL 파싱 (리스트 또는 ","로 이어진 문자열 모두 처리)
+        if images:
+            if len(images) == 1 and "," in images[0]:
+                images = images[0].split(",")
+        else:
+            images = []
+
+        images = [url.strip() for url in images]
+
+        # 유지할 이미지
+        keep_images = [url for url in images if url in origin_images]
+
+        # 삭제될 이미지
+        remove_images = [url for url in origin_images if url not in keep_images]
+
+        # 5. 새 이미지 업로드
+        uploaded_urls = []
+        if review_images and len(review_images) > 0:
+            s3_prefix = f"biz_review/{review_id}/"
+            for image in review_images:
+                filename = generate_filename(image.filename)
+                upload_file_to_s3(image.file, s3_prefix, filename)
+                uploaded_urls.append(f"{CLOUDFRONT_URL}/{s3_prefix}{filename}")
+
+        # 6. 이미지 업데이트
+        await self.user_repository.update_review_images(
+            review_id=review_id,
+            user_id=user_id,
+            keep_images=keep_images,
+            remove_images=remove_images,
+            uploaded_urls=uploaded_urls,
+        )
+
+        # 7. 리뷰 내용 + 평점 업데이트
+        await self.user_repository.update_biz_review(
+            review_id=review_id,
+            content=content,
+            rating=rating,
+        )
+
+        return True
+
+    async def delete_biz_review(
+        self,
+        token: str,
+        review_id: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        result = await self.user_repository.delete_biz_review(
+            user_id=user_id,
+            review_id=review_id,
+        )
+
+        if result is False:
+            logger.error(
+                f"존재하지 않는 리뷰이거나 삭제 권한이 없습니다. review_id: {review_id}"
+            )
+            raise HTTPException(status_code=404, detail="리뷰를 삭제할 수 없습니다.")
+
+        return True
+
+    async def block_biz_review(
+        self,
+        token: str,
+        review_id: int,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        result = await self.user_repository.block_biz_review(
+            user_id=user_id,
+            review_id=review_id,
+        )
+        return True
+
+    async def report_biz_review(
+        self,
+        token: str,
+        review_id: str,
+        reason: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        result = await self.user_repository.report_biz_review(
+            user_id=user_id,
+            review_id=review_id,
+            reason=reason,
+        )
+        return True
+
+    async def fetch_biz_review_list(
+        self,
+        token: str,
+        biz_id: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        reviews = await self.user_repository.fetch_biz_review_list(
+            user_id=user_id,
+            biz_id=biz_id,
+        )
+        review_list: List[BizReviewResponse] = []
+        for review in reviews:
+            review_list.append(
+                BizReviewResponse(
+                    id=review.id,
+                    userId=review.user_id,
+                    userNickname=review.nickname,
+                    bizId=review.biz_id,
+                    content=review.content,
+                    images=review.images,
+                    rating=review.rating,
+                    createdAt=review.created_at,
+                    answer=(
+                        {
+                            "content": review.answer_content,
+                            "createdAt": review.answer_created_at,
+                        }
+                    ),
+                )
+            )
+        return review_list
+
+    async def follow_user(
+        self,
+        token: str,
+        follow_id: str,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 비즈 팔로우 처리 follower = 팔로우 하는 사람, follow = 팔로우 당하는 사람
+        # 팔로우 취소는 False 리턴, 팔로우는 True 리턴
+        return await self.user_repository.follow_user(
+            follower_id=user_id, follow_id=follow_id
+        )
+
+    async def fetch_follow_list(self, user_id: str):
+
+        follow_list = await self.user_repository.fetch_follow_list(user_id=user_id)
+        return follow_list
+
+    async def fetch_follower_list(self, user_id: str):
+
+        follower_list = await self.user_repository.fetch_follower_list(user_id=user_id)
+        return follower_list
+
+    async def insert_refferal_code(
+        self,
+        token: str,
+        refferal_code: str,
+    ):
+        # 토큰에서 user_id 추출
+        user_id = await get_user_id_from_token(token)
+
+        # 리퍼럴 코드 업데이트
+        refferal = await self.user_repository.insert_refferal_code(
+            user_id=user_id, refferal_code=refferal_code
+        )
+        if refferal is False:
+            logger.error(f"이미 추천인 코드를 등록한 사용자입니다. user_id: {user_id}")
+            raise HTTPException(
+                status_code=400, detail="이미 추천인 코드를 등록하였습니다."
+            )
+        return True
+
+    async def use_biz_coupon(
+        self,
+        token: str,
+        coupon_id: str,
+    ):
+        user_id = await get_user_id_from_token(token)
+
+        result = await self.user_repository.use_biz_coupon(
+            user_id=user_id,
+            coupon_id=coupon_id,
+        )
+        if result == "none":
+            logger.error(f"존재하지 않는 쿠폰입니다. coupon_id: {coupon_id}")
+            raise HTTPException(status_code=404, detail="존재하지 않는 쿠폰입니다.")
+        elif result == "used":
+            logger.error(f"이미 사용한 쿠폰입니다. coupon_id: {coupon_id}")
+            raise HTTPException(status_code=400, detail="이미 사용한 쿠폰입니다.")
+        elif result == "expired":
+            logger.error(f"만료된 쿠폰입니다. coupon_id: {coupon_id}")
+            raise HTTPException(status_code=400, detail="만료된 쿠폰입니다.")
+        elif result == "amount":
+            logger.error(f"잔여 쿠폰 수량이 없습니다. coupon_id: {coupon_id}")
+            raise HTTPException(status_code=400, detail="잔여 쿠폰 수량이 없습니다.")
+        else:
+            return True
+
+    async def fetch_user_nickname(
+        self,
+        user_id: str,
+    ):
+        nickname = await self.user_repository.fetch_user_nickname(user_id=user_id)
+        if not nickname:
+            raise HTTPException(status_code=404, detail="존재하지 않는 유저입니다.")
+        return nickname
+
+    async def fetch_biz_owner_id(self, biz_id: str):
+        owner_id = await self.user_repository.fetch_biz_owner_id(biz_id=biz_id)
+        if not owner_id:
+            raise HTTPException(status_code=404, detail="존재하지 않는 비즈입니다.")
+        return owner_id

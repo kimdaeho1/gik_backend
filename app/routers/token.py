@@ -10,8 +10,12 @@ from app.utils.token import (
     create_refresh_token,
     create_new_tokens_based_on_refresh_token,
     get_user_id_from_token,
+    JWTBearer,
 )
 from jose import jwt
+from app.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 oauth2_scheme = HTTPBearer()
 router = APIRouter(prefix="/v1/gik-backend/token", tags=["Token"])
@@ -99,8 +103,12 @@ async def logout_user(
     # 유저 로그아웃
     success = await token_service.logout_user(user_id)
     if not success:
+        logger.error(
+            f"로그아웃 실패 for user_id: {user_id}, token: {token.credentials}"
+        ),
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="로그아웃 실패"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="로그아웃 실패",
         )
-
+    logger.info(f"로그아웃 성공 for user_id: {user_id}, token: {token.credentials}")
     return {"success": True, "message": "로그아웃이 완료되었습니다."}

@@ -20,26 +20,29 @@ class JWTBearer(HTTPBearer):
         ).__call__(request)
 
         if credentials:
-            if not credentials.scheme == "Bearer":
+            if credentials.scheme != "Bearer":
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Invalid authentication scheme.",
                 )
-            if not verify_token(credentials.credentials):
+
+            payload = verify_token(credentials.credentials)
+
+            if not payload:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Invalid or expired token.",
                 )
+
+            if not payload.get("user_id") and not payload.get("biz_id"):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Invalid token payload.",
+                )
+
             return credentials.credentials
         else:
             return None
-
-    def verify_jwt(self, jwt_token: str) -> bool:
-        try:
-            payload = verify_token(jwt_token)
-            return False if payload is None else True
-        except Exception as e:
-            return False
 
 
 def create_token(user_id: str, expires_delta: timedelta) -> str:
@@ -63,8 +66,8 @@ def verify_token(token: str) -> Optional[str]:
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("user_id")
-        return user_id
+
+        return payload
     except ExpiredSignatureError:
         return None
     except jwt.JWTError:
@@ -73,8 +76,12 @@ def verify_token(token: str) -> Optional[str]:
 
 # TODO: access_token, refresh_token만 하면 되는거 아님? user_id, expires_in이 필요한건가?
 def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dict]:
-    user_id = verify_token(refresh_token)
-    if user_id:
+    payload = verify_token(refresh_token)
+    if payload:
+        user_id = payload.get("user_id")
+        if not user_id:
+            return None
+
         return {
             "user_id": user_id,
             "access_token": create_access_token(user_id),
@@ -88,5 +95,38 @@ def create_new_tokens_based_on_refresh_token(refresh_token: str) -> Optional[dic
 async def get_user_id_from_token(token: str) -> str:
     if not token:
         return None
+    payload = verify_token(token)
+    if not payload:
+        return None
 
-    return verify_token(token)
+    return payload.get("user_id")
+
+
+# 비즈 전용 토큰 생성 및 검증 함수들
+def create_access_token_biz(biz_id: str) -> str:
+    expire_dt = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    encoded_jwt = jwt.encode(
+        {"biz_id": biz_id, "exp": expire_dt}, SECRET_KEY, algorithm=ALGORITHM
+    )
+    return encoded_jwt
+
+
+def create_refresh_token_biz(biz_id: str) -> str:
+    expire_dt = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    encoded_jwt = jwt.encode(
+        {"biz_id": biz_id, "exp": expire_dt}, SECRET_KEY, algorithm=ALGORITHM
+    )
+    return encoded_jwt
+
+
+def get_biz_id_from_token(token: str) -> Optional[str]:
+    if not token:
+        return None
+
+    try:
+        payload = verify_token(token)
+        return payload.get("biz_id")
+    except ExpiredSignatureError:
+        return None
+    except jwt.JWTError:
+        return None
