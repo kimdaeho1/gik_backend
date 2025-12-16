@@ -404,17 +404,17 @@ class FeedService:
     ):
         user_id = await get_user_id_from_token(token)
 
-        # is_secret = await self.feed_repository.fetch_secret_feed_status(user_id)
-        # if not is_secret:
-        #     credit_amount = 10
-        #     credit_description = "우회한 시크릿 피드 구매"
-        # else:
-        #     credit_amount = 5
-        #     credit_description = "시크릿 피드 구매"
+        is_secret = await self.feed_repository.fetch_secret_feed_status(user_id)
+        if not is_secret:
+            credit_amount = 10
+            credit_description = "우회한 시크릿 피드 구매"
+        else:
+            credit_amount = 5
+            credit_description = "시크릿 피드 구매"
 
-        price = await self.feed_repository.get_feed_price(feed_id=feed_id)
-        credit_amount = price
-        credit_description = "시크릿 피드 구매"
+        # price = await self.feed_repository.get_feed_price(feed_id=feed_id)
+        # credit_amount = 5
+        # credit_description = "시크릿 피드 구매"
 
         purchased = await self.feed_repository.fetch_purchase_secret_feed(
             user_id=user_id, feed_id=feed_id

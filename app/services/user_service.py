@@ -1053,7 +1053,7 @@ class UserService:
             raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
         type_map = {
-            "history_reward": (1, "광고 시청 보상"),
+            "history_reward": (2, "광고 시청 보상"),
         }
 
         if type not in type_map:
