@@ -134,6 +134,14 @@ jobs:
                   {
                     "name": "IOS_API_PRIVATE_KEY",
                     "value": "${{ secrets.IOS_API_PRIVATE_KEY }}"
+                  },
+                  {
+                    "name": "CUSTOM_AUTH_CODE",
+                    "value": "${{ secrets.CUSTOM_AUTH_CODE }}"
+                  },
+                  {
+                    "name": "CUSTOM_AUTH_TOKEN",
+                    "value": "${{ secrets.CUSTOM_AUTH_TOKEN }}"
                   }
                 ],
                 "logConfiguration": {
