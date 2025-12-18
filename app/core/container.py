@@ -10,12 +10,14 @@ from app.services.token_service import TokenService
 from app.services.feed_service import FeedService
 from app.services.feed_comment_service import FeedCommentService
 from app.services.biz_service import BizService
+from app.services.gift_service import GiftService
 
 from app.repository.feed_repository import FeedRepository
 from app.repository.feed_comment_repository import FeedCommentRepository
 from app.repository.user_repository import UserRepository
 from app.repository.community_repository import CommunityRepository
 from app.repository.biz_repository import BizRepository
+from app.repository.gift_repository import GiftRepository
 from app.db.db_connection import db
 
 
@@ -32,6 +34,7 @@ class Container(containers.DeclarativeContainer):
             "app.routers.feed_comment",
             "app.routers.chat",
             "app.routers.biz",
+            "app.routers.gift",
         ]
     )
     # main.py에서 생성한 db 객체를 그대로 쓰기.
@@ -43,6 +46,7 @@ class Container(containers.DeclarativeContainer):
     user_repository = providers.Factory(UserRepository, db=database)
     community_repository = providers.Factory(CommunityRepository, db=database)
     biz_repository = providers.Factory(BizRepository, db=database)
+    gift_repository = providers.Factory(GiftRepository, db=database)
 
     # 서비스 컨테이너
     image_service = providers.Factory(ImageService, db=database)
@@ -72,6 +76,11 @@ class Container(containers.DeclarativeContainer):
         BizService,
         biz_repository=biz_repository,
         image_service=image_service,
+    )
+    gift_service = providers.Factory(
+        GiftService,
+        gift_repository=gift_repository,
+        user_repository=user_repository,
     )
 
     # 나중에 레포지토리 추가할떄 추가하기

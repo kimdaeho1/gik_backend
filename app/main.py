@@ -10,6 +10,7 @@ from app.routers import (
     feed_comment,
     chat,
     biz,
+    gift,
 )
 from app.db.db_connection import db
 import os
@@ -39,6 +40,7 @@ container.wire(
         "app.routers.feed_comment",
         "app.routers.chat",
         "app.routers.biz",
+        "app.routers.gift",
     ]
 )
 app.container = container
@@ -53,6 +55,7 @@ app.include_router(community.router)
 app.include_router(token.router)
 app.include_router(chat.router)
 app.include_router(biz.router)
+app.include_router(gift.router)
 
 
 def get_env_variable(var_name: str) -> str:
@@ -76,6 +79,8 @@ try:
     AWS_SECRET_ACCESS_KEY = get_env_variable("AWS_SECRET_ACCESS_KEY")
     GOOGLE_API_KEY_PATH = get_env_variable("GOOGLE_API_KEY_PATH")
     GOOGLE_API_KEY_LOCAL_PATH = get_env_variable("GOOGLE_API_KEY_LOCAL_PATH")
+    CUSTOM_AUTH_CODE = get_env_variable("CUSTOM_AUTH_CODE")
+    CUSTOM_AUTH_TOKEN = get_env_variable("CUSTOM_AUTH_TOKEN")
 except EnvironmentError as e:
     raise
 except Exception as e:
