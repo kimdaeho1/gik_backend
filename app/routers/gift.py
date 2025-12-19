@@ -5,7 +5,9 @@ from app.core.container import Container
 from app.services.gift_service import GiftService
 from app.utils.logging_config import get_logger
 from app.utils.config import CUSTOM_AUTH_CODE, CUSTOM_AUTH_TOKEN
+from app.utils.token import JWTBearer
 
+oauth2_scheme = JWTBearer(auto_error=False)
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/gik-backend/gift", tags=["Gift"])
@@ -21,6 +23,20 @@ async def get_gifticon_goods(
     return {
         "success": True,
         "data": goods_list,
+    }
+
+
+@router.post("/goods/{goods_code}")
+@inject
+async def purchase_goods(
+    goods_code: str,
+    token: str = Depends(oauth2_scheme),
+    service: GiftService = Depends(Provide[Container.gift_service]),
+):
+    result = await service.purchase_gifticon_goods(token=token, goods_code=goods_code)
+    return {
+        "success": True,
+        "message": "기프티콘 구매에 성공했습니다.",
     }
 
 
@@ -141,7 +157,7 @@ async def get_goods_category_list(
 
     return {
         "success": True,
-        "data": category_list,
+        "categoryList": category_list,
     }
 
 
@@ -157,5 +173,5 @@ async def get_category_brand_list(
 
     return {
         "success": True,
-        "data": brand_list,
+        "bradnList": brand_list,
     }

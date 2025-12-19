@@ -4,6 +4,11 @@ from app.repository.gift_repository import GiftRepository
 from app.db.gift import GifticonProductResponse, GifticonDetailResponse
 from typing import List
 import httpx, math
+from app.utils.logging_config import get_logger
+from app.utils.config import CUSTOM_AUTH_CODE, CUSTOM_AUTH_TOKEN
+from app.utils.token import get_user_id_from_token
+
+logger = get_logger(__name__)
 
 
 class GiftService:
@@ -110,3 +115,19 @@ class GiftService:
         )
 
         return brand_list
+
+    async def purchase_gifticon_goods(
+        self,
+        token: str,
+        goods_code: str,
+    ):
+        user_id = get_user_id_from_token(token=token)
+
+    # async def cancel_gifticon_goods(
+    #     self,
+    #     token: str,
+    #     tr_id: str,
+    # ):
+    #     user_id = get_user_id_from_token(token=token)
+    #     try:
+    #         async with
