@@ -44,3 +44,33 @@ class GiftRepository:
                 goods_list = [dict(zip(columns, row)) for row in rows]
 
                 return goods_list
+
+    async def get_goods_category_list(self) -> List[dict]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT DISTINCT category_detail
+                    FROM gifticon_product
+                    """
+                )
+                rows = await cur.fetchall()
+                categories = [row[0] for row in rows]
+
+                return categories
+
+    async def get_category_brand_list(self, category: str) -> List[dict]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT DISTINCT brand_name
+                    FROM gifticon_product
+                    WHERE category_detail = %s
+                    """,
+                    (category,),
+                )
+                rows = await cur.fetchall()
+                brands = [row[0] for row in rows]
+
+                return brands

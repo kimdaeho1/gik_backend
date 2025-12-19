@@ -97,9 +97,16 @@ class GiftService:
             for goods in goods_list
         ]
 
-    async def get_gifticon_category_list(
+    async def get_goods_category_list(
         self,
     ) -> List[str]:
-        category_list = await self.gift_repository.get_gifticon_category_list()
+        category_list = await self.gift_repository.get_goods_category_list()
 
         return category_list
+
+    async def get_category_brand_list(self, category: str) -> List[str]:
+        brand_list = await self.gift_repository.get_category_brand_list(
+            category=category
+        )
+
+        return brand_list

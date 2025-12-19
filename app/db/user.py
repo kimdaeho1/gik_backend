@@ -244,7 +244,7 @@ class UserProfileResponse(BaseModel):
     profileImages: List[str]
     secretYn: bool
     credit: int
-    pink_credit: int
+    pinkCredit: int
     todayAdCount: int
     secretImages: List[str]
     marketingAlarm: bool

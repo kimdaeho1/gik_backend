@@ -145,3 +145,19 @@ async def get_goods_category_list(
         "success": True,
         "data": category_list,
     }
+
+
+@router.get("/goods/category/brand")
+@inject
+async def get_category_brand_list(
+    category: str = Query(...),
+    service: GiftService = Depends(Provide[Container.gift_service]),
+):
+    brand_list = await service.gift_repository.get_category_brand_list(
+        category=category
+    )
+
+    return {
+        "success": True,
+        "data": brand_list,
+    }
