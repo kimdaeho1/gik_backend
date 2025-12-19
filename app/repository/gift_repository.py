@@ -64,13 +64,14 @@ class GiftRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT DISTINCT brand_name
+                    SELECT DISTINCT brand_name, brand_icon
                     FROM gifticon_product
                     WHERE category_detail = %s
                     """,
                     (category,),
                 )
                 rows = await cur.fetchall()
-                brands = [row[0] for row in rows]
-
-                return brands
+                brand_list = [
+                    {"brandName": row[0], "brandIcon": row[1]} for row in rows
+                ]
+                return brand_list
