@@ -244,6 +244,7 @@ class UserProfileResponse(BaseModel):
     profileImages: List[str]
     secretYn: bool
     credit: int
+    pinkCredit: int
     todayAdCount: int
     secretImages: List[str]
     marketingAlarm: bool
@@ -497,6 +498,7 @@ class UserDetailRow(BaseModel):
     talk_style: Optional[str]
     secret_yn: bool
     credit: int
+    pink_credit: int
     provider: str
     marketing_agree: bool
     night_agree: bool

@@ -218,6 +218,7 @@ class UserService:
                 profileImages=profile_images,
                 secretYn=row.secret_yn,
                 credit=row.credit,
+                pinkCredit=row.pink_credit,
                 todayAdCount=row.todayAdCount,
                 secretImages=secret_images,
                 marketingAlarm=row.marketing_agree,
@@ -1047,6 +1048,25 @@ class UserService:
         except Exception:
             raise HTTPException(status_code=500, detail="승인된 시크릿 앨범 조회 실패")
 
+    async def exchange_user_credit(
+        self,
+        token: str,
+        credit_value: int,
+    ):
+        user_id = await get_user_id_from_token(token)
+        user = await self.user_repository.fetch_active_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+        current_credit = await self.user_repository.fetch_user_credit(user_id)
+        if current_credit < credit_value:
+            raise HTTPException(status_code=400, detail="고래 코인이 부족합니다.")
+
+        await self.user_repository.exchange_user_credit(
+            user_id, credit_value, "고래 코인 교환"
+        )
+        return credit_value
+
     async def give_user_credit(self, user_id: str, type: str) -> int:
         user = await self.user_repository.fetch_active_user(user_id)
         if not user:
@@ -1265,6 +1285,7 @@ class UserService:
                 "title": "내 시크릿 피드",
                 "content": "시크릿 피드 리베이트",
             },
+            "고래 코인 교환": {"title": "고래 코인 교환", "content": "고래 코인 교환"},
         }
 
         credit_history_list: List[UserCreditHistoryResponse] = []
