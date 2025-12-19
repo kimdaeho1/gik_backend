@@ -124,9 +124,7 @@ async def get_gifticon_brands_detail(
 async def get_gifticon_list_by_brand_name(
     brand_name: str, service: GiftService = Depends(Provide[Container.gift_service])
 ):
-    goods_list = await service.gift_repository.get_gifticon_list_by_brand_name(
-        brand_name=brand_name
-    )
+    goods_list = await service.get_gifticon_list_by_brand_name(brand_name=brand_name)
 
     return {
         "success": True,
