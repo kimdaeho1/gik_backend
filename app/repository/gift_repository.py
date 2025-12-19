@@ -27,3 +27,20 @@ class GiftRepository:
                 goods_list = [dict(zip(columns, row)) for row in rows]
 
                 return goods_list
+
+    async def get_gifticon_list_by_brand_name(self, brand_name: str) -> List[dict]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT *
+                    FROM gifticon_product
+                    WHERE brand_name = %s
+                    """,
+                    (brand_name,),
+                )
+                rows = await cur.fetchall()
+                columns = [desc[0] for desc in cur.description]
+                goods_list = [dict(zip(columns, row)) for row in rows]
+
+                return goods_list

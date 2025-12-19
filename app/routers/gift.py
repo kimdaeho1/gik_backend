@@ -117,3 +117,31 @@ async def get_gifticon_brands_detail(
         "success": True,
         "data": data["result"],
     }
+
+
+@router.get("/goods/brand/{brand_name}")
+@inject
+async def get_gifticon_list_by_brand_name(
+    brand_name: str, service: GiftService = Depends(Provide[Container.gift_service])
+):
+    goods_list = await service.gift_repository.get_gifticon_list_by_brand_name(
+        brand_name=brand_name
+    )
+
+    return {
+        "success": True,
+        "data": goods_list,
+    }
+
+
+@router.get("/goods/category")
+@inject
+async def get_goods_category_list(
+    service: GiftService = Depends(Provide[Container.gift_service]),
+):
+    category_list = await service.gift_repository.get_goods_category_list()
+
+    return {
+        "success": True,
+        "data": category_list,
+    }

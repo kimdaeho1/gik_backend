@@ -1082,6 +1082,27 @@ async def fetch_accepted_secret_images(
     }
 
 
+@router.patch("/user/credit/pink_credit/{credit_value}", status_code=status.HTTP_200_OK)
+@inject
+async def exchange_user_credit(
+    credit_value: int,
+    token: str = Depends(oauth2_scheme),
+    service: UserService = Depends(Provide[Container.user_service]),
+):
+    """
+    사용자의 크레딧 교환
+    """
+    result = await service.exchange_user_credit(
+        token=token,
+        credit_value=credit_value,
+    )
+    return {
+        "success": True,
+        "message": f"{result} 고래 코인 교환 성공.",
+        "amount": result,
+    }
+
+
 @router.post("/user/credit/give", status_code=status.HTTP_200_OK)
 @inject
 async def give_user_credit(

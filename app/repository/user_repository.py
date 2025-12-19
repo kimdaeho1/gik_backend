@@ -159,6 +159,7 @@ class UserRepository:
                         u.talk_style,
                         u.secret_yn,
                         u.credit,
+                        u.pink_credit,
                         u.provider,
                         u.marketing_agree,
                         u.night_agree,
@@ -2594,6 +2595,40 @@ class UserRepository:
                     (user_id, -amount, reason),
                 )
                 await conn.commit()
+
+    async def exchange_user_credit(
+        self, user_id: str, credit_value: int, reason: str
+    ) -> None:
+        """
+        유저의 고래코인 교환하기
+        """
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET credit = credit - %s
+                    WHERE id = %s
+                    """,
+                    (credit_value, user_id),
+                )
+
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET pink_credit = pink_credit + %s
+                    WHERE id = %s
+                    """,
+                    (credit_value, user_id),
+                )
+
+                await cur.execute(
+                    """
+                    INSERT INTO credit_history (user_id, amount, description, created_at)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                    """,
+                    (user_id, -credit_value, reason),
+                )
 
     async def insert_credit_profile_view(self, viewer_id: str, viewed_id: str) -> None:
         """

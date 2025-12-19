@@ -10,3 +10,5 @@ IOS_API_PRIVATE_KEY = base64.b64decode(os.getenv("IOS_API_PRIVATE_KEY")).decode(
 
 CUSTOM_AUTH_CODE = os.getenv("CUSTOM_AUTH_CODE")
 CUSTOM_AUTH_TOKEN = os.getenv("CUSTOM_AUTH_TOKEN")
+BANNER_ID = os.getenv("BANNER_ID")
+CARD_ID = os.getenv("CARD_ID")

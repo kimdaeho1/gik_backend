@@ -3,7 +3,7 @@ from app.repository.user_repository import UserRepository
 from app.repository.gift_repository import GiftRepository
 from app.db.gift import GifticonProductResponse, GifticonDetailResponse
 from typing import List
-import httpx
+import httpx, math
 
 
 class GiftService:
@@ -32,6 +32,7 @@ class GiftService:
                 isActive=goods["is_active"],
                 limitDays=goods["limit_days"],
                 validEndDate=goods["valid_end_date"],
+                coinPrice=math.ceil(goods["price_real"] / 50),
             )
             for goods in goods_list
         ]
@@ -67,4 +68,38 @@ class GiftService:
             affiliate=goods_detail.get("affiliate", ""),
             saleDateFlag=goods_detail.get("saleDateFlag", ""),
             realPrice=goods_detail.get("realPrice", 0),
+            coinPrice=math.ceil(goods_detail.get("realPrice", 0) / 50),
         )
+
+    async def get_gifticon_list_by_brand_name(
+        self, brand_name: str
+    ) -> List[GifticonProductResponse]:
+        goods_list = await self.gift_repository.get_gifticon_list_by_brand_name(
+            brand_name=brand_name
+        )
+
+        return [
+            GifticonProductResponse(
+                goodsCode=goods["goods_code"],
+                brandName=goods["brand_name"],
+                goodsName=goods["goods_name"],
+                content=goods["content"],
+                imageUrl=goods["image_url"],
+                imageThumbUrl=goods["image_thumb"],
+                priceReal=goods["price_real"],
+                priceSupply=goods["price_supply"],
+                goodsState=goods["goods_state"],
+                isActive=goods["is_active"],
+                limitDays=goods["limit_days"],
+                validEndDate=goods["valid_end_date"],
+                coinPrice=math.ceil(goods["price_real"] / 50),
+            )
+            for goods in goods_list
+        ]
+
+    async def get_gifticon_category_list(
+        self,
+    ) -> List[str]:
+        category_list = await self.gift_repository.get_gifticon_category_list()
+
+        return category_list

@@ -18,6 +18,7 @@ class GifticonProductResponse(BaseModel):
     isActive: bool
     limitDays: int
     validEndDate: datetime
+    coinPrice: int
 
 
 class GifticonDetailResponse(BaseModel):
@@ -47,3 +48,4 @@ class GifticonDetailResponse(BaseModel):
     affiliate: str
     saleDateFlag: str
     realPrice: int
+    coinPrice: int

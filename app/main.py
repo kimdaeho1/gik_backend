@@ -81,6 +81,8 @@ try:
     GOOGLE_API_KEY_LOCAL_PATH = get_env_variable("GOOGLE_API_KEY_LOCAL_PATH")
     CUSTOM_AUTH_CODE = get_env_variable("CUSTOM_AUTH_CODE")
     CUSTOM_AUTH_TOKEN = get_env_variable("CUSTOM_AUTH_TOKEN")
+    BANNER_ID = get_env_variable("BANNER_ID")
+    CARD_ID = get_env_variable("CARD_ID")
 except EnvironmentError as e:
     raise
 except Exception as e:
