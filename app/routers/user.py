@@ -1082,7 +1082,7 @@ async def fetch_accepted_secret_images(
     }
 
 
-@router.patch("/user/credit/pink_credit/{credit_value}", status_code=status.HTTP_200_OK)
+@router.post("/user/credit/pink_credit/{credit_value}", status_code=status.HTTP_200_OK)
 @inject
 async def exchange_user_credit(
     credit_value: int,
