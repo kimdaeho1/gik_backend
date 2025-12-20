@@ -218,7 +218,6 @@ class UserService:
                 profileImages=profile_images,
                 secretYn=row.secret_yn,
                 credit=row.credit,
-                pinkCredit=row.pink_credit,
                 todayAdCount=row.todayAdCount,
                 secretImages=secret_images,
                 marketingAlarm=row.marketing_agree,
@@ -1063,7 +1062,7 @@ class UserService:
             raise HTTPException(status_code=400, detail="고래 코인이 부족합니다.")
 
         await self.user_repository.exchange_user_credit(
-            user_id, credit_value, "고래 코인 교환"
+            user_id, credit_value, "돌고래 코인 교환"
         )
         return credit_value
 

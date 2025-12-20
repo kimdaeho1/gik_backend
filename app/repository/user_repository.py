@@ -159,7 +159,6 @@ class UserRepository:
                         u.talk_style,
                         u.secret_yn,
                         u.credit,
-                        u.pink_credit,
                         u.provider,
                         u.marketing_agree,
                         u.night_agree,

@@ -27,20 +27,6 @@ async def get_gifticon_goods(
     }
 
 
-# goods_list와 합치기
-@router.get("/goods/brand/{brand_name}")
-@inject
-async def get_gifticon_list_by_brand_name(
-    brand_name: str, service: GiftService = Depends(Provide[Container.gift_service])
-):
-    goods_list = await service.get_gifticon_list_by_brand_name(brand_name=brand_name)
-
-    return {
-        "success": True,
-        "data": goods_list,
-    }
-
-
 @router.post("/goods/{goods_code}")
 @inject
 async def purchase_goods(
