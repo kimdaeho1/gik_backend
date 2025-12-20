@@ -17,9 +17,10 @@ router = APIRouter(prefix="/v1/gik-backend/gift", tags=["Gift"])
 @inject
 async def get_gifticon_goods(
     page: int = Query(...),
+    brand_name: str = Query(None),
     service: GiftService = Depends(Provide[Container.gift_service]),
 ):
-    goods_list = await service.get_gifticon_goods(page=page)
+    goods_list = await service.get_gifticon_goods(page=page, brand_name=brand_name)
     return {
         "success": True,
         "data": goods_list,
@@ -68,19 +69,6 @@ async def get_gifticon_brands_detail(
     return {
         "success": True,
         "data": data["result"],
-    }
-
-
-@router.get("/goods/brand/{brand_name}")
-@inject
-async def get_gifticon_list_by_brand_name(
-    brand_name: str, service: GiftService = Depends(Provide[Container.gift_service])
-):
-    goods_list = await service.get_gifticon_list_by_brand_name(brand_name=brand_name)
-
-    return {
-        "success": True,
-        "data": goods_list,
     }
 
 
