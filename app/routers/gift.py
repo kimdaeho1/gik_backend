@@ -97,5 +97,94 @@ async def get_category_brand_list(
 
     return {
         "success": True,
-        "bradnList": brand_list,
+        "brandList": brand_list,
+    }
+
+
+@router.post("/gift/goods/cancel")
+async def cancel_gifticon_after_send(
+    tr_id: str,
+    user_id: str,
+):
+    """
+    테스트용 기프티콘 취소 API
+    - 발송 성공
+    - 메시지 수신 확인
+    - 수동 취소
+    """
+
+    payload = {
+        "api_code": "0202",
+        "custom_auth_code": CUSTOM_AUTH_CODE,
+        "custom_auth_token": CUSTOM_AUTH_TOKEN,
+        "dev_yn": "N",  # 실 발송 테스트
+        "tr_id": tr_id,
+        "user_id": user_id,
+    }
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            "https://bizapi.giftishow.com/bizApi/cancel",
+            json=payload,
+        )
+
+    data = response.json()
+
+    # Giftishow는 이미 취소된 경우도 응답이 다를 수 있음
+    if data.get("code") not in ("0000", "0201"):
+        # 0201: 이미 취소됨 (케이스에 따라 다를 수 있음)
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "기프티콘 취소 실패",
+                "giftishow_response": data,
+            },
+        )
+
+    return {
+        "success": True,
+        "message": "기프티콘 취소 완료",
+        "giftishow_response": data,
+    }
+
+
+@router.post("/bizmoney")
+async def get_bizmoney_balance(
+    user_id: str,
+):
+    """
+    비즈머니 잔액 조회 API
+    - 발송 전 잔액 체크
+    - 백오피스/운영자용
+    """
+
+    payload = {
+        "api_code": "0301",
+        "custom_auth_code": CUSTOM_AUTH_CODE,
+        "custom_auth_token": CUSTOM_AUTH_TOKEN,
+        "dev_yn": "N",
+        "user_id": user_id,
+    }
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            "https://bizapi.giftishow.com/bizApi/bizmoney",
+            json=payload,
+        )
+
+    data = response.json()
+
+    if data.get("code") != "0000":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "비즈머니 잔액 조회 실패",
+                "giftishow_response": data,
+            },
+        )
+
+    return {
+        "success": True,
+        "balance": int(data.get("balance", 0)),
+        "giftishow_response": data,
     }

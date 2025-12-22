@@ -4,6 +4,7 @@ from app.repository.gift_repository import GiftRepository
 from app.db.gift import GifticonProductResponse, GifticonDetailResponse
 from typing import List, Optional
 import httpx, math
+from fastapi import HTTPException
 from app.utils.logging_config import get_logger
 from app.utils.config import CUSTOM_AUTH_CODE, CUSTOM_AUTH_TOKEN
 from app.utils.token import get_user_id_from_token
@@ -12,6 +13,7 @@ from datetime import datetime
 logger = get_logger(__name__)
 
 
+# 기프티쇼의 tr_id 필수. 형식: gift_YYYYMMDDHHMMSS_사용자ID끝6자리
 def generate_tr_id(user_id: str) -> str:
     return f"gift_{datetime.now():%Y%m%d%H%M%S}_{user_id[-6:]}"
 
@@ -99,103 +101,73 @@ class GiftService:
 
         return brand_list
 
-    # async def purchase_gifticon_goods(self, token: str, goods_code: str):
-    #     user_id = get_user_id_from_token(token=token)
-    #     tr_id = generate_tr_id(user_id)
+    async def purchase_gifticon_goods(self, token: str, goods_code: str):
+        user_id = get_user_id_from_token(token=token)
+        tr_id = generate_tr_id(user_id)
 
-    #     async with self.db.get_connection() as conn:
-    #         async with conn.cursor() as cur:
-    #             try:
-    #                 await conn.begin()
+        purchase = await self.gift_repository.create_purchase(
+            user_id=user_id, tr_id=tr_id, goods_code=goods_code
+        )
 
-    #                 await cur.execute(
-    #                     """
-    #                     SELECT price_real
-    #                     FROM gifticon_product
-    #                     WHERE goods_code = %s
-    #                       AND is_active = 1
-    #                       AND goods_state = 'SALE'
-    #                     """,
-    #                     (goods_code,),
-    #                 )
-    #                 row = await cur.fetchone()
-    #                 if not row:
-    #                     raise HTTPException(404, "판매 중인 상품이 아닙니다.")
+        try:
+            await self.send_giftishow_coupon(
+                tr_id=tr_id, user_id=user_id, goods_code=goods_code
+            )
+            await self.gift_repository.mark_sent(tr_id=tr_id)
+        except Exception:
+            await self.cancel_giftishow_coupon(tr_id=tr_id, user_id=user_id)
+            await self.gift_repository.cancel_purchase(
+                tr_id=tr_id, user_id=user_id, refund_credit=purchase["price_credit"]
+            )
+            raise HTTPException(
+                status_code=502, detail="기프티콘 전송 실패, 구매가 취소되었습니다."
+            )
 
-    #                 price_real = row[0]
-    #                 price_credit = price_real // 50
+    async def send_giftishow_coupon(self, tr_id: str, user_id: str, goods_code: str):
+        user_phone_number = await self.gift_repository.get_user_phone_number(user_id)
+        payload = {
+            "api_code": "0204",
+            "custom_auth_code": CUSTOM_AUTH_CODE,
+            "custom_auth_token": CUSTOM_AUTH_TOKEN,
+            "dev_yn": "N",
+            "goods_code": goods_code,
+            "mms_msg": "기프티콘이 도착했습니다.",
+            "mms_title": "기프티콘",
+            "callback_no": "1577-6474",
+            "phone_no": user_phone_number,
+            "tr_id": tr_id,
+            "user_id": user_id,
+            "gubun": "I",
+        }
 
-    #                 await cur.execute(
-    #                     """
-    #                     SELECT pink_credit
-    #                     FROM users
-    #                     WHERE id = %s
-    #                     FOR UPDATE
-    #                     """,
-    #                     (user_id,),
-    #                 )
-    #                 credit_row = await cur.fetchone()
-    #                 if credit_row[0] < price_credit:
-    #                     raise HTTPException(400, "크레딧 부족")
+        async with httpx.AsyncClient(timeout=15) as client:
+            return await client.post(
+                "https://bizapi.giftishow.com/bizApi/send",
+                data=payload,
+            )
+        try:
+            data = res.json()
+        except Exception:
+            raise RuntimeError("Giftishow 응답 파싱 실패")
 
-    #                 await cur.execute(
-    #                     """
-    #                     UPDATE users
-    #                     SET pink_credit = pink_credit - %s
-    #                     WHERE id = %s
-    #                     """,
-    #                     (price_credit, user_id),
-    #                 )
+        if data.get("code") != "0000":
+            logger.error(f"[GIFTISHOW SEND FAIL] tr_id={tr_id}, res={data}")
+            raise RuntimeError("Giftishow 발송 실패")
 
-    #                 await cur.execute(
-    #                     """
-    #                     INSERT INTO gifticon_purchase
-    #                     (user_id, goods_code, tr_id, price_real, price_credit, status)
-    #                     VALUES (%s, %s, %s, %s, %s, 'PENDING')
-    #                     """,
-    #                     (user_id, goods_code, tr_id, price_real, price_credit),
-    #                 )
+        return data
 
-    #                 await conn.commit()
+    async def cancel_giftishow_coupon(self, tr_id: str, user_id: str):
+        payload = {
+            "api_code": "0202",
+            "custom_auth_code": CUSTOM_AUTH_CODE,
+            "custom_auth_token": CUSTOM_AUTH_TOKEN,
+            "dev_yn": "N",
+            "tr_id": tr_id,
+            "user_id": user_id,
+        }
 
-    #             except Exception:
-    #                 await conn.rollback()
-    #                 raise
-
-    # async def send_giftishow_coupon(self, tr_id: str, user_id: str, goods_code: str):
-    #     payload = {
-    #         "api_code": "0204",
-    #         "custom_auth_code": CUSTOM_AUTH_CODE,
-    #         "custom_auth_token": CUSTOM_AUTH_TOKEN,
-    #         "dev_yn": "N",
-    #         "goods_code": goods_code,
-    #         "mms_msg": "기프티콘이 도착했습니다.",
-    #         "mms_title": "기프티콘",
-    #         "callback_no": "01012345678",
-    #         "phone_no": "01098765432",
-    #         "tr_id": tr_id,
-    #         "user_id": user_id,
-    #         "gubun": "I",
-    #     }
-
-    #     async with httpx.AsyncClient(timeout=15) as client:
-    #         return await client.post(
-    #             "https://bizapi.giftishow.com/bizApi/send",
-    #             data=payload,
-    #         )
-
-    # async def cancel_giftishow_coupon(self, tr_id: str, user_id: str):
-    #     payload = {
-    #         "api_code": "0202",
-    #         "custom_auth_code": CUSTOM_AUTH_CODE,
-    #         "custom_auth_token": CUSTOM_AUTH_TOKEN,
-    #         "dev_yn": "N",
-    #         "tr_id": tr_id,
-    #         "user_id": user_id,
-    #     }
-
-    #     async with httpx.AsyncClient(timeout=15) as client:
-    #         return await client.post(
-    #             "https://bizapi.giftishow.com/bizApi/cancel",
-    #             data=payload,
-    #         )
+        async with httpx.AsyncClient(timeout=15) as client:
+            return await client.post(
+                "https://bizapi.giftishow.com/bizApi/cancel",
+                data=payload,
+            )

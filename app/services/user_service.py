@@ -218,6 +218,7 @@ class UserService:
                 profileImages=profile_images,
                 secretYn=row.secret_yn,
                 credit=row.credit,
+                dolphinCredit=row.dolphin_credit,
                 todayAdCount=row.todayAdCount,
                 secretImages=secret_images,
                 marketingAlarm=row.marketing_agree,
