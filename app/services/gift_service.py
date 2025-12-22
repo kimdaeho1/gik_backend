@@ -129,6 +129,30 @@ class GiftService:
                 status_code=502, detail="기프티콘 전송 실패, 구매가 취소되었습니다."
             )
 
+    async def cancel_after_send(self, tr_id: str):
+        # 1. 구매 정보 조회
+        purchase = await self.gift_repository.get_purchase_by_tr_id(tr_id)
+        if not purchase:
+            raise HTTPException(status_code=404, detail="구매 내역이 없습니다.")
+
+        if purchase["status"] == "CANCELED":
+            return {"message": "이미 취소된 쿠폰입니다."}
+
+        # 2. Giftishow 취소 요청
+        giftishow_result = await self.cancel_giftishow_coupon(tr_id)
+
+        # 3. DB 크레딧 복구 + 상태 변경
+        await self.gift_repository.cancel_purchase(
+            tr_id=tr_id,
+            user_id=purchase["user_id"],
+            refund_credit=purchase["price_credit"],
+        )
+
+        return {
+            "message": "기프티콘 취소 완료",
+            "giftishow_response": giftishow_result,
+        }
+
     async def send_giftishow_coupon(self, tr_id: str, user_id: str, goods_code: str):
         user_phone_number = await self.gift_repository.get_user_phone_number(user_id)
         if not user_phone_number:
@@ -168,7 +192,7 @@ class GiftService:
 
         return result
 
-    async def cancel_giftishow_coupon(self, tr_id: str, user_id: str):
+    async def cancel_giftishow_coupon(self, tr_id: str):
         payload = {
             "api_code": "0202",
             "custom_auth_code": CUSTOM_AUTH_CODE,
@@ -179,11 +203,16 @@ class GiftService:
         }
 
         async with httpx.AsyncClient(timeout=15) as client:
-            return await client.post(
+            res = await client.post(
                 "https://bizapi.giftishow.com/bizApi/cancel",
                 data=payload,
             )
-        data = response.json()
+
+        data = res.json()
+        logger.info(f"[GIFTISHOW CANCEL] tr_id={tr_id}, res={data}")
+
+        # 0000: 정상 취소
+        # 0201: 이미 취소됨 (허용)
         if data.get("code") not in ("0000", "0201"):
             raise HTTPException(
                 status_code=400,
@@ -192,3 +221,5 @@ class GiftService:
                     "giftishow_response": data,
                 },
             )
+
+        return data

@@ -233,3 +233,24 @@ class GiftRepository:
                 )
 
                 await conn.commit()
+
+    async def get_purchase_by_tr_id(self, tr_id: str) -> dict | None:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT user_id, price_credit, status
+                    FROM gifticon_purchase
+                    WHERE tr_id = %s
+                    """,
+                    (tr_id,),
+                )
+                row = await cur.fetchone()
+                if not row:
+                    return None
+
+                return {
+                    "user_id": row[0],
+                    "price_credit": row[1],
+                    "status": row[2],
+                }

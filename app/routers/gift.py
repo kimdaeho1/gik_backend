@@ -99,44 +99,16 @@ async def get_category_brand_list(
 
 
 @router.post("/gift/goods/cancel")
-async def cancel_gifticon_after_send(tr_id: str):
-    """
-    - 발송 성공
-    - 메시지 수신 확인
-    - 수동 취소
-    """
-
-    payload = {
-        "api_code": "0202",
-        "custom_auth_code": CUSTOM_AUTH_CODE,
-        "custom_auth_token": CUSTOM_AUTH_TOKEN,
-        "dev_yn": "N",  # 실 발송 테스트
-        "tr_id": tr_id,
-        "user_id": "ask@couplematch.co.kr",
-    }
-
-    async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.post(
-            "https://bizapi.giftishow.com/bizApi/cancel",
-            data=payload,
-        )
-
-    data = response.json()
-
-    if data.get("code") not in ("0000", "0201"):
-        # 0201: 이미 취소됨 (케이스에 따라 다를 수 있음)
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "기프티콘 취소 실패",
-                "giftishow_response": data,
-            },
-        )
+@inject
+async def cancel_gifticon_after_send(
+    tr_id: str,
+    service: GiftService = Depends(Provide[Container.gift_service]),
+):
+    result = await service.cancel_after_send(tr_id)
 
     return {
         "success": True,
-        "message": "기프티콘 취소 완료",
-        "giftishow_response": data,
+        "result": result,
     }
 
 
