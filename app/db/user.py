@@ -740,3 +740,7 @@ class VerifyUserRequest(BaseModel):
     phone: str
     birthday: str
     provider: str
+
+
+class UserDolphinCreditRequest(BaseModel):
+    value: int

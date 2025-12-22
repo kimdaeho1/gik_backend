@@ -31,6 +31,7 @@ from app.db.user import (
     ReviewReportRequest,
     NoAuthUserCreateRequest,
     VerifyUserRequest,
+    UserDolphinCreditRequest,
 )
 from app.services.user_service import UserService
 from app.services.push_service import PushService
@@ -1082,10 +1083,10 @@ async def fetch_accepted_secret_images(
     }
 
 
-@router.post("/user/credit/pink_credit/{credit_value}", status_code=status.HTTP_200_OK)
+@router.post("/user/credit/dolphin-credit", status_code=status.HTTP_200_OK)
 @inject
 async def exchange_user_credit(
-    credit_value: int,
+    credit_value: UserDolphinCreditRequest,
     token: str = Depends(oauth2_scheme),
     service: UserService = Depends(Provide[Container.user_service]),
 ):
@@ -1094,7 +1095,7 @@ async def exchange_user_credit(
     """
     result = await service.exchange_user_credit(
         token=token,
-        credit_value=credit_value,
+        credit_value=credit_value.value,
     )
     return {
         "success": True,

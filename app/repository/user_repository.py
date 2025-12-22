@@ -2616,7 +2616,7 @@ class UserRepository:
                 await cur.execute(
                     """
                     UPDATE users
-                    SET pink_credit = pink_credit + %s
+                    SET dolphin_credit = dolphin_credit + %s
                     WHERE id = %s
                     """,
                     (credit_value, user_id),
