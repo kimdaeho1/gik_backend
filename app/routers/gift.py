@@ -38,6 +38,7 @@ async def purchase_goods(
     return {
         "success": True,
         "message": "기프티콘 구매에 성공했습니다.",
+        "result": result,
     }
 
 
@@ -104,7 +105,6 @@ async def get_category_brand_list(
 @router.post("/gift/goods/cancel")
 async def cancel_gifticon_after_send(tr_id: str):
     """
-    테스트용 기프티콘 취소 API
     - 발송 성공
     - 메시지 수신 확인
     - 수동 취소
@@ -122,12 +122,11 @@ async def cancel_gifticon_after_send(tr_id: str):
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
             "https://bizapi.giftishow.com/bizApi/cancel",
-            json=payload,
+            data=payload,
         )
 
     data = response.json()
 
-    # Giftishow는 이미 취소된 경우도 응답이 다를 수 있음
     if data.get("code") not in ("0000", "0201"):
         # 0201: 이미 취소됨 (케이스에 따라 다를 수 있음)
         raise HTTPException(

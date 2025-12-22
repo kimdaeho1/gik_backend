@@ -9,13 +9,19 @@ from app.utils.logging_config import get_logger
 from app.utils.config import CUSTOM_AUTH_CODE, CUSTOM_AUTH_TOKEN
 from app.utils.token import get_user_id_from_token
 from datetime import datetime
+import uuid
 
 logger = get_logger(__name__)
 
 
 # 기프티쇼의 tr_id 필수. 형식: gift_YYYYMMDDHHMMSS_사용자ID끝6자리
-def generate_tr_id(user_id: str) -> str:
-    return f"gift_{datetime.now():%Y%m%d%H%M%S}_{user_id[-6:]}"
+def generate_tr_id() -> str:
+    now = datetime.now()
+    date_part = now.strftime("%Y%m%d")
+    micro = now.strftime("%f")
+    millis_7 = f"{micro}0"[:7]
+
+    return f"service_{date_part}_{millis_7}"
 
 
 class GiftService:
@@ -103,7 +109,7 @@ class GiftService:
 
     async def purchase_gifticon_goods(self, token: str, goods_code: str):
         user_id = await get_user_id_from_token(token=token)
-        tr_id = generate_tr_id(user_id)
+        tr_id = generate_tr_id()
 
         purchase = await self.gift_repository.create_purchase(
             user_id=user_id, tr_id=tr_id, goods_code=goods_code
@@ -132,29 +138,33 @@ class GiftService:
             "dev_yn": "N",
             "goods_code": goods_code,
             "mms_msg": "기프티콘이 도착했습니다.",
-            "mms_title": "기프티콘",
-            "callback_no": "1577-6474",
-            "phone_no": user_phone_number,
+            "mms_title": "기프티콘",  # 10자 이내 OK
+            "callback_no": "15776474",
+            "phone_no": user_phone_number.replace("-", ""),
             "tr_id": tr_id,
             "user_id": "ask@couplematch.co.kr",
-            "gubun": "I",
+            "gubun": "N",
         }
 
         async with httpx.AsyncClient(timeout=15) as client:
-            return await client.post(
+            res = await client.post(
                 "https://bizapi.giftishow.com/bizApi/send",
                 data=payload,
             )
-        try:
-            data = res.json()
-        except Exception:
-            raise RuntimeError("Giftishow 응답 파싱 실패")
+
+        data = res.json()
 
         if data.get("code") != "0000":
-            logger.error(f"[GIFTISHOW SEND FAIL] tr_id={tr_id}, res={data}")
-            raise RuntimeError("Giftishow 발송 실패")
+            raise RuntimeError(f"Giftishow API 실패: {data}")
 
-        return data
+        inner = data.get("result", {})
+        if inner.get("code") != "0000":
+            raise RuntimeError(f"Giftishow 발송 실패: {inner}")
+
+        result = inner.get("result", {})
+        logger.info(f"[GIFTISHOW SEND SUCCESS] tr_id={tr_id}, result={result}")
+
+        return result
 
     async def cancel_giftishow_coupon(self, tr_id: str, user_id: str):
         payload = {
@@ -170,4 +180,13 @@ class GiftService:
             return await client.post(
                 "https://bizapi.giftishow.com/bizApi/cancel",
                 data=payload,
+            )
+        data = response.json()
+        if data.get("code") not in ("0000", "0201"):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "기프티콘 취소 실패",
+                    "giftishow_response": data,
+                },
             )
