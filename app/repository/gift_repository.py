@@ -178,6 +178,15 @@ class GiftRepository:
                         (user_id, goods_code, tr_id, price_real, price_credit),
                     )
 
+                    await cur.execute(
+                        """
+                        INSERT INTO credit_history
+                        (user_id, amount, description)
+                        VALUES (%s, %s, %s)
+                        """,
+                        (user_id, -price_credit, "기프트 스토어 결제"),
+                    )
+
                     await conn.commit()
 
                     return {
@@ -230,6 +239,15 @@ class GiftRepository:
                     WHERE tr_id = %s
                     """,
                     (tr_id,),
+                )
+
+                await cur.execute(
+                    """
+                    INSERT INTO credit_history
+                    (user_id, amount, description)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (user_id, refund_credit, "기프트 스토어 결제 취소"),
                 )
 
                 await conn.commit()

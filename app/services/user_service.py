@@ -1285,7 +1285,18 @@ class UserService:
                 "title": "내 시크릿 피드",
                 "content": "시크릿 피드 리베이트",
             },
-            "고래 코인 교환": {"title": "고래 코인 교환", "content": "고래 코인 교환"},
+            "돌고래 코인 교환": {
+                "title": "돌고래 코인 교환",
+                "content": "돌고래 코인 교환",
+            },
+            "기프트 스토어 결제": {
+                "title": "기프트 스토어",
+                "content": "기프트 스토어 결제",
+            },
+            "기프트 스토어 결제 취소": {
+                "title": "기프트 스토어",
+                "content": "기프트 스토어 환불",
+            },
         }
 
         credit_history_list: List[UserCreditHistoryResponse] = []
