@@ -68,6 +68,7 @@ class BizDetailRow(BaseModel):
     latitude: Optional[float]
     longitude: Optional[float]
     credit: int
+    dolphin_credit: int
     marketing_agree: bool
     night_agree: bool
     personal_chat_alarm_agree: bool
@@ -106,6 +107,7 @@ class BizProfileResponse(BaseModel):
     latitude: Optional[float]
     longitude: Optional[float]
     credit: int
+    dolphinCredit: int
     marketingAlarm: bool
     nightAlarm: bool
     personalChatAlarm: bool
@@ -143,6 +145,7 @@ class BizDetailResponse(BaseModel):
     latitude: Optional[float]
     longitude: Optional[float]
     credit: int
+    dolphinCredit: int
     marketingAlarm: bool
     nightAlarm: bool
     personalChatAlarm: bool

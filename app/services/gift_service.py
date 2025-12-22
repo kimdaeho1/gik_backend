@@ -136,7 +136,7 @@ class GiftService:
             "callback_no": "1577-6474",
             "phone_no": user_phone_number,
             "tr_id": tr_id,
-            "user_id": user_id,
+            "user_id": "ask@couplematch.co.kr",
             "gubun": "I",
         }
 
@@ -163,7 +163,7 @@ class GiftService:
             "custom_auth_token": CUSTOM_AUTH_TOKEN,
             "dev_yn": "N",
             "tr_id": tr_id,
-            "user_id": user_id,
+            "user_id": "ask@couplematch.co.kr",
         }
 
         async with httpx.AsyncClient(timeout=15) as client:

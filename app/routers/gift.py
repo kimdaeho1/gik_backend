@@ -119,7 +119,7 @@ async def cancel_gifticon_after_send(
         "custom_auth_token": CUSTOM_AUTH_TOKEN,
         "dev_yn": "N",  # 실 발송 테스트
         "tr_id": tr_id,
-        "user_id": user_id,
+        "user_id": "ask@couplematch.co.kr",
     }
 
     async with httpx.AsyncClient(timeout=10) as client:
@@ -149,34 +149,29 @@ async def cancel_gifticon_after_send(
 
 
 @router.post("/bizmoney")
-async def get_bizmoney_balance(
-    user_id: str,
-):
-    """
-    비즈머니 잔액 조회 API
-    - 발송 전 잔액 체크
-    - 백오피스/운영자용
-    """
-
+async def get_bizmoney_balance():
     payload = {
         "api_code": "0301",
         "custom_auth_code": CUSTOM_AUTH_CODE,
         "custom_auth_token": CUSTOM_AUTH_TOKEN,
         "dev_yn": "N",
-        "user_id": user_id,
+        "user_id": "ask@couplematch.co.kr",
     }
 
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
             "https://bizapi.giftishow.com/bizApi/bizmoney",
-            json=payload,
+            data=payload,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
         )
 
     data = response.json()
 
     if data.get("code") != "0000":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail={
                 "message": "비즈머니 잔액 조회 실패",
                 "giftishow_response": data,
