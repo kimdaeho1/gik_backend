@@ -84,6 +84,23 @@ class GiftRepository:
                     for row in rows
                 ]
 
+    async def get_category_brand_list(self, category: str) -> List[dict]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT DISTINCT brand_name, brand_icon
+                    FROM gifticon_product
+                    WHERE category_detail = %s
+                    """,
+                    (category,),
+                )
+                rows = await cur.fetchall()
+                brand_list = [
+                    {"brandName": row[0], "brandIcon": row[1]} for row in rows
+                ]
+                return brand_list
+
     async def get_user_phone_number(self, user_id: str) -> str:
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -132,7 +149,7 @@ class GiftRepository:
 
                     await cur.execute(
                         """
-                        SELECT pink_credit
+                        SELECT dolphin_credit
                         FROM users
                         WHERE id = %s
                         FOR UPDATE
@@ -146,7 +163,7 @@ class GiftRepository:
                     await cur.execute(
                         """
                         UPDATE users
-                        SET pink_credit = pink_credit - %s
+                        SET dolphin_credit = dolphin_credit - %s
                         WHERE id = %s
                         """,
                         (price_credit, user_id),
@@ -199,7 +216,7 @@ class GiftRepository:
                 await cur.execute(
                     """
                     UPDATE users
-                    SET pink_credit = pink_credit + %s
+                    SET dolphin_credit = dolphin_credit + %s
                     WHERE id = %s
                     """,
                     (refund_credit, user_id),

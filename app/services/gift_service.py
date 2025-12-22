@@ -102,7 +102,7 @@ class GiftService:
         return brand_list
 
     async def purchase_gifticon_goods(self, token: str, goods_code: str):
-        user_id = get_user_id_from_token(token=token)
+        user_id = await get_user_id_from_token(token=token)
         tr_id = generate_tr_id(user_id)
 
         purchase = await self.gift_repository.create_purchase(

@@ -102,10 +102,7 @@ async def get_category_brand_list(
 
 
 @router.post("/gift/goods/cancel")
-async def cancel_gifticon_after_send(
-    tr_id: str,
-    user_id: str,
-):
+async def cancel_gifticon_after_send(tr_id: str):
     """
     테스트용 기프티콘 취소 API
     - 발송 성공
