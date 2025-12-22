@@ -35,11 +35,7 @@ async def purchase_goods(
     service: GiftService = Depends(Provide[Container.gift_service]),
 ):
     result = await service.purchase_gifticon_goods(token=token, goods_code=goods_code)
-    return {
-        "success": True,
-        "message": "기프티콘 구매에 성공했습니다.",
-        "result": result,
-    }
+    return {"success": True, "message": "기프티콘 구매에 성공했습니다."}
 
 
 @router.post("/goods/brand/{brand_code}")

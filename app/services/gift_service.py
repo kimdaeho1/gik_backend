@@ -131,6 +131,8 @@ class GiftService:
 
     async def send_giftishow_coupon(self, tr_id: str, user_id: str, goods_code: str):
         user_phone_number = await self.gift_repository.get_user_phone_number(user_id)
+        if not user_phone_number:
+            raise HTTPException(status_code=400, detail="사용자 전화번호가 없습니다.")
         payload = {
             "api_code": "0204",
             "custom_auth_code": CUSTOM_AUTH_CODE,
@@ -138,7 +140,7 @@ class GiftService:
             "dev_yn": "N",
             "goods_code": goods_code,
             "mms_msg": "기프티콘이 도착했습니다.",
-            "mms_title": "기프티콘",  # 10자 이내 OK
+            "mms_title": "기프티콘",
             "callback_no": "15776474",
             "phone_no": user_phone_number.replace("-", ""),
             "tr_id": tr_id,
