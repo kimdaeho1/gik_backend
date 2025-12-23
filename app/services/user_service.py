@@ -1285,6 +1285,7 @@ class UserService:
                 "title": "내 시크릿 피드",
                 "content": "시크릿 피드 리베이트",
             },
+            # TODO: 성빈님에게 물어봐야함.
             "돌고래 코인 교환": {
                 "title": "돌고래 코인 교환",
                 "content": "돌고래 코인 교환",

@@ -163,7 +163,7 @@ class GiftService:
             "custom_auth_token": CUSTOM_AUTH_TOKEN,
             "dev_yn": "N",
             "goods_code": goods_code,
-            "mms_msg": "기프티콘이 도착했습니다.",
+            "mms_msg": "[GIK 운영팀] 선물이 도착했습니다.",
             "mms_title": "기프티콘",
             "callback_no": "15776474",
             "phone_no": user_phone_number.replace("-", ""),
