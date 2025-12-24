@@ -162,10 +162,11 @@ async def android_verify_purchase_endpoint(
 
             coin = coin_map.get(receipt.product_id, 0)
             if coin == 120 or coin == 250:
+                # 프로모션이벤트가 재 진행된다면, 다시 coin * 2 로 변경하기.
                 return {
                     "is_success": True,
                     "detail": "구매가 완료되었습니다.",
-                    "coin": 2 * coin,
+                    "coin": coin,
                 }
             else:
                 return {
