@@ -3181,13 +3181,30 @@ class UserRepository:
                         ON fl.following_user_id = u.id
                     LEFT JOIN biz_account b
                         ON fl.following_user_id = b.id
+                            
                     WHERE fl.follower_user_id = %s
                     AND (
                         (u.id IS NOT NULL AND u.leaved = FALSE)
-                        OR (b.id IS NOT NULL AND b.leaved=FALSE)
+                        OR (b.id IS NOT NULL AND b.leaved = FALSE)
+                    )
+
+                    -- ✅ 내가 차단한 사람 제외
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM user_block_list ub
+                        WHERE ub.block_user_id = %s
+                        AND ub.blocked_user_id = fl.following_user_id
+                    )
+
+                    -- ✅ 나를 차단한 사람 제외
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM user_block_list ub
+                        WHERE ub.block_user_id = fl.following_user_id
+                        AND ub.blocked_user_id = %s
                     )
                     """,
-                    (user_id,),
+                    (user_id, user_id, user_id),
                 )
                 rows = await cur.fetchall()
 
@@ -3269,13 +3286,30 @@ class UserRepository:
                         ON fl.follower_user_id = u.id
                     LEFT JOIN biz_account b
                         ON fl.follower_user_id = b.id
+
                     WHERE fl.following_user_id = %s
                     AND (
-                            (u.id IS NOT NULL AND u.leaved = FALSE)
-                            OR (b.id IS NOT NULL AND b.leaved = FALSE)
-                        )
+                        (u.id IS NOT NULL AND u.leaved = FALSE)
+                        OR (b.id IS NOT NULL AND b.leaved = FALSE)
+                    )
+
+                    -- ✅ 내가 차단한 사람 제외
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM user_block_list ub
+                        WHERE ub.block_user_id = %s
+                        AND ub.blocked_user_id = fl.follower_user_id
+                    )
+
+                    -- ✅ 나를 차단한 사람 제외
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM user_block_list ub
+                        WHERE ub.block_user_id = fl.follower_user_id
+                        AND ub.blocked_user_id = %s
+                    )
                     """,
-                    (user_id,),
+                    (user_id, user_id, user_id),
                 )
 
                 rows = await cur.fetchall()
