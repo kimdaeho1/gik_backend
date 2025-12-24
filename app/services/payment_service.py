@@ -72,7 +72,8 @@ class PaymentsService:
                         or receipt.product_id == "gik_coin_250"
                     ):
                         await credit_manager.change_credit(
-                            amount=int(credit_amount * receipt.quantity * 2),
+                            # 2배 프로모션 이벤트 종료. 2배하면 해당하는 product_id에 배수를 곱하면 끝.
+                            amount=int(credit_amount * receipt.quantity),
                             description="고래 구입",
                             increase=True,
                             cur=cur,
