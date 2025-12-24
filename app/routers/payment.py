@@ -165,7 +165,7 @@ async def android_verify_purchase_endpoint(
                 return {
                     "is_success": True,
                     "detail": "구매가 완료되었습니다.",
-                    "coin": 2 * coin,
+                    "coin": coin,
                 }
             else:
                 return {
