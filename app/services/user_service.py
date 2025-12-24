@@ -218,6 +218,7 @@ class UserService:
                 profileImages=profile_images,
                 secretYn=row.secret_yn,
                 credit=row.credit,
+                dolphinCredit=row.dolphin_credit,
                 todayAdCount=row.todayAdCount,
                 secretImages=secret_images,
                 marketingAlarm=row.marketing_agree,
@@ -1284,7 +1285,19 @@ class UserService:
                 "title": "내 시크릿 피드",
                 "content": "시크릿 피드 리베이트",
             },
-            "고래 코인 교환": {"title": "고래 코인 교환", "content": "고래 코인 교환"},
+            # TODO: 성빈님에게 물어봐야함.
+            "돌고래 코인 교환": {
+                "title": "돌고래 코인 교환",
+                "content": "돌고래 코인 교환",
+            },
+            "기프트 스토어 결제": {
+                "title": "기프트 스토어",
+                "content": "기프트 스토어 결제",
+            },
+            "기프트 스토어 결제 취소": {
+                "title": "기프트 스토어",
+                "content": "기프트 스토어 환불",
+            },
         }
 
         credit_history_list: List[UserCreditHistoryResponse] = []

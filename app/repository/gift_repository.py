@@ -43,20 +43,6 @@ class GiftRepository:
             async with conn.cursor() as cur:
                 await cur.execute(
                     """
-                    SELECT DISTINCT category_detail
-                    FROM gifticon_product
-                    """
-                )
-                rows = await cur.fetchall()
-                categories = [row[0] for row in rows]
-
-                return categories
-
-    async def get_goods_category_list(self) -> List[dict]:
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
                     SELECT
                         category_detail,
                         MIN(category_image) AS category_image
@@ -97,3 +83,192 @@ class GiftRepository:
                     }
                     for row in rows
                 ]
+
+    async def get_category_brand_list(self, category: str) -> List[dict]:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT DISTINCT brand_name, brand_icon
+                    FROM gifticon_product
+                    WHERE category_detail = %s
+                    """,
+                    (category,),
+                )
+                rows = await cur.fetchall()
+                brand_list = [
+                    {"brandName": row[0], "brandIcon": row[1]} for row in rows
+                ]
+                return brand_list
+
+    async def get_user_phone_number(self, user_id: str) -> str:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT phone
+                    FROM users
+                    WHERE id = %s
+                    """,
+                    (user_id,),
+                )
+                row = await cur.fetchone()
+                if not row:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="사용자를 찾을 수 없습니다.",
+                    )
+                return row[0]
+
+    async def create_purchase(
+        self,
+        user_id: str,
+        goods_code: str,
+        tr_id: str,
+    ) -> dict:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await conn.begin()
+                    await cur.execute(
+                        """
+                        SELECT price_real
+                        FROM gifticon_product
+                        WHERE goods_code = %s
+                          AND is_active = 1
+                          AND goods_state = 'SALE'
+                        """,
+                        (goods_code,),
+                    )
+                    row = await cur.fetchone()
+                    if not row:
+                        raise HTTPException(404, "판매 중인 상품이 아닙니다.")
+
+                    price_real = row[0]
+                    price_credit = price_real // 50
+
+                    await cur.execute(
+                        """
+                        SELECT dolphin_credit
+                        FROM users
+                        WHERE id = %s
+                        FOR UPDATE
+                        """,
+                        (user_id,),
+                    )
+                    user_row = await cur.fetchone()
+                    if user_row[0] < price_credit:
+                        raise HTTPException(400, "크레딧 부족")
+
+                    await cur.execute(
+                        """
+                        UPDATE users
+                        SET dolphin_credit = dolphin_credit - %s
+                        WHERE id = %s
+                        """,
+                        (price_credit, user_id),
+                    )
+
+                    await cur.execute(
+                        """
+                        INSERT INTO gifticon_purchase
+                        (user_id, goods_code, tr_id, price_real, price_credit, status)
+                        VALUES (%s, %s, %s, %s, %s, 'PENDING')
+                        """,
+                        (user_id, goods_code, tr_id, price_real, price_credit),
+                    )
+
+                    await cur.execute(
+                        """
+                        INSERT INTO credit_history
+                        (user_id, amount, description)
+                        VALUES (%s, %s, %s)
+                        """,
+                        (user_id, -price_credit, "기프트 스토어 결제"),
+                    )
+
+                    await conn.commit()
+
+                    return {
+                        "price_real": price_real,
+                        "price_credit": price_credit,
+                    }
+
+                except Exception:
+                    await conn.rollback()
+                    raise
+
+    async def mark_sent(self, tr_id: str):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    UPDATE gifticon_purchase
+                    SET status = 'SENT'
+                    WHERE tr_id = %s
+                    """,
+                    (tr_id,),
+                )
+                await conn.commit()
+
+    async def cancel_purchase(
+        self,
+        tr_id: str,
+        user_id: str,
+        refund_credit: int,
+    ):
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await conn.begin()
+
+                # 크레딧 복구
+                await cur.execute(
+                    """
+                    UPDATE users
+                    SET dolphin_credit = dolphin_credit + %s
+                    WHERE id = %s
+                    """,
+                    (refund_credit, user_id),
+                )
+
+                # 상태 변경
+                await cur.execute(
+                    """
+                    UPDATE gifticon_purchase
+                    SET status = 'CANCELED'
+                    WHERE tr_id = %s
+                    """,
+                    (tr_id,),
+                )
+
+                await cur.execute(
+                    """
+                    INSERT INTO credit_history
+                    (user_id, amount, description)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (user_id, refund_credit, "기프트 스토어 결제 취소"),
+                )
+
+                await conn.commit()
+
+    async def get_purchase_by_tr_id(self, tr_id: str) -> dict | None:
+        async with self.db.get_connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    SELECT user_id, price_credit, status
+                    FROM gifticon_purchase
+                    WHERE tr_id = %s
+                    """,
+                    (tr_id,),
+                )
+                row = await cur.fetchone()
+                if not row:
+                    return None
+
+                return {
+                    "user_id": row[0],
+                    "price_credit": row[1],
+                    "status": row[2],
+                }

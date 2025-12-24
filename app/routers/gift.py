@@ -35,10 +35,7 @@ async def purchase_goods(
     service: GiftService = Depends(Provide[Container.gift_service]),
 ):
     result = await service.purchase_gifticon_goods(token=token, goods_code=goods_code)
-    return {
-        "success": True,
-        "message": "기프티콘 구매에 성공했습니다.",
-    }
+    return {"success": True, "message": "기프티콘 구매에 성공했습니다."}
 
 
 @router.post("/goods/brand/{brand_code}")
@@ -97,5 +94,56 @@ async def get_category_brand_list(
 
     return {
         "success": True,
-        "bradnList": brand_list,
+        "brandList": brand_list,
+    }
+
+
+@router.post("/gift/goods/cancel")
+@inject
+async def cancel_gifticon_after_send(
+    tr_id: str,
+    service: GiftService = Depends(Provide[Container.gift_service]),
+):
+    result = await service.cancel_after_send(tr_id)
+
+    return {
+        "success": True,
+        "result": result,
+    }
+
+
+@router.post("/bizmoney")
+async def get_bizmoney_balance():
+    payload = {
+        "api_code": "0301",
+        "custom_auth_code": CUSTOM_AUTH_CODE,
+        "custom_auth_token": CUSTOM_AUTH_TOKEN,
+        "dev_yn": "N",
+        "user_id": "ask@couplematch.co.kr",
+    }
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            "https://bizapi.giftishow.com/bizApi/bizmoney",
+            data=payload,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        )
+
+    data = response.json()
+
+    if data.get("code") != "0000":
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "비즈머니 잔액 조회 실패",
+                "giftishow_response": data,
+            },
+        )
+
+    return {
+        "success": True,
+        "balance": int(data.get("balance", 0)),
+        "giftishow_response": data,
     }
