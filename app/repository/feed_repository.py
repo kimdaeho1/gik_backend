@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 # 서버 내 전역 캐시 딕셔너리
 FEED_CACHE = {}
+SECRET_FEED_CACHE = {}
 
 logger = get_logger(__name__)
 
@@ -1011,47 +1012,83 @@ class FeedRepository:
         page: int,
         user_id: str,
     ):
+        now = datetime.utcnow()
         offset = (page - 1) * 5
+
+        if (
+            user_id in SECRET_FEED_CACHE
+            and SECRET_FEED_CACHE[user_id]["expires_at"] > now
+        ):
+            feed_ids = SECRET_FEED_CACHE[user_id]["feeds"]
+        else:
+            async with self.db.get_connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        """
+                        SELECT f.feed_id
+                        FROM feeds f
+                        LEFT JOIN users u 
+                            ON f.user_id = u.id AND u.leaved = FALSE
+                        LEFT JOIN biz_account b
+                            ON f.user_id = b.id AND b.leaved = FALSE
+                        WHERE f.secret_status = TRUE
+                        AND f.deleted = FALSE
+                        AND (
+                            u.id IS NOT NULL 
+                            OR b.id IS NOT NULL
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 
+                            FROM user_block_list ubl
+                            WHERE 
+                                (ubl.block_user_id = %s AND ubl.blocked_user_id = f.user_id)
+                                OR (ubl.block_user_id = f.user_id AND ubl.blocked_user_id = %s)
+                        )
+                        AND f.feed_id NOT IN (
+                            SELECT blocked_feed_id 
+                            FROM feed_blocks 
+                            WHERE block_user_id = %s
+                        )
+                        """,
+                        (user_id, user_id, user_id),
+                    )
+                    rows = await cur.fetchall()
+                    feed_ids = [row[0] for row in rows]
+
+            random.shuffle(feed_ids)
+            SECRET_FEED_CACHE[user_id] = {
+                "feeds": feed_ids,
+                "expires_at": now + timedelta(minutes=1),
+            }
+
+        paging_ids = feed_ids[offset : offset + 5]
+        if not paging_ids:
+            return []
+
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(
-                    """
+                placeholders = ",".join(["%s"] * len(paging_ids))
+                query = f"""
                     SELECT 
-                        f.feed_id, 
-                        f.user_id, 
-                        f.feed_content, 
-                        f.status, 
+                        f.feed_id,
+                        f.user_id,
+                        f.feed_content,
+                        f.status,
                         f.secret_status,
                         f.price,
-                        f.created_at, 
+                        f.created_at,
                         f.updated_at
                     FROM feeds f
                     LEFT JOIN users u 
                         ON f.user_id = u.id AND u.leaved = FALSE
                     LEFT JOIN biz_account b
                         ON f.user_id = b.id AND b.leaved = FALSE
-                    WHERE f.secret_status = TRUE
-                    AND f.deleted = FALSE
+                    WHERE f.feed_id IN ({placeholders})
                     AND (
                         u.id IS NOT NULL 
                         OR b.id IS NOT NULL
                     )
-                    AND NOT EXISTS (
-                        SELECT 1 
-                        FROM user_block_list ubl
-                        WHERE 
-                            (ubl.block_user_id = %s AND ubl.blocked_user_id = f.user_id)
-                            OR (ubl.block_user_id = f.user_id AND ubl.blocked_user_id = %s)
-                    )
-                    AND f.feed_id NOT IN (
-                        SELECT blocked_feed_id 
-                        FROM feed_blocks 
-                        WHERE block_user_id = %s
-                    )
-                    ORDER BY f.created_at DESC
-                    LIMIT %s OFFSET %s
-                    """,
-                    (user_id, user_id, user_id, 5, offset),
-                )
+                """
+                await cur.execute(query, tuple(paging_ids))
                 feeds = await cur.fetchall()
                 return feeds
